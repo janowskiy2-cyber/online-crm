@@ -28,15 +28,27 @@ const defaultFallbackPipelines: Pipeline[] = [
       { id: 'stg-2', pipelineId: 'pipe-b2b', name: 'Первичный контакт', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
       { id: 'stg-3', pipelineId: 'pipe-b2b', name: 'Квалификация', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
       { id: 'stg-4', pipelineId: 'pipe-b2b', name: 'Коммерческое предложение', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
-      { id: 'stg-5', pipelineId: 'pipe-b2b', name: 'Договор', color: '#8b5cf6', sortOrder: 4, isWon: false, isLost: false },
-      { id: 'stg-6', pipelineId: 'pipe-b2b', name: 'Счет оплачен', color: '#10b981', sortOrder: 5, isWon: true, isLost: false },
-      { id: 'stg-7', pipelineId: 'pipe-b2b', name: 'Отказ', color: '#ef4444', sortOrder: 6, isWon: false, isLost: true }
+      { id: 'stg-5', pipelineId: 'pipe-b2b', name: 'Согласование договора', color: '#8b5cf6', sortOrder: 4, isWon: false, isLost: false },
+      { id: 'stg-6', pipelineId: 'pipe-b2b', name: 'Успешно реализовано', color: '#10b981', sortOrder: 5, isWon: true, isLost: false },
+      { id: 'stg-7', pipelineId: 'pipe-b2b', name: 'Закрыто и не реализовано', color: '#ef4444', sortOrder: 6, isWon: false, isLost: true }
+    ]
+  },
+  {
+    id: 'pipe-b2c',
+    name: 'B2C Быстрые продажи',
+    isDefault: false,
+    sortOrder: 1,
+    stages: [
+      { id: 'b2c-1', pipelineId: 'pipe-b2c', name: 'Новая заявка', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'b2c-2', pipelineId: 'pipe-b2c', name: 'Консультация WhatsApp', color: '#10b981', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'b2c-3', pipelineId: 'pipe-b2c', name: 'Оплата получена', color: '#10b981', sortOrder: 2, isWon: true, isLost: false },
+      { id: 'b2c-4', pipelineId: 'pipe-b2c', name: 'Отказ', color: '#ef4444', sortOrder: 3, isWon: false, isLost: true }
     ]
   }
 ];
 
 export const App: React.FC = () => {
-  const { currentUser, isLoading } = useAuth();
+  const { currentUser } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('deals');
   const [pipelines, setPipelines] = useState<Pipeline[]>(defaultFallbackPipelines);
   const [activePipelineId, setActivePipelineId] = useState<string>(defaultFallbackPipelines[0].id);
@@ -65,7 +77,7 @@ export const App: React.FC = () => {
         }
       }
     } catch (e) {
-      console.error('Failed to load pipelines:', e);
+      console.warn('Backend connecting...', e);
     }
   };
 
@@ -78,9 +90,11 @@ export const App: React.FC = () => {
           search: searchQuery
         }
       });
-      setDeals(res.data);
+      if (res.data) {
+        setDeals(res.data);
+      }
     } catch (e) {
-      console.error('Failed to load deals:', e);
+      console.warn('Deals fetching...', e);
     }
   };
 
