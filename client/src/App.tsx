@@ -7,6 +7,9 @@ import { TasksView } from './components/tasks/TasksView';
 import { ContactsView } from './components/contacts/ContactsView';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { AutomationView } from './components/automation/AutomationView';
+import { CandidatesView } from './components/recruiting/CandidatesView';
+import { RecruitingCalculatorModal } from './components/recruiting/RecruitingCalculatorModal';
+import { ObjectionsCheatSheetModal } from './components/recruiting/ObjectionsCheatSheetModal';
 import { DealDetailModal } from './components/deal-modal/DealDetailModal';
 import { QRConnectModal } from './components/modals/QRConnectModal';
 import { UserSwitcherModal } from './components/modals/UserSwitcherModal';
@@ -18,32 +21,45 @@ import { api, socket } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { Bell } from 'lucide-react';
 
-const defaultFallbackPipelines: Pipeline[] = [
+const recruitingDefaultPipelines: Pipeline[] = [
   {
-    id: 'pipe-b2b',
-    name: 'B2B Корпоративные продажи',
+    id: 'pipe-recruiting-sales',
+    name: 'B2B Продажі: Залучення роботодавців',
     isDefault: true,
     sortOrder: 0,
     stages: [
-      { id: 'stg-1', pipelineId: 'pipe-b2b', name: 'Неразобранное', color: '#64748b', sortOrder: 0, isWon: false, isLost: false },
-      { id: 'stg-2', pipelineId: 'pipe-b2b', name: 'Первичный контакт', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
-      { id: 'stg-3', pipelineId: 'pipe-b2b', name: 'Квалификация', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
-      { id: 'stg-4', pipelineId: 'pipe-b2b', name: 'Коммерческое предложение', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
-      { id: 'stg-5', pipelineId: 'pipe-b2b', name: 'Согласование договора', color: '#8b5cf6', sortOrder: 4, isWon: false, isLost: false },
-      { id: 'stg-6', pipelineId: 'pipe-b2b', name: 'Успешно реализовано', color: '#10b981', sortOrder: 5, isWon: true, isLost: false },
-      { id: 'stg-7', pipelineId: 'pipe-b2b', name: 'Закрыто и не реализовано', color: '#ef4444', sortOrder: 6, isWon: false, isLost: true }
+      { id: 'stg-s1', pipelineId: 'pipe-recruiting-sales', name: 'Нова заявка підприємства', color: '#64748b', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-s2', pipelineId: 'pipe-recruiting-sales', name: 'Дзвінок-кваліфікація (15 хв)', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-s3', pipelineId: 'pipe-recruiting-sales', name: 'Прорахунок & Відправка КП', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-s4', pipelineId: 'pipe-recruiting-sales', name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
+      { id: 'stg-s5', pipelineId: 'pipe-recruiting-sales', name: 'Договір підписано / В роботі', color: '#10b981', sortOrder: 4, isWon: true, isLost: false },
+      { id: 'stg-s6', pipelineId: 'pipe-recruiting-sales', name: 'Відмова клієнта', color: '#ef4444', sortOrder: 5, isWon: false, isLost: true }
     ]
   },
   {
-    id: 'pipe-b2c',
-    name: 'B2C Быстрые продажи',
+    id: 'pipe-recruiting-ops',
+    name: 'Операційний процес: Візи та Доставка персоналу',
     isDefault: false,
     sortOrder: 1,
     stages: [
-      { id: 'b2c-1', pipelineId: 'pipe-b2c', name: 'Новая заявка', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
-      { id: 'b2c-2', pipelineId: 'pipe-b2c', name: 'Консультация WhatsApp', color: '#10b981', sortOrder: 1, isWon: false, isLost: false },
-      { id: 'b2c-3', pipelineId: 'pipe-b2c', name: 'Оплата получена', color: '#10b981', sortOrder: 2, isWon: true, isLost: false },
-      { id: 'b2c-4', pipelineId: 'pipe-b2c', name: 'Отказ', color: '#ef4444', sortOrder: 3, isWon: false, isLost: true }
+      { id: 'stg-o1', pipelineId: 'pipe-recruiting-ops', name: '1. Договір і заявка (25%)', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-o2', pipelineId: 'pipe-recruiting-ops', name: '2. Скринінг & Інтерв\'ю (25%)', color: '#06b6d4', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-o3', pipelineId: 'pipe-recruiting-ops', name: '3. Дозвіл на роботу (~7 днів)', color: '#8b5cf6', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-o4', pipelineId: 'pipe-recruiting-ops', name: '4. Робоча віза D (25%)', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
+      { id: 'stg-o5', pipelineId: 'pipe-recruiting-ops', name: '5. Молдова ➔ Одеса (Транзит)', color: '#ec4899', sortOrder: 4, isWon: false, isLost: false },
+      { id: 'stg-o6', pipelineId: 'pipe-recruiting-ops', name: '6. Вихід на зміну (25%)', color: '#10b981', sortOrder: 5, isWon: true, isLost: false }
+    ]
+  },
+  {
+    id: 'pipe-recruiting-ltv',
+    name: 'LTV & Продовження дозволів на 1-2 роки',
+    isDefault: false,
+    sortOrder: 2,
+    stages: [
+      { id: 'stg-l1', pipelineId: 'pipe-recruiting-ltv', name: 'Місяць супроводу (4 контакти)', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-l2', pipelineId: 'pipe-recruiting-ltv', name: 'Стабільна робота на заводі', color: '#8b5cf6', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-l3', pipelineId: 'pipe-recruiting-ltv', name: 'Продовження дозволу (через 6 міс)', color: '#f59e0b', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-l4', pipelineId: 'pipe-recruiting-ltv', name: 'Успішно продовжено на 1-2 роки', color: '#10b981', sortOrder: 3, isWon: true, isLost: false }
     ]
   }
 ];
@@ -51,8 +67,8 @@ const defaultFallbackPipelines: Pipeline[] = [
 export const App: React.FC = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('deals');
-  const [pipelines, setPipelines] = useState<Pipeline[]>(defaultFallbackPipelines);
-  const [activePipelineId, setActivePipelineId] = useState<string>(defaultFallbackPipelines[0].id);
+  const [pipelines, setPipelines] = useState<Pipeline[]>(recruitingDefaultPipelines);
+  const [activePipelineId, setActivePipelineId] = useState<string>(recruitingDefaultPipelines[0].id);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -64,6 +80,8 @@ export const App: React.FC = () => {
   const [isCreateDealOpen, setIsCreateDealOpen] = useState(false);
   const [quickStageId, setQuickStageId] = useState<string | undefined>(undefined);
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [isObjectionsOpen, setIsObjectionsOpen] = useState(false);
 
   // Live Toast Notifications
   const [notification, setNotification] = useState<{ title: string; body: string; dealId?: string } | null>(null);
@@ -115,7 +133,7 @@ export const App: React.FC = () => {
     const handleDealCreated = (newDeal: Deal) => {
       fetchDeals();
       setNotification({
-        title: 'Новая сделка!',
+        title: 'Нова заявка підприємства!',
         body: `${newDeal.title}`,
         dealId: newDeal.id
       });
@@ -194,6 +212,8 @@ export const App: React.FC = () => {
           setIsQRModalOpen(true);
         }}
         openUserSwitcher={() => setIsUserSwitcherOpen(true)}
+        openCalculator={() => setIsCalculatorOpen(true)}
+        openObjections={() => setIsObjectionsOpen(true)}
       />
 
       {/* Content Area */}
@@ -227,6 +247,10 @@ export const App: React.FC = () => {
             />
           )}
 
+          {currentTab === 'candidates' && (
+            <CandidatesView />
+          )}
+
           {currentTab === 'inbox' && (
             <UnifiedInbox
               onOpenDeal={(dealId) => setSelectedDealId(dealId)}
@@ -252,15 +276,15 @@ export const App: React.FC = () => {
                 <div className="w-16 h-16 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center mx-auto border border-purple-500/30 shadow-lg shadow-purple-500/20">
                   <span className="text-2xl font-black">20</span>
                 </div>
-                <h2 className="text-xl font-bold text-white">Матрица 20 пользователей и ролей</h2>
+                <h2 className="text-xl font-bold text-white">Матриця 20 користувачів та ролей</h2>
                 <p className="text-xs text-slate-400">
-                  Управляйте правами доступа и переключайтесь между генеральным директором, РОП, менеджерами, службой поддержки и аудитором.
+                  Керуйте правами доступу та перемикайтеся між генеральним директором, РОП, рекрутерами, візовими координаторами та підтримкою.
                 </p>
                 <button
                   onClick={() => setIsUserSwitcherOpen(true)}
                   className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-purple-600/30"
                 >
-                  Открыть матрицу 20 пользователей
+                  Відкрити матрицю 20 користувачів
                 </button>
               </div>
             </div>
@@ -280,6 +304,16 @@ export const App: React.FC = () => {
             fetchDeals();
           }}
         />
+      )}
+
+      {/* Recruiting Calculator Modal */}
+      {isCalculatorOpen && (
+        <RecruitingCalculatorModal onClose={() => setIsCalculatorOpen(false)} />
+      )}
+
+      {/* Objections Cheat Sheet Modal */}
+      {isObjectionsOpen && (
+        <ObjectionsCheatSheetModal onClose={() => setIsObjectionsOpen(false)} />
       )}
 
       {/* QR Code Multi-device Connect Modal */}
