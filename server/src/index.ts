@@ -2,6 +2,8 @@ import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
 import { WhatsAppService } from './services/whatsapp.service';
 import { TelegramService } from './services/telegram.service';
@@ -37,7 +39,7 @@ automationService.setSocketIO(io);
 app.use(cors());
 app.use(express.json());
 
-// Routes registration
+// API Routes
 app.use('/api/auth', createAuthRouter(prisma));
 app.use('/api/deals', createDealRouter(prisma, automationService, () => io));
 app.use('/api/pipelines', createPipelineRouter(prisma));
@@ -52,6 +54,17 @@ app.use('/api/automation', createAutomationRouter(prisma));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
+
+// Serve frontend client build directly if available
+const clientDistPath = path.join(__dirname, '../../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(clientDistPath, 'index.html'));
+    }
+  });
+}
 
 // Socket.io Realtime connections
 io.on('connection', (socket) => {
@@ -73,7 +86,7 @@ async function start() {
     await tgService.initialize();
 
     server.listen(PORT, () => {
-      console.log(`🚀 Online CRM API Server is running on http://localhost:${PORT}`);
+      console.log(`🚀 Online CRM API Server is running on port ${PORT}`);
     });
   } catch (err) {
     console.error('Failed to start CRM server:', err);

@@ -17,11 +17,29 @@ import { api, socket } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { Bell } from 'lucide-react';
 
+const defaultFallbackPipelines: Pipeline[] = [
+  {
+    id: 'pipe-b2b',
+    name: 'B2B Корпоративные продажи',
+    isDefault: true,
+    sortOrder: 0,
+    stages: [
+      { id: 'stg-1', pipelineId: 'pipe-b2b', name: 'Неразобранное', color: '#64748b', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-2', pipelineId: 'pipe-b2b', name: 'Первичный контакт', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-3', pipelineId: 'pipe-b2b', name: 'Квалификация', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-4', pipelineId: 'pipe-b2b', name: 'Коммерческое предложение', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
+      { id: 'stg-5', pipelineId: 'pipe-b2b', name: 'Договор', color: '#8b5cf6', sortOrder: 4, isWon: false, isLost: false },
+      { id: 'stg-6', pipelineId: 'pipe-b2b', name: 'Счет оплачен', color: '#10b981', sortOrder: 5, isWon: true, isLost: false },
+      { id: 'stg-7', pipelineId: 'pipe-b2b', name: 'Отказ', color: '#ef4444', sortOrder: 6, isWon: false, isLost: true }
+    ]
+  }
+];
+
 export const App: React.FC = () => {
   const { currentUser, isLoading } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('deals');
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
-  const [activePipelineId, setActivePipelineId] = useState<string>('');
+  const [pipelines, setPipelines] = useState<Pipeline[]>(defaultFallbackPipelines);
+  const [activePipelineId, setActivePipelineId] = useState<string>(defaultFallbackPipelines[0].id);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -40,9 +58,11 @@ export const App: React.FC = () => {
   const fetchPipelines = async () => {
     try {
       const res = await api.get('/pipelines');
-      setPipelines(res.data);
-      if (res.data.length > 0 && !activePipelineId) {
-        setActivePipelineId(res.data[0].id);
+      if (res.data && res.data.length > 0) {
+        setPipelines(res.data);
+        if (!activePipelineId || !res.data.some((p: any) => p.id === activePipelineId)) {
+          setActivePipelineId(res.data[0].id);
+        }
       }
     } catch (e) {
       console.error('Failed to load pipelines:', e);
@@ -73,7 +93,6 @@ export const App: React.FC = () => {
   }, [activePipelineId, searchQuery, currentUser]);
 
   useEffect(() => {
-    // Realtime Socket listeners
     const handleDealCreated = (newDeal: Deal) => {
       fetchDeals();
       setNotification({
@@ -83,14 +102,8 @@ export const App: React.FC = () => {
       });
     };
 
-    const handleDealUpdated = () => {
-      fetchDeals();
-    };
-
-    const handleDealDeleted = () => {
-      fetchDeals();
-    };
-
+    const handleDealUpdated = () => fetchDeals();
+    const handleDealDeleted = () => fetchDeals();
     const handleNotification = (data: any) => {
       setNotification(data);
       fetchDeals();
@@ -110,7 +123,6 @@ export const App: React.FC = () => {
   }, [activePipelineId]);
 
   const handleMoveDeal = async (dealId: string, newStageId: string) => {
-    // Optimistic UI update
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stageId: newStageId } : d));
     try {
       await api.put(`/deals/${dealId}`, { stageId: newStageId });
@@ -122,17 +134,6 @@ export const App: React.FC = () => {
   };
 
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
-
-  if (isLoading || !activePipeline) {
-    return (
-      <div className="h-screen w-screen bg-[#0b0f19] flex items-center justify-center text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-semibold text-slate-400">Загрузка Online CRM amoPRO...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen w-screen flex bg-[#0b0f19] text-slate-100 overflow-hidden font-['Inter',sans-serif]">
