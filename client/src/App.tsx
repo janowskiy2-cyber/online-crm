@@ -12,6 +12,7 @@ import { QRConnectModal } from './components/modals/QRConnectModal';
 import { UserSwitcherModal } from './components/modals/UserSwitcherModal';
 import { CreateDealModal } from './components/modals/CreateDealModal';
 import { SimulateMessageModal } from './components/modals/SimulateMessageModal';
+import { LoginPage } from './components/auth/LoginPage';
 import { Pipeline, Deal } from './types';
 import { api, socket } from './services/api';
 import { useAuth } from './context/AuthContext';
@@ -48,7 +49,7 @@ const defaultFallbackPipelines: Pipeline[] = [
 ];
 
 export const App: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('deals');
   const [pipelines, setPipelines] = useState<Pipeline[]>(defaultFallbackPipelines);
   const [activePipelineId, setActivePipelineId] = useState<string>(defaultFallbackPipelines[0].id);
@@ -99,12 +100,16 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPipelines();
-  }, []);
+    if (isAuthenticated) {
+      fetchPipelines();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchDeals();
-  }, [activePipelineId, searchQuery, currentUser]);
+    if (isAuthenticated) {
+      fetchDeals();
+    }
+  }, [activePipelineId, searchQuery, currentUser, isAuthenticated]);
 
   useEffect(() => {
     const handleDealCreated = (newDeal: Deal) => {
@@ -134,7 +139,7 @@ export const App: React.FC = () => {
       socket.off('deal_deleted', handleDealDeleted);
       socket.off('notification', handleNotification);
     };
-  }, [activePipelineId]);
+  }, [activePipelineId, isAuthenticated]);
 
   const handleMoveDeal = async (dealId: string, newStageId: string) => {
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stageId: newStageId } : d));
@@ -146,6 +151,10 @@ export const App: React.FC = () => {
       fetchDeals();
     }
   };
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
 
@@ -240,16 +249,16 @@ export const App: React.FC = () => {
           {currentTab === 'users' && (
             <div className="flex-1 p-8 bg-[#0b0f19] flex items-center justify-center">
               <div className="text-center space-y-4 max-w-md">
-                <div className="w-16 h-16 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center mx-auto border border-purple-500/30">
+                <div className="w-16 h-16 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center mx-auto border border-purple-500/30 shadow-lg shadow-purple-500/20">
                   <span className="text-2xl font-black">20</span>
                 </div>
-                <h2 className="text-xl font-bold text-white">Управление 20 пользователями и ролями</h2>
+                <h2 className="text-xl font-bold text-white">Матрица 20 пользователей и ролей</h2>
                 <p className="text-xs text-slate-400">
-                  Откройте матрицу прав, чтобы моментально переключаться между генеральным директором, РОП, менеджерами, службой поддержки и аудитором.
+                  Управляйте правами доступа и переключайтесь между генеральным директором, РОП, менеджерами, службой поддержки и аудитором.
                 </p>
                 <button
                   onClick={() => setIsUserSwitcherOpen(true)}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-purple-600/30"
+                  className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-purple-600/30"
                 >
                   Открыть матрицу 20 пользователей
                 </button>

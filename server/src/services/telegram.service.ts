@@ -6,8 +6,7 @@ export class TelegramService {
   private io: SocketIOServer | null = null;
   private prisma: PrismaClient;
   private qrCode: string | null = null;
-  private status: 'disconnected' | 'qr_ready' | 'connecting' | 'connected' = 'disconnected';
-  private botToken: string | null = null;
+  private status: 'disconnected' | 'qr_ready' | 'connecting' | 'connected' = 'qr_ready';
   private accountInfo: { username?: string; name?: string } = {};
 
   constructor(prisma: PrismaClient) {
@@ -19,6 +18,9 @@ export class TelegramService {
   }
 
   public async getStatus() {
+    if (!this.qrCode && this.status !== 'connected') {
+      await this.generateQR();
+    }
     return {
       channel: 'telegram',
       status: this.status,
@@ -29,19 +31,30 @@ export class TelegramService {
   }
 
   public async initialize() {
-    // Generate an authentic Telegram Login QR code format (tg://login?token=...)
     await this.generateQR();
   }
 
   public async generateQR() {
     try {
-      const qrPayload = `tg://login?token=crm_tg_auth_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      this.qrCode = await QRCode.toDataURL(qrPayload);
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const qrPayload = `tg://login?token=crm_${token}_${Date.now()}`;
+
+      this.qrCode = await QRCode.toDataURL(qrPayload, {
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        scale: 8,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      });
       this.status = 'qr_ready';
       this.broadcastStatus();
       await this.persistSession();
+      return this.qrCode;
     } catch (e) {
       console.error('Failed to generate Telegram QR code:', e);
+      return null;
     }
   }
 
@@ -57,6 +70,7 @@ export class TelegramService {
     this.status = 'disconnected';
     this.qrCode = null;
     this.accountInfo = {};
+    await this.generateQR();
     this.broadcastStatus();
     await this.persistSession();
   }

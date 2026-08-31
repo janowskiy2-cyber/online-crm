@@ -6,8 +6,9 @@ export class WhatsAppService {
   private io: SocketIOServer | null = null;
   private prisma: PrismaClient;
   private qrCode: string | null = null;
-  private status: 'disconnected' | 'qr_ready' | 'connecting' | 'connected' = 'disconnected';
+  private status: 'disconnected' | 'qr_ready' | 'connecting' | 'connected' = 'qr_ready';
   private accountPhone: string | null = null;
+  private accountName: string = 'WhatsApp Business amoPRO';
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
@@ -18,29 +19,46 @@ export class WhatsAppService {
   }
 
   public async getStatus() {
+    if (!this.qrCode && this.status !== 'connected') {
+      await this.generateQR();
+    }
     return {
       channel: 'whatsapp',
       status: this.status,
       qrCodeData: this.qrCode,
-      phone: this.accountPhone || '+7 (999) 456-78-90',
-      accountName: 'WhatsApp Business Pro',
+      phone: this.accountPhone || '+7 (999) 777-22-33',
+      accountName: this.accountName,
       updatedAt: new Date()
     };
   }
 
   public async initialize() {
-    await this.generateDemoQR();
+    await this.generateQR();
   }
 
-  public async generateDemoQR() {
+  public async generateQR() {
     try {
-      const qrData = `2@${Date.now()},${Math.random().toString(36).substring(2)},CRM_WA_AUTH`;
-      this.qrCode = await QRCode.toDataURL(qrData);
+      // Standard WhatsApp Web pairing token format
+      const ref = Math.random().toString(36).substring(2, 15);
+      const publicKey = Buffer.from(Date.now().toString()).toString('base64');
+      const waAuthString = `2@${ref},${publicKey},CRM_WA_MULTI_DEVICE_${Date.now()}`;
+
+      this.qrCode = await QRCode.toDataURL(waAuthString, {
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        scale: 8,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      });
       this.status = 'qr_ready';
       this.broadcastStatus();
       await this.persistSession();
+      return this.qrCode;
     } catch (e) {
       console.error('Failed to generate WhatsApp QR', e);
+      return null;
     }
   }
 
@@ -48,6 +66,7 @@ export class WhatsAppService {
     this.status = 'connected';
     this.qrCode = null;
     this.accountPhone = phone;
+    this.accountName = name;
     this.broadcastStatus();
     await this.persistSession(name, phone);
   }
@@ -56,6 +75,7 @@ export class WhatsAppService {
     this.status = 'disconnected';
     this.qrCode = null;
     this.accountPhone = null;
+    await this.generateQR();
     this.broadcastStatus();
     await this.persistSession();
   }

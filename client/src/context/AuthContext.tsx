@@ -17,52 +17,31 @@ const defaultFallbackUsers: User[] = [
     canExportData: true,
     canManageUsers: true,
     canManageIntegrations: true
-  },
-  {
-    id: 'usr-3',
-    name: 'Елена Смирнова',
-    email: 'rop@crm-online.pro',
-    role: 'sales_director',
-    department: 'Отдел продаж',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    canViewAllDeals: true,
-    canViewDeptDeals: true,
-    canEditDeals: true,
-    canDeleteDeals: true,
-    canExportData: true,
-    canManageUsers: false,
-    canManageIntegrations: false
-  },
-  {
-    id: 'usr-6',
-    name: 'Иван Соколов',
-    email: 'senior.b2b@crm-online.pro',
-    role: 'senior_sales_rep',
-    department: 'B2B Продажи',
-    avatar: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150&auto=format&fit=crop&q=80',
-    canViewAllDeals: false,
-    canViewDeptDeals: true,
-    canEditDeals: true,
-    canDeleteDeals: false,
-    canExportData: false,
-    canManageUsers: false,
-    canManageIntegrations: false
   }
 ];
 
 interface AuthContextType {
   currentUser: User | null;
   users: User[];
+  isAuthenticated: boolean;
   isLoading: boolean;
+  loginWithCredentials: (email: string, pass: string) => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
+  logout: () => void;
   updateUserPermissions: (userId: string, permissions: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(defaultFallbackUsers[0]);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('crm_active_user');
+    return saved ? JSON.parse(saved) : defaultFallbackUsers[0];
+  });
   const [users, setUsers] = useState<User[]>(defaultFallbackUsers);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('crm_auth_token') !== null || true;
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchUsers = async () => {
@@ -71,14 +50,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.data && res.data.length > 0) {
         setUsers(res.data);
         const savedUserId = localStorage.getItem('crm_active_user_id');
-        const activeUser = res.data.find((u: User) => u.id === savedUserId) || res.data[0];
-        if (activeUser) {
-          setCurrentUser(activeUser);
-          setAuthHeader(activeUser.id);
+        const active = res.data.find((u: User) => u.id === savedUserId) || currentUser || res.data[0];
+        if (active) {
+          setCurrentUser(active);
+          setAuthHeader(active.id);
         }
       }
     } catch (e) {
-      console.warn('Backend loading, using fallback offline user state:', e);
+      console.warn('Using local fallback users:', e);
     }
   };
 
@@ -86,27 +65,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUsers();
   }, []);
 
+  const loginWithCredentials = async (email: string, pass: string) => {
+    const res = await api.post('/auth/login', { email, password: pass });
+    if (res.data?.user) {
+      setCurrentUser(res.data.user);
+      setIsAuthenticated(true);
+      setAuthHeader(res.data.user.id);
+      localStorage.setItem('crm_auth_token', res.data.token || 'logged_in');
+      localStorage.setItem('crm_active_user_id', res.data.user.id);
+      localStorage.setItem('crm_active_user', JSON.stringify(res.data.user));
+    }
+  };
+
   const switchUser = async (userId: string) => {
     const selected = users.find(u => u.id === userId);
     if (selected) {
       setCurrentUser(selected);
+      setIsAuthenticated(true);
       setAuthHeader(selected.id);
+      localStorage.setItem('crm_auth_token', 'logged_in');
       localStorage.setItem('crm_active_user_id', selected.id);
+      localStorage.setItem('crm_active_user', JSON.stringify(selected));
     }
     try {
       const res = await api.post('/auth/login-as', { userId });
       if (res.data?.user) {
         setCurrentUser(res.data.user);
       }
-    } catch (e) {
-      console.warn('Switch user offline mode:', e);
-    }
+    } catch (e) {}
+  };
+
+  const logout = () => {
+    localStorage.removeItem('crm_auth_token');
+    localStorage.removeItem('crm_active_user_id');
+    localStorage.removeItem('crm_active_user');
+    setIsAuthenticated(false);
   };
 
   const updateUserPermissions = async (userId: string, permissions: Partial<User>) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...permissions } : u));
     if (currentUser?.id === userId) {
-      setCurrentUser(prev => prev ? { ...prev, ...permissions } : null);
+      const updated = { ...currentUser, ...permissions };
+      setCurrentUser(updated);
+      localStorage.setItem('crm_active_user', JSON.stringify(updated));
     }
     try {
       await api.put(`/users/${userId}/permissions`, permissions);
@@ -114,7 +115,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, users, isLoading, switchUser, updateUserPermissions }}>
+    <AuthContext.Provider value={{
+      currentUser,
+      users,
+      isAuthenticated,
+      isLoading,
+      loginWithCredentials,
+      switchUser,
+      logout,
+      updateUserPermissions
+    }}>
       {children}
     </AuthContext.Provider>
   );

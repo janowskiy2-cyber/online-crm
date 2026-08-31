@@ -5,11 +5,10 @@ import {
   CheckSquare, 
   Users, 
   BarChart3, 
-  GitMerge, 
   ShieldAlert, 
   QrCode,
   Zap,
-  PhoneCall
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -26,7 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openQRModal,
   openUserSwitcher
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
 
   const navItems = [
     { id: 'deals', label: 'Сделки', icon: Kanban, badge: null },
@@ -116,24 +115,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* User Account / Role Switcher Trigger */}
-        <div 
-          onClick={openUserSwitcher}
-          className="flex items-center gap-3 p-2 rounded-xl bg-slate-800/40 hover:bg-slate-800 cursor-pointer border border-slate-700/50 transition group"
-        >
-          <img
-            src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-            alt={currentUser?.name}
-            className="w-9 h-9 rounded-full object-cover border border-slate-600"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-white truncate group-hover:text-blue-400 transition">
-              {currentUser?.name || 'Пользователь'}
-            </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              {currentUser?.department} • <span className="text-blue-400 font-medium">{currentUser?.role}</span>
+        {/* User Account / Role Switcher Trigger & Logout */}
+        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-800/40 border border-slate-700/50">
+          <div 
+            onClick={openUserSwitcher}
+            className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer group"
+            title="Нажмите для смены роли"
+          >
+            <img
+              src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+              alt={currentUser?.name}
+              className="w-8 h-8 rounded-full object-cover border border-slate-600"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-white truncate group-hover:text-blue-400 transition">
+                {currentUser?.name || 'Пользователь'}
+              </div>
+              <div className="text-[10px] text-slate-400 truncate">
+                {currentUser?.role}
+              </div>
             </div>
           </div>
+
+          <button
+            onClick={logout}
+            title="Выйти из системы"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>
