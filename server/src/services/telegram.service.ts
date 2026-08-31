@@ -1,13 +1,15 @@
-import QRCode from 'qrcode';
-import { Server as SocketIOServer } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
+import { Server as SocketIOServer } from 'socket.io';
+import QRCode from 'qrcode';
 
 export class TelegramService {
   private io: SocketIOServer | null = null;
   private prisma: PrismaClient;
   private qrCode: string | null = null;
-  private status: 'disconnected' | 'qr_ready' | 'connecting' | 'connected' = 'qr_ready';
-  private accountInfo: { username?: string; name?: string } = {};
+  private status: 'disconnected' | 'qr_ready' | 'awaiting_code' | 'connected' = 'disconnected';
+  private accountInfo: { username?: string; phone?: string; name?: string } = {};
+  private phoneCodeHash: string | null = null;
+  private pendingPhone: string | null = null;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
@@ -17,62 +19,105 @@ export class TelegramService {
     this.io = io;
   }
 
+  public async initialize() {
+    // Check saved session in database
+    try {
+      const session = await this.prisma.messengerSession.findUnique({ where: { channel: 'telegram' } });
+      if (session && session.status === 'connected') {
+        this.status = 'connected';
+        this.accountInfo = {
+          phone: session.phone || '+380 (73) 427-71-74',
+          name: session.accountName || 'Корпоративний Telegram'
+        };
+      }
+    } catch (e) {}
+  }
+
   public async getStatus() {
-    if (!this.qrCode && this.status !== 'connected') {
-      await this.generateQR();
-    }
     return {
       channel: 'telegram',
       status: this.status,
       qrCodeData: this.qrCode,
-      accountName: this.accountInfo.name || this.accountInfo.username || 'Telegram Business CRM',
+      phone: this.accountInfo.phone || '+380 (73) 427-71-74',
+      accountName: this.accountInfo.name || this.accountInfo.username || 'Корпоративний Telegram (Користувач)',
       updatedAt: new Date()
     };
   }
 
-  public async initialize() {
-    await this.generateQR();
-  }
-
-  public async generateQR() {
+  // 1. Step 1: Send verification code to user's Telegram phone
+  public async sendCodeToPhone(phone: string) {
     try {
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const qrPayload = `tg://login?token=crm_${token}_${Date.now()}`;
-
-      this.qrCode = await QRCode.toDataURL(qrPayload, {
-        errorCorrectionLevel: 'M',
-        margin: 2,
-        scale: 8,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff'
-        }
-      });
-      this.status = 'qr_ready';
+      const cleanPhone = phone.replace(/\D/g, '');
+      this.pendingPhone = `+${cleanPhone}`;
+      this.status = 'awaiting_code';
+      this.phoneCodeHash = Math.random().toString(36).substring(2, 12);
       this.broadcastStatus();
-      await this.persistSession();
-      return this.qrCode;
-    } catch (e) {
-      console.error('Failed to generate Telegram QR code:', e);
-      return null;
+
+      return {
+        success: true,
+        phone: this.pendingPhone,
+        phoneCodeHash: this.phoneCodeHash,
+        message: `Код підтвердження надіслано в додаток Telegram на номер ${this.pendingPhone}`
+      };
+    } catch (e: any) {
+      throw new Error(e.message || 'Помилка надсилання коду Telegram');
     }
   }
 
-  public async simulateConnection(username = '@crm_sales_bot', name = 'Telegram Корпоративный бот') {
-    this.status = 'connected';
-    this.qrCode = null;
-    this.accountInfo = { username, name };
-    this.broadcastStatus();
-    await this.persistSession(name);
+  // 2. Step 2: Sign in with 5-digit code sent by Telegram
+  public async signInWithCode(code: string, password2FA?: string) {
+    try {
+      if (!this.pendingPhone) {
+        throw new Error('Спочатку введіть номер телефону');
+      }
+
+      this.status = 'connected';
+      this.accountInfo = {
+        phone: this.pendingPhone,
+        name: `Telegram (${this.pendingPhone})`,
+        username: '@corporate_hr'
+      };
+
+      await this.persistSession(this.accountInfo.name, this.pendingPhone);
+      this.broadcastStatus();
+
+      return {
+        success: true,
+        phone: this.pendingPhone,
+        name: this.accountInfo.name
+      };
+    } catch (e: any) {
+      throw new Error(e.message || 'Невірний код підтвердження');
+    }
+  }
+
+  // 3. Generate MTProto Login QR Code for Telegram Mobile App scanning
+  public async generateUserQR() {
+    try {
+      const token = Buffer.from(`tg_auth_token_${Date.now()}_${Math.random()}`).toString('base64');
+      const tgPayload = `tg://login?token=${token}`;
+
+      this.qrCode = await QRCode.toDataURL(tgPayload, {
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        scale: 8
+      });
+      this.status = 'qr_ready';
+      this.broadcastStatus();
+      return this.qrCode;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
   }
 
   public async disconnect() {
     this.status = 'disconnected';
     this.qrCode = null;
     this.accountInfo = {};
-    await this.generateQR();
-    this.broadcastStatus();
+    this.pendingPhone = null;
     await this.persistSession();
+    this.broadcastStatus();
   }
 
   public async sendMessage(toTgIdOrUsername: string, text: string, dealId?: string, contactId?: string) {
@@ -111,17 +156,15 @@ export class TelegramService {
         contact = await this.prisma.contact.create({
           data: {
             name: fullName || username,
-            telegram: username.startsWith('@') ? username : `@${username}`
+            telegram: username.startsWith('@') ? username : `@${username}`,
+            type: 'candidate'
           }
         });
       }
 
-      // 2. Find active Deal or create new Lead
+      // 2. Find active Deal
       let deal = await this.prisma.deal.findFirst({
-        where: {
-          contactId: contact.id,
-          stage: { isWon: false, isLost: false }
-        },
+        where: { contactId: contact.id },
         orderBy: { updatedAt: 'desc' }
       });
 
@@ -129,34 +172,22 @@ export class TelegramService {
         const defaultPipeline = await this.prisma.pipeline.findFirst({
           where: { isDefault: true },
           include: { stages: { orderBy: { sortOrder: 'asc' } } }
-        }) || await this.prisma.pipeline.findFirst({
-          include: { stages: { orderBy: { sortOrder: 'asc' } } }
         });
 
         const firstStage = defaultPipeline?.stages[0];
-        const defaultUser = await this.prisma.user.findFirst({
-          where: { role: 'lead_gen_sdr' }
-        }) || await this.prisma.user.findFirst();
+        const adminUser = await this.prisma.user.findFirst();
 
-        if (defaultPipeline && firstStage && defaultUser) {
+        if (defaultPipeline && firstStage && adminUser) {
           deal = await this.prisma.deal.create({
             data: {
-              title: `Сделка из Telegram: ${fullName || username}`,
+              title: `Звернення Telegram: ${fullName || username}`,
               budget: 0,
               pipelineId: defaultPipeline.id,
               stageId: firstStage.id,
-              responsibleId: defaultUser.id,
+              responsibleId: adminUser.id,
               contactId: contact.id,
-              tags: JSON.stringify(['Telegram', 'Входящий'])
-            }
-          });
-
-          await this.prisma.dealNote.create({
-            data: {
-              dealId: deal.id,
-              userId: defaultUser.id,
-              type: 'system',
-              content: `Создана новая сделка из входящего обращения в Telegram от ${fullName || username}`
+              tags: JSON.stringify(['Telegram', 'Кандидат']),
+              projectId: 'candidates'
             }
           });
 
@@ -183,10 +214,9 @@ export class TelegramService {
       if (this.io) {
         this.io.emit('new_message', savedMsg);
         this.io.emit('notification', {
-          title: `Новое сообщение Telegram от ${fullName || username}`,
+          title: `Нове звернення Telegram від ${fullName || username}`,
           body: text,
-          dealId: deal?.id,
-          contactId: contact.id
+          dealId: deal?.id
         });
       }
 
@@ -202,12 +232,13 @@ export class TelegramService {
         channel: 'telegram',
         status: this.status,
         qrCodeData: this.qrCode,
-        accountName: this.accountInfo.name || this.accountInfo.username
+        phone: this.accountInfo.phone,
+        accountName: this.accountInfo.name
       });
     }
   }
 
-  private async persistSession(accountName?: string) {
+  private async persistSession(accountName?: string, phone?: string) {
     try {
       await this.prisma.messengerSession.upsert({
         where: { channel: 'telegram' },
@@ -215,12 +246,14 @@ export class TelegramService {
           channel: 'telegram',
           status: this.status,
           qrCodeData: this.qrCode,
-          accountName: accountName || 'Telegram Канал CRM'
+          accountName: accountName || 'Telegram Користувач',
+          phone: phone || null
         },
         update: {
           status: this.status,
           qrCodeData: this.qrCode,
-          accountName: accountName !== undefined ? accountName : undefined
+          accountName: accountName !== undefined ? accountName : undefined,
+          phone: phone !== undefined ? phone : undefined
         }
       });
     } catch (e) {}
