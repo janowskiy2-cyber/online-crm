@@ -234,7 +234,10 @@ export class TelegramService {
       }
     }
 
-    const fileLabel = `📎 Файл TG: ${fileName}${caption ? ` — ${caption}` : ''}`;
+    const isVoice = mimeType.startsWith('audio/') || fileName.includes('Voice_Note');
+    const fileLabel = isVoice
+      ? `🎤 Голосове повідомлення (${caption || 'аудіо'})`
+      : `📎 Файл TG: ${fileName}${caption ? ` — ${caption}` : ''}`;
 
     const savedMsg = await this.prisma.chatMessage.create({
       data: {
@@ -244,6 +247,8 @@ export class TelegramService {
         contactId,
         senderTgId: toTgIdOrUsername,
         text: fileLabel,
+        mediaUrl: fileBase64,
+        mediaType: isVoice ? 'audio' : (mimeType.startsWith('image/') ? 'image' : 'pdf'),
         status: 'sent'
       }
     });

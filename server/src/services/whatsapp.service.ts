@@ -287,6 +287,12 @@ export class WhatsAppService {
             image: buffer,
             caption: caption || fileName
           });
+        } else if (mimeType.startsWith('audio/')) {
+          await this.sock.sendMessage(jid, {
+            audio: buffer,
+            mimetype: 'audio/mp4',
+            ptt: true
+          });
         } else {
           await this.sock.sendMessage(jid, {
             document: buffer,
@@ -300,7 +306,9 @@ export class WhatsAppService {
       }
     }
 
-    const fileLabel = `📎 Файл: ${fileName}${caption ? ` — ${caption}` : ''}`;
+    const fileLabel = mimeType.startsWith('audio/') 
+      ? `🎤 Голосове повідомлення (${caption || 'аудіо'})` 
+      : `📎 Файл: ${fileName}${caption ? ` — ${caption}` : ''}`;
 
     const savedMsg = await this.prisma.chatMessage.create({
       data: {
@@ -310,6 +318,8 @@ export class WhatsAppService {
         contactId,
         senderPhone: cleanPhone,
         text: fileLabel,
+        mediaUrl: fileBase64,
+        mediaType: mimeType.startsWith('audio/') ? 'audio' : (mimeType.startsWith('image/') ? 'image' : 'pdf'),
         status: 'sent'
       }
     });

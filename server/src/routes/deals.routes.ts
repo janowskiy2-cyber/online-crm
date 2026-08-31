@@ -133,8 +133,7 @@ export function createDealsRouter(prisma: PrismaClient) {
           contactId,
           companyId,
           tags: typeof tags === 'string' ? tags : JSON.stringify(tags || []),
-          customFields: typeof customFields === 'string' ? customFields : JSON.stringify(customFields || {}),
-          projectId: projectId || 'employers'
+          customFields: typeof customFields === 'string' ? customFields : JSON.stringify(customFields || {})
         },
         include: {
           contact: true,
@@ -168,8 +167,7 @@ export function createDealsRouter(prisma: PrismaClient) {
           contactId: data.contactId,
           companyId: data.companyId,
           tags: typeof data.tags === 'string' ? data.tags : (data.tags ? JSON.stringify(data.tags) : undefined),
-          customFields: typeof data.customFields === 'string' ? data.customFields : (data.customFields ? JSON.stringify(data.customFields) : undefined),
-          projectId: data.projectId
+          customFields: typeof data.customFields === 'string' ? data.customFields : (data.customFields ? JSON.stringify(data.customFields) : undefined)
         },
         include: {
           contact: true,

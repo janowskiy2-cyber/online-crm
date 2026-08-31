@@ -60,7 +60,7 @@ export function createWebhookRouter(prisma: PrismaClient, distributionService: L
             whatsapp: formattedPhone,
             email: email || undefined,
             companyId: company?.id,
-            type: 'employer'
+            position: 'Роботодавець (Реклама)'
           }
         });
       }

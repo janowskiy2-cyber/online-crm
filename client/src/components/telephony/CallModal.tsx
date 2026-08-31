@@ -13,10 +13,11 @@ import {
   Clock, 
   Play, 
   Pause, 
-  Sparkles,
-  FileText,
-  MessageSquare,
-  Radio
+  Sparkles, 
+  FileText, 
+  MessageSquare, 
+  ExternalLink,
+  PhoneCall
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { startSpeechToText } from '../../utils/speechRecognition';
@@ -48,14 +49,16 @@ export const CallModal: React.FC<CallModalProps> = ({
   const timerRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
 
+  const cleanPhone = (phoneNumber || '').replace(/\D/g, '');
+
   useEffect(() => {
-    // Simulate connection after 2 seconds
+    // Start live timer
     const ringTimeout = setTimeout(() => {
       setCallState('connected');
       timerRef.current = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
-    }, 2200);
+    }, 2000);
 
     return () => {
       clearTimeout(ringTimeout);
@@ -117,7 +120,7 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif] animate-in fade-in">
-      <div className="bg-[#0f1422] border border-slate-700/80 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden text-center p-6 space-y-6">
+      <div className="bg-[#0f1422] border border-slate-700/80 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden text-center p-6 space-y-5">
         
         {/* Top Channel Badge */}
         <div className="flex items-center justify-between">
@@ -135,22 +138,22 @@ export const CallModal: React.FC<CallModalProps> = ({
         </div>
 
         {/* Contact Info & Avatar */}
-        <div className="space-y-3">
-          <div className="relative w-24 h-24 mx-auto">
-            <div className={`w-24 h-24 rounded-full flex items-center justify-center font-black text-3xl shadow-xl ${
+        <div className="space-y-2.5">
+          <div className="relative w-20 h-20 mx-auto">
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center font-black text-2xl shadow-xl ${
               callState === 'connected' 
                 ? 'bg-emerald-600 text-white animate-pulse' 
                 : 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
             }`}>
-              {contactName.charAt(0)}
+              {(contactName || 'К').charAt(0)}
             </div>
             {callState === 'connected' && (
-              <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-[#0f1422] animate-ping" />
+              <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0f1422] animate-ping" />
             )}
           </div>
 
           <div>
-            <h3 className="text-lg font-bold text-white">{contactName}</h3>
+            <h3 className="text-base font-bold text-white">{contactName}</h3>
             {companyName && (
               <p className="text-xs text-purple-400 font-semibold">{companyName}</p>
             )}
@@ -161,7 +164,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           <div className="py-1">
             {callState === 'ringing' ? (
               <span className="text-xs text-amber-400 font-semibold animate-pulse">
-                Виклик абонента...
+                Встановлення зв'язку...
               </span>
             ) : callState === 'connected' ? (
               <div className="flex items-center justify-center gap-2 text-emerald-400 font-mono text-sm font-bold">
@@ -176,9 +179,45 @@ export const CallModal: React.FC<CallModalProps> = ({
           </div>
         </div>
 
+        {/* Direct Action Call Links */}
+        <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2 text-left">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            Пряме відкриття дзвінка на пристрої:
+          </span>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <a
+              href={`https://wa.me/${cleanPhone}`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold text-center flex flex-col items-center gap-1 transition"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span className="text-[10px]">WhatsApp</span>
+            </a>
+
+            <a
+              href={`https://t.me/+${cleanPhone}`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-2 bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 rounded-xl font-bold text-center flex flex-col items-center gap-1 transition"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="text-[10px]">Telegram</span>
+            </a>
+
+            <a
+              href={`tel:${phoneNumber}`}
+              className="px-2.5 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl font-bold text-center flex flex-col items-center gap-1 transition"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span className="text-[10px]">GSM / Дзвінок</span>
+            </a>
+          </div>
+        </div>
+
         {/* Active Call Controls */}
         {callState !== 'ended' ? (
-          <div className="flex items-center justify-center gap-4 pt-2">
+          <div className="flex items-center justify-center gap-4 pt-1">
             <button
               onClick={() => setIsMuted(!isMuted)}
               className={`p-3.5 rounded-2xl transition shadow-md ${
@@ -209,8 +248,8 @@ export const CallModal: React.FC<CallModalProps> = ({
           </div>
         ) : (
           /* Post-Call Summary Note with Speech-to-Text Voice Dictation */
-          <div className="space-y-3 text-left pt-2 animate-in fade-in">
-            <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-1.5 text-xs text-slate-300">
+          <div className="space-y-3 text-left pt-1 animate-in fade-in">
+            <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-1 text-xs text-slate-300">
               <div className="flex items-center justify-between text-[11px] text-emerald-400 font-bold">
                 <span>🎙️ Аудіозапис дзвінка збережено</span>
                 <span>MP3 • {formatTime(callDuration)}</span>

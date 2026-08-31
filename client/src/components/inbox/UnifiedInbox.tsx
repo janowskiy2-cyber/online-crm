@@ -451,20 +451,27 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     {isVoice ? (
                       <div className="max-w-[85%] sm:max-w-md w-full">
                         <AudioMessagePlayer
-                          audioUrl="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"
-                          duration={14}
-                          transcription="Доброго дня! Отримали вашу пропозицію щодо персоналу. Готові узгодити договір на 15 робітників."
+                          audioUrl={m.mediaUrl || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'}
+                          duration={12}
+                          transcription={m.text.replace('🎤 Голосове повідомлення', '').replace('🎤', '').trim()}
                           isOutgoing={isOut}
                         />
+                      </div>
+                    ) : isImage && m.mediaUrl ? (
+                      <div
+                        onClick={() => setViewingMedia({ url: m.mediaUrl, type: 'image', title: 'Фото' })}
+                        className="cursor-pointer max-w-xs rounded-2xl overflow-hidden border border-slate-700 shadow-md hover:opacity-90 transition"
+                      >
+                        <img src={m.mediaUrl} alt="Зображення" className="w-full object-cover max-h-48" />
                       </div>
                     ) : (
                       <div
                         onClick={() => {
                           if (isFile) {
                             setViewingMedia({
-                              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                              url: m.mediaUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
                               type: 'pdf',
-                              title: m.text.replace('📎 Файл: ', '')
+                              title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
                             });
                           }
                         }}
