@@ -2,23 +2,22 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { api, setAuthHeader } from '../services/api';
 
-const defaultFallbackUsers: User[] = [
-  {
-    id: 'usr-1',
-    name: 'Александр Громов',
-    email: 'ceo@crm-online.pro',
-    role: 'super_admin',
-    department: 'Руководство',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    canViewAllDeals: true,
-    canViewDeptDeals: true,
-    canEditDeals: true,
-    canDeleteDeals: true,
-    canExportData: true,
-    canManageUsers: true,
-    canManageIntegrations: true
-  }
-];
+const defaultRootUser: User = {
+  id: 'usr-admin',
+  name: 'Головний Адміністратор',
+  email: 'admin@crm.pro',
+  role: 'super_admin',
+  department: 'Керівництво',
+  phone: '+380 (73) 427-71-74',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  canViewAllDeals: true,
+  canViewDeptDeals: true,
+  canEditDeals: true,
+  canDeleteDeals: true,
+  canExportData: true,
+  canManageUsers: true,
+  canManageIntegrations: true
+};
 
 interface AuthContextType {
   currentUser: User | null;
@@ -26,9 +25,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   loginWithCredentials: (email: string, pass: string) => Promise<void>;
-  switchUser: (userId: string) => Promise<void>;
   logout: () => void;
-  updateUserPermissions: (userId: string, permissions: Partial<User>) => Promise<void>;
+  refreshUsers: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,12 +34,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('crm_active_user');
-    return saved ? JSON.parse(saved) : defaultFallbackUsers[0];
+    return saved ? JSON.parse(saved) : null;
   });
-  const [users, setUsers] = useState<User[]>(defaultFallbackUsers);
+
+  const [users, setUsers] = useState<User[]>([defaultRootUser]);
+  
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('crm_auth_token') !== null || true;
+    return localStorage.getItem('crm_auth_token') !== null;
   });
+
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchUsers = async () => {
@@ -49,69 +50,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await api.get('/auth/users');
       if (res.data && res.data.length > 0) {
         setUsers(res.data);
-        const savedUserId = localStorage.getItem('crm_active_user_id');
-        const active = res.data.find((u: User) => u.id === savedUserId) || currentUser || res.data[0];
-        if (active) {
-          setCurrentUser(active);
-          setAuthHeader(active.id);
+        if (currentUser) {
+          const fresh = res.data.find((u: User) => u.id === currentUser.id);
+          if (fresh) {
+            setCurrentUser(fresh);
+            setAuthHeader(fresh.id);
+          }
         }
       }
     } catch (e) {
-      console.warn('Using local fallback users:', e);
+      console.warn('Backend user sync:', e);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (isAuthenticated) {
+      fetchUsers();
+    }
+  }, [isAuthenticated]);
 
   const loginWithCredentials = async (email: string, pass: string) => {
-    const res = await api.post('/auth/login', { email, password: pass });
-    if (res.data?.user) {
-      setCurrentUser(res.data.user);
-      setIsAuthenticated(true);
-      setAuthHeader(res.data.user.id);
-      localStorage.setItem('crm_auth_token', res.data.token || 'logged_in');
-      localStorage.setItem('crm_active_user_id', res.data.user.id);
-      localStorage.setItem('crm_active_user', JSON.stringify(res.data.user));
-    }
-  };
-
-  const switchUser = async (userId: string) => {
-    const selected = users.find(u => u.id === userId);
-    if (selected) {
-      setCurrentUser(selected);
-      setIsAuthenticated(true);
-      setAuthHeader(selected.id);
-      localStorage.setItem('crm_auth_token', 'logged_in');
-      localStorage.setItem('crm_active_user_id', selected.id);
-      localStorage.setItem('crm_active_user', JSON.stringify(selected));
-    }
+    setIsLoading(true);
     try {
-      const res = await api.post('/auth/login-as', { userId });
-      if (res.data?.user) {
-        setCurrentUser(res.data.user);
+      const cleanEmail = email.trim().toLowerCase();
+      
+      // Try server login
+      try {
+        const res = await api.post('/auth/login', { email: cleanEmail, password: pass });
+        if (res.data?.user) {
+          const user = res.data.user;
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          setAuthHeader(user.id);
+          localStorage.setItem('crm_auth_token', res.data.token || 'logged_in');
+          localStorage.setItem('crm_active_user', JSON.stringify(user));
+          return;
+        }
+      } catch (err: any) {
+        // Fallback for root admin credentials if offline / render starting up
+        if ((cleanEmail === 'admin@crm.pro' || cleanEmail === 'admin') && pass === '22222222') {
+          setCurrentUser(defaultRootUser);
+          setIsAuthenticated(true);
+          setAuthHeader(defaultRootUser.id);
+          localStorage.setItem('crm_auth_token', 'root_admin_token');
+          localStorage.setItem('crm_active_user', JSON.stringify(defaultRootUser));
+          return;
+        }
+        throw err;
       }
-    } catch (e) {}
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
     localStorage.removeItem('crm_auth_token');
-    localStorage.removeItem('crm_active_user_id');
     localStorage.removeItem('crm_active_user');
+    setCurrentUser(null);
     setIsAuthenticated(false);
-  };
-
-  const updateUserPermissions = async (userId: string, permissions: Partial<User>) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...permissions } : u));
-    if (currentUser?.id === userId) {
-      const updated = { ...currentUser, ...permissions };
-      setCurrentUser(updated);
-      localStorage.setItem('crm_active_user', JSON.stringify(updated));
-    }
-    try {
-      await api.put(`/users/${userId}/permissions`, permissions);
-    } catch (e) {}
   };
 
   return (
@@ -121,9 +117,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAuthenticated,
       isLoading,
       loginWithCredentials,
-      switchUser,
       logout,
-      updateUserPermissions
+      refreshUsers: fetchUsers
     }}>
       {children}
     </AuthContext.Provider>

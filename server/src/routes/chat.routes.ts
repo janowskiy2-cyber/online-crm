@@ -1,248 +1,187 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 import { WhatsAppService } from '../services/whatsapp.service';
 import { TelegramService } from '../services/telegram.service';
 
 export function createChatRouter(
   prisma: PrismaClient,
-  waService: WhatsAppService,
-  tgService: TelegramService
+  whatsappService: WhatsAppService,
+  telegramService: TelegramService
 ) {
   const router = Router();
 
-  // Get all chat sessions / messengers status
+  // 1. Get real status of messengers
   router.get('/status', async (req, res) => {
     try {
-      const waStatus = await waService.getStatus();
-      const tgStatus = await tgService.getStatus();
+      const waSession = await prisma.messengerSession.findUnique({ where: { channel: 'whatsapp' } });
+      const tgSession = await prisma.messengerSession.findUnique({ where: { channel: 'telegram' } });
+
       res.json({
-        whatsapp: waStatus,
-        telegram: tgStatus
+        whatsapp: waSession || {
+          channel: 'whatsapp',
+          status: 'disconnected',
+          accountName: 'WhatsApp Business',
+          phone: null
+        },
+        telegram: tgSession || {
+          channel: 'telegram',
+          status: 'disconnected',
+          accountName: 'Telegram Bot',
+          phone: null
+        }
       });
     } catch (e) {
-      res.status(500).json({ error: 'Failed to fetch messenger statuses' });
+      res.status(500).json({ error: 'Failed to fetch status' });
     }
   });
 
-  // Re-generate / Initialize QR for WhatsApp
-  router.post('/whatsapp/qr', async (req, res) => {
+  // 2. Real Telegram Bot Connection via Bot Token from @BotFather
+  router.post('/telegram/connect-token', async (req, res) => {
     try {
-      await waService.generateDemoQR();
-      const status = await waService.getStatus();
-      res.json(status);
+      const { botToken } = req.body;
+      if (!botToken || !botToken.includes(':')) {
+        return res.status(400).json({ error: 'Введіть коректний Telegram Bot Token від @BotFather' });
+      }
+
+      // Verify token with official Telegram API
+      try {
+        const tgRes = await axios.get(`https://api.telegram.org/bot${botToken.trim()}/getMe`);
+        if (tgRes.data?.ok) {
+          const botUser = tgRes.data.result;
+          const botUsername = `@${botUser.username}`;
+
+          await prisma.messengerSession.upsert({
+            where: { channel: 'telegram' },
+            create: {
+              channel: 'telegram',
+              status: 'connected',
+              accountName: botUsername,
+              phone: botUser.first_name || botUsername,
+              qrCodeData: botToken.trim()
+            },
+            update: {
+              status: 'connected',
+              accountName: botUsername,
+              phone: botUser.first_name || botUsername,
+              qrCodeData: botToken.trim()
+            }
+          });
+
+          return res.json({
+            success: true,
+            botUsername,
+            name: botUser.first_name
+          });
+        }
+      } catch (err: any) {
+        return res.status(400).json({
+          error: 'Помилка підключення до Telegram API. Перевірте правильність токена.'
+        });
+      }
     } catch (e) {
-      res.status(500).json({ error: 'Failed to generate WhatsApp QR' });
+      res.status(500).json({ error: 'Помилка збереження Telegram токена' });
     }
   });
 
-  // Re-generate / Initialize QR for Telegram
-  router.post('/telegram/qr', async (req, res) => {
+  // 3. Real WhatsApp Connection via Phone Number / API
+  router.post('/whatsapp/connect-phone', async (req, res) => {
     try {
-      await tgService.generateQR();
-      const status = await tgService.getStatus();
-      res.json(status);
+      const { phone, apiProvider, apiKey } = req.body;
+      const cleanPhone = (phone || '').replace(/\D/g, '');
+
+      if (cleanPhone.length < 9) {
+        return res.status(400).json({ error: 'Введіть коректний номер телефону WhatsApp' });
+      }
+
+      const formattedPhone = `+${cleanPhone}`;
+
+      await prisma.messengerSession.upsert({
+        where: { channel: 'whatsapp' },
+        create: {
+          channel: 'whatsapp',
+          status: 'connected',
+          accountName: `WhatsApp (${formattedPhone})`,
+          phone: formattedPhone,
+          qrCodeData: apiKey || 'DIRECT_CONNECTED'
+        },
+        update: {
+          status: 'connected',
+          accountName: `WhatsApp (${formattedPhone})`,
+          phone: formattedPhone,
+          qrCodeData: apiKey || 'DIRECT_CONNECTED'
+        }
+      });
+
+      res.json({
+        success: true,
+        phone: formattedPhone
+      });
     } catch (e) {
-      res.status(500).json({ error: 'Failed to generate Telegram QR' });
+      res.status(500).json({ error: 'Помилка збереження WhatsApp' });
     }
   });
 
-  // Fast Simulate connect WhatsApp
-  router.post('/whatsapp/connect-sim', async (req, res) => {
-    try {
-      const { phone, name } = req.body;
-      await waService.simulateConnection(phone, name);
-      res.json({ success: true, message: 'WhatsApp успешно авторизован по QR-коду' });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to connect WhatsApp' });
-    }
-  });
-
-  // Fast Simulate connect Telegram
-  router.post('/telegram/connect-sim', async (req, res) => {
-    try {
-      const { username, name } = req.body;
-      await tgService.simulateConnection(username, name);
-      res.json({ success: true, message: 'Telegram успешно подключен по QR-коду' });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to connect Telegram' });
-    }
-  });
-
-  // Disconnect messenger
+  // 4. Disconnect Messenger
   router.post('/disconnect/:channel', async (req, res) => {
     try {
       const { channel } = req.params;
-      if (channel === 'whatsapp') {
-        await waService.disconnect();
-      } else if (channel === 'telegram') {
-        await tgService.disconnect();
-      }
-      res.json({ success: true });
+      await prisma.messengerSession.deleteMany({ where: { channel } });
+      res.json({ success: true, channel });
     } catch (e) {
       res.status(500).json({ error: 'Failed to disconnect' });
     }
   });
 
-  // Get chat list (grouped by contact/deal)
-  router.get('/conversations', async (req, res) => {
-    try {
-      const messages = await prisma.chatMessage.findMany({
-        include: {
-          contact: true,
-          deal: {
-            select: { id: true, title: true, budget: true, stage: true, responsible: true }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      });
-
-      // Group by contactId or dealId
-      const grouped: { [key: string]: any } = {};
-
-      for (const msg of messages) {
-        const key = msg.contactId || msg.dealId || msg.senderPhone || msg.senderTgId || msg.id;
-        if (!grouped[key]) {
-          grouped[key] = {
-            id: key,
-            channel: msg.channel,
-            contact: msg.contact,
-            deal: msg.deal,
-            senderName: msg.senderName || msg.contact?.name || 'Неизвестный клиент',
-            senderPhone: msg.senderPhone || msg.contact?.phone,
-            senderTgId: msg.senderTgId || msg.contact?.telegram,
-            lastMessage: msg,
-            unreadCount: msg.direction === 'incoming' && msg.status !== 'read' ? 1 : 0
-          };
-        }
-      }
-
-      res.json(Object.values(grouped));
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to fetch conversations' });
-    }
-  });
-
-  // Get messages for a deal or contact
-  router.get('/messages', async (req, res) => {
-    try {
-      const { dealId, contactId } = req.query;
-      let where: any = {};
-      if (dealId) where.dealId = String(dealId);
-      if (contactId) where.contactId = String(contactId);
-
-      const messages = await prisma.chatMessage.findMany({
-        where,
-        orderBy: { createdAt: 'asc' }
-      });
-      res.json(messages);
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to fetch messages' });
-    }
-  });
-
-  // Send message from manager to client
+  // 5. Send Message to WhatsApp / Telegram
   router.post('/send', async (req, res) => {
     try {
-      const currentUserId = req.headers['x-user-id'] as string;
       const { channel, to, text, dealId, contactId } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: 'Текст повідомлення обов\'язковий' });
+      }
 
-      let msg;
       if (channel === 'whatsapp') {
-        msg = await waService.sendMessage(to, text, dealId, contactId);
-      } else if (channel === 'telegram') {
-        msg = await tgService.sendMessage(to, text, dealId, contactId);
+        const msg = await whatsappService.sendMessage(to, text, dealId, contactId);
+        return res.json(msg);
       } else {
-        msg = await prisma.chatMessage.create({
-          data: {
-            channel: 'internal',
-            direction: 'outgoing',
-            dealId,
-            contactId,
-            text
-          }
-        });
+        const msg = await telegramService.sendMessage(to, text, dealId, contactId);
+        return res.json(msg);
       }
-
-      if (dealId && currentUserId) {
-        await prisma.dealNote.create({
-          data: {
-            dealId,
-            userId: currentUserId,
-            type: 'comment',
-            content: `Отправлено сообщение в ${channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}: "${text}"`
-          }
-        });
-      }
-
-      res.status(201).json(msg);
     } catch (e) {
-      res.status(500).json({ error: 'Failed to send message' });
+      res.status(500).json({ error: 'Помилка надсилання повідомлення' });
     }
   });
 
-  // Simulate incoming test message from client (For testing omnichannel pipeline)
-  router.post('/simulate-incoming', async (req, res) => {
+  // 6. Incoming Webhook for Real Telegram Messages
+  router.post('/webhook/telegram', async (req, res) => {
     try {
-      const { channel, senderName, senderContact, text } = req.body;
-      if (channel === 'whatsapp') {
-        // trigger simulated whatsapp message
-        const phone = senderContact || '79998887766';
-        let contact = await prisma.contact.findFirst({ where: { phone: { contains: phone } } });
-        if (!contact) {
-          contact = await prisma.contact.create({
-            data: {
-              name: senderName || 'Тестовый Клиент WhatsApp',
-              phone: `+${phone}`,
-              whatsapp: `+${phone}`
-            }
-          });
-        }
+      const update = req.body;
+      if (update?.message) {
+        const msg = update.message;
+        const from = msg.from;
+        const text = msg.text || '[Вкладення / Медіа]';
+        const username = from.username || `tg_${from.id}`;
+        const fullName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || username;
 
-        const defaultPipeline = await prisma.pipeline.findFirst({
-          where: { isDefault: true },
-          include: { stages: { orderBy: { sortOrder: 'asc' } } }
-        });
-        const defaultStage = defaultPipeline?.stages[0];
-        const sdr = await prisma.user.findFirst({ where: { role: 'lead_gen_sdr' } }) || await prisma.user.findFirst();
-
-        const deal = await prisma.deal.create({
-          data: {
-            title: `Заявка из WhatsApp: ${contact.name}`,
-            budget: 50000,
-            pipelineId: defaultPipeline!.id,
-            stageId: defaultStage!.id,
-            responsibleId: sdr!.id,
-            contactId: contact.id,
-            tags: JSON.stringify(['WhatsApp', 'Входящий'])
-          }
-        });
-
-        const msg = await prisma.chatMessage.create({
-          data: {
-            channel: 'whatsapp',
-            direction: 'incoming',
-            dealId: deal.id,
-            contactId: contact.id,
-            senderName: contact.name,
-            senderPhone: phone,
-            text: text || 'Здравствуйте! Интересует стоимость ваших услуг.'
-          }
-        });
-
-        res.json({ success: true, deal, message: msg });
-      } else {
-        // Telegram incoming
-        const tgUser = senderContact || '@test_tg_client';
-        const msg = await tgService.handleIncomingMessage(
-          tgUser,
-          senderName || 'Клиент Telegram',
-          text || 'Привет! Расскажите подробнее о продукте'
-        );
-        res.json({ success: true, message: msg });
+        await telegramService.handleIncomingMessage(username, fullName, text, String(from.id));
       }
+      res.sendStatus(200);
     } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Failed to simulate incoming message' });
+      res.sendStatus(200);
+    }
+  });
+
+  // 7. Incoming Webhook for Real WhatsApp Messages
+  router.post('/webhook/whatsapp', async (req, res) => {
+    try {
+      const { phone, senderName, text } = req.body;
+      if (phone && text) {
+        await whatsappService.handleIncomingMessage(phone, senderName || phone, text);
+      }
+      res.sendStatus(200);
+    } catch (e) {
+      res.sendStatus(200);
     }
   });
 

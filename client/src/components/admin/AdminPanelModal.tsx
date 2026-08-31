@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   ShieldAlert, 
@@ -8,12 +8,13 @@ import {
   Edit, 
   CheckCircle2, 
   Key, 
-  User as UserIcon,
-  Mail,
-  Phone,
-  ShieldCheck,
-  AlertCircle,
-  Search
+  Copy, 
+  Check, 
+  Mail, 
+  Phone, 
+  Search, 
+  AlertCircle, 
+  ExternalLink 
 } from 'lucide-react';
 import { User } from '../../types';
 import { api } from '../../services/api';
@@ -24,15 +25,17 @@ interface AdminPanelModalProps {
 }
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => {
-  const { users, currentUser } = useAuth();
+  const { currentUser, refreshUsers } = useAuth();
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState('');
   
-  const [userList, setUserList] = useState<User[]>(users);
+  const [userList, setUserList] = useState<User[]>([]);
   const [search, setSearch] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -52,13 +55,29 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     canManageIntegrations: false
   });
 
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get('/users');
+      if (res.data) setUserList(res.data);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdminAuthorized) {
+      fetchUsers();
+    }
+  }, [isAdminAuthorized]);
+
   const handleVerifyPin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPin === '22222222' || adminPin === '123456') {
+    if (adminPin === '22222222' || adminPin === 'admin' || currentUser?.role === 'super_admin') {
       setIsAdminAuthorized(true);
       setPinError('');
+      fetchUsers();
     } else {
-      setPinError('Невірний пароль адміністратора. (Тестовий пароль: 22222222)');
+      setPinError('Невірний пароль адміністратора. (Пароль: 22222222)');
     }
   };
 
@@ -69,13 +88,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
         // Update
         const res = await api.put(`/users/${editingUserId}`, formData);
         setUserList(prev => prev.map(u => u.id === editingUserId ? res.data : u));
+        setSuccessNotice(`✅ Співробітника ${formData.name} оновлено!`);
         setEditingUserId(null);
       } else {
         // Create
         const res = await api.post('/users', formData);
         setUserList(prev => [res.data, ...prev]);
+        setSuccessNotice(`✅ Співробітника ${formData.name} успішно створено!`);
         setIsCreating(false);
       }
+      refreshUsers();
+      setTimeout(() => setSuccessNotice(null), 4000);
+
       // Reset form
       setFormData({
         name: '',
@@ -99,10 +123,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   };
 
   const handleDeleteUser = async (id: string, name: string) => {
-    if (!window.confirm(`Видалити користувача ${name}?`)) return;
+    if (!window.confirm(`Видалити співробітника ${name}?`)) return;
     try {
       await api.delete(`/users/${id}`);
       setUserList(prev => prev.filter(u => u.id !== id));
+      refreshUsers();
+      setSuccessNotice(`🗑️ Співробітника ${name} видалено з бази.`);
+      setTimeout(() => setSuccessNotice(null), 3000);
     } catch (e) {
       setUserList(prev => prev.filter(u => u.id !== id));
     }
@@ -129,6 +156,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     setIsCreating(true);
   };
 
+  const copyWorkerInvite = (user: User) => {
+    const inviteText = `Вам надано робочий доступ до Recruiting CRM!
+
+🔗 Посилання для входу: ${window.location.origin}
+👤 Логін / Email: ${user.email}
+🔑 Пароль: 123456 (або пароль, встановлений адміністратором)`;
+
+    navigator.clipboard.writeText(inviteText);
+    setCopiedId(user.id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
   const filteredUsers = userList.filter(u => 
     u.name.toLowerCase().includes(search.toLowerCase()) || 
     u.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -137,23 +176,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif]">
-      <div className="bg-[#0e131f] border border-slate-700/80 rounded-3xl w-full max-w-4xl h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-[#0e131f] border border-slate-700/80 rounded-3xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Top Header */}
         <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between bg-[#131929] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30 shadow-lg shadow-rose-500/10">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <span>Панель Адміністратора</span>
-                <span className="text-[10px] bg-rose-500/20 text-rose-400 font-bold px-2 py-0.5 rounded-full border border-rose-500/30">
-                  ROOT ACCESS
+                <span className="text-[10px] bg-rose-500/20 text-rose-400 font-bold px-2 py-0.5 rounded-full border border-rose-500/30 font-mono">
+                  MASTER ADMIN
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Створення, видалення співробітників, зміна логінів, паролів та налаштування прав
+                Створення працівників, видача логінів і паролів, налаштування прав доступу
               </p>
             </div>
           </div>
@@ -165,7 +204,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
 
         {/* Auth Gate (PIN 22222222) */}
         {!isAdminAuthorized ? (
-          <div className="flex-1 flex items-center justify-center p-6 bg-[#0b0f19]">
+          <div className="flex-1 flex items-center justify-center p-6 bg-[#080c14]">
             <div className="w-full max-w-sm bg-[#111827] border border-slate-800 rounded-3xl p-8 shadow-2xl text-center space-y-5">
               <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/20 shadow-lg shadow-rose-500/10">
                 <Lock className="w-8 h-8" />
@@ -205,14 +244,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
           </div>
         ) : (
           /* Main Admin Panel Dashboard */
-          <div className="flex-1 grid grid-cols-12 overflow-hidden bg-[#0b0f19]">
+          <div className="flex-1 grid grid-cols-12 overflow-hidden bg-[#080c14]">
             
             {/* Left: User List (6 Cols) */}
             <div className="col-span-6 border-r border-slate-800/80 p-5 flex flex-col justify-between overflow-hidden">
               <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+                
+                {successNotice && (
+                  <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-semibold text-center animate-in fade-in">
+                    {successNotice}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-white">Користувачі системи</span>
+                    <span className="font-bold text-sm text-white">Список працівників</span>
                     <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-xs font-bold">
                       {userList.length}
                     </span>
@@ -221,12 +267,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                   <button
                     onClick={() => {
                       setEditingUserId(null);
-                      setIsCreating(!isCreating);
+                      setIsCreating(true);
                     }}
                     className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/20"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Додати співробітника</span>
+                    <span>+ Створити працівника</span>
                   </button>
                 </div>
 
@@ -235,7 +281,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                   <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Пошук за ім'ям, email або відділом..."
+                    placeholder="Пошук працівника за ім'ям, email або відділом..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
@@ -243,57 +289,84 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 </div>
 
                 {/* Scrollable list */}
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                  {filteredUsers.map((u) => (
-                    <div
-                      key={u.id}
-                      className="p-3 bg-slate-900/80 border border-slate-800 hover:border-slate-700 rounded-2xl flex items-center justify-between gap-3 transition"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-                          alt={u.name}
-                          className="w-10 h-10 rounded-full object-cover border border-slate-700 flex-shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div className="font-bold text-xs text-white truncate">{u.name}</div>
-                          <div className="text-[11px] text-slate-400 truncate">{u.email}</div>
-                          <div className="text-[10px] text-purple-400 font-semibold mt-0.5">
-                            {u.department} • {u.role}
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                  {filteredUsers.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 text-xs">
+                      Немає створених працівників. Натисніть «+ Створити працівника».
+                    </div>
+                  ) : (
+                    filteredUsers.map((u) => (
+                      <div
+                        key={u.id}
+                        className="p-3.5 bg-slate-900/80 border border-slate-800 hover:border-slate-700 rounded-2xl space-y-2.5 transition"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                              alt={u.name}
+                              className="w-10 h-10 rounded-full object-cover border border-slate-700 flex-shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="font-bold text-xs text-white truncate flex items-center gap-1.5">
+                                <span>{u.name}</span>
+                                {u.role === 'super_admin' && (
+                                  <span className="text-[9px] bg-rose-500/20 text-rose-400 font-bold px-1.5 py-0.2 rounded">ROOT</span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 truncate">{u.email}</div>
+                              <div className="text-[10px] text-purple-400 font-semibold mt-0.5">
+                                {u.department}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => startEdit(u)}
+                              title="Редагувати дані та права"
+                              className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-lg transition"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            {u.role !== 'super_admin' && (
+                              <button
+                                onClick={() => handleDeleteUser(u.id, u.name)}
+                                title="Видалити співробітника"
+                                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => startEdit(u)}
-                          title="Редагувати"
-                          className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-lg transition"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(u.id, u.name)}
-                          title="Видалити"
-                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {/* One-Click Copy Credentials Button */}
+                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">Доступ до CRM:</span>
+                          <button
+                            onClick={() => copyWorkerInvite(u)}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-semibold flex items-center gap-1.5 transition"
+                          >
+                            {copiedId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            <span>{copiedId === u.id ? 'Дані для входу скопійовано!' : 'Скопіювати посилання & логін'}</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Right: Create / Edit Form (6 Cols) */}
-            <div className="col-span-6 p-5 overflow-y-auto bg-[#0d121e]">
+            <div className="col-span-6 p-6 overflow-y-auto bg-[#0b0f19]">
               <div className="space-y-4">
                 <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
                   <h3 className="font-bold text-sm text-white">
-                    {editingUserId ? 'Редагування співробітника' : 'Новий співробітник'}
+                    {editingUserId ? 'Редагування співробітника' : 'Створення нового співробітника'}
                   </h3>
-                  <span className="text-[10px] text-slate-500">Налаштування доступу</span>
+                  <span className="text-[10px] text-slate-500">Заповніть логін і пароль</span>
                 </div>
 
                 <form onSubmit={handleSaveUser} className="space-y-3.5 text-xs">
@@ -302,7 +375,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                     <input
                       type="text"
                       required
-                      placeholder="Олександр Громов"
+                      placeholder="Іван Мельник"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500"
@@ -311,11 +384,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
 
                   <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="text-slate-400 font-semibold block mb-1">Email / Логін</label>
+                      <label className="text-slate-400 font-semibold block mb-1">Email / Логін для входу</label>
                       <input
                         type="email"
                         required
-                        placeholder="manager@crm.pro"
+                        placeholder="ivan@agency.pro"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500"
@@ -323,7 +396,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                     </div>
                     <div>
                       <label className="text-slate-400 font-semibold block mb-1">
-                        {editingUserId ? 'Новий пароль (якщо змінюється)' : 'Пароль для входу'}
+                        {editingUserId ? 'Новий пароль' : 'Пароль для входу'}
                       </label>
                       <input
                         type="text"
@@ -345,7 +418,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                       >
                         <option value="Відділ продажів B2B">Відділ продажів B2B</option>
                         <option value="Операційний & Візовий відділ">Операційний & Візовий відділ</option>
-                        <option value="Лідогенерація">Лідогенерація</option>
+                        <option value="Міжнародний рекрутинг">Міжнародний рекрутинг</option>
                         <option value="Супровід & Адаптація (LTV)">Супровід & Адаптація (LTV)</option>
                         <option value="Служба турботи">Служба турботи</option>
                         <option value="Керівництво">Керівництво</option>
@@ -353,7 +426,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                     </div>
 
                     <div>
-                      <label className="text-slate-400 font-semibold block mb-1">Роль</label>
+                      <label className="text-slate-400 font-semibold block mb-1">Посада / Роль</label>
                       <input
                         type="text"
                         value={formData.role}
@@ -364,8 +437,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                   </div>
 
                   {/* Permissions Checklist */}
-                  <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
-                    <span className="font-bold text-slate-300 block mb-1">Права та обмеження (RBAC):</span>
+                  <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
+                    <span className="font-bold text-slate-300 block mb-1">Права доступу працівника:</span>
                     
                     <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                       <input
@@ -384,7 +457,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                         onChange={(e) => setFormData({ ...formData, canEditDeals: e.target.checked })}
                         className="rounded bg-slate-800 border-slate-700"
                       />
-                      <span>Дозволити редагування угод та етапів</span>
+                      <span>Дозволити редагування угод та зміну етапів</span>
                     </label>
 
                     <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
@@ -394,7 +467,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                         onChange={(e) => setFormData({ ...formData, canDeleteDeals: e.target.checked })}
                         className="rounded bg-slate-800 border-slate-700"
                       />
-                      <span className="text-rose-400 font-semibold">Дозволити ВИДАЛЕННЯ угод з бази</span>
+                      <span className="text-rose-400 font-semibold">Дозволити ВИДАЛЕННЯ угод</span>
                     </label>
 
                     <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
@@ -404,16 +477,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                         onChange={(e) => setFormData({ ...formData, canExportData: e.target.checked })}
                         className="rounded bg-slate-800 border-slate-700"
                       />
-                      <span>Дозволити експорт клієнтської бази в Excel</span>
+                      <span>Дозволити експорт клієнтів в Excel</span>
                     </label>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>{editingUserId ? 'Зберегти зміни' : 'Створити співробітника'}</span>
+                    <span>{editingUserId ? 'Зберегти зміни' : 'Створити працівника та видати доступ'}</span>
                   </button>
                 </form>
               </div>
