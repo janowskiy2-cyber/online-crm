@@ -1,14 +1,22 @@
 import { PrismaClient } from '@prisma/client';
 import { Server as SocketIOServer } from 'socket.io';
-import axios from 'axios';
+import { TelegramClient } from 'telegram';
+import { StringSession } from 'telegram/sessions';
+import { NewMessage } from 'telegram/events';
+
+// Official MTProto Desktop Client credentials
+const DEFAULT_API_ID = 2040;
+const DEFAULT_API_HASH = 'b18441a1ff607e10a989891a5462e627';
 
 export class TelegramService {
   private io: SocketIOServer | null = null;
   private prisma: PrismaClient;
-  private status: 'disconnected' | 'awaiting_code' | 'connected' = 'disconnected';
-  private accountInfo: { username?: string; phone?: string; name?: string; botToken?: string } = {};
+  private client: TelegramClient | null = null;
+  private status: 'disconnected' | 'awaiting_code' | 'awaiting_password' | 'connected' = 'disconnected';
+  private sessionString: string = '';
   private pendingPhone: string | null = null;
-  private botToken: string | null = null;
+  private phoneCodeHash: string | null = null;
+  private accountInfo: { name?: string; phone?: string; username?: string } = {};
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
@@ -21,16 +29,13 @@ export class TelegramService {
   public async initialize() {
     try {
       const session = await this.prisma.messengerSession.findUnique({ where: { channel: 'telegram' } });
-      if (session && session.status === 'connected') {
-        this.status = 'connected';
-        this.accountInfo = {
-          phone: session.phone || '+380 (73) 427-71-74',
-          name: session.accountName || 'Корпоративний Telegram',
-          botToken: session.qrCodeData || undefined
-        };
-        this.botToken = session.qrCodeData || null;
+      if (session && session.qrCodeData && session.status === 'connected') {
+        this.sessionString = session.qrCodeData;
+        await this.connectWithSessionString(this.sessionString);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Telegram initial MTProto session restore:', e);
+    }
   }
 
   public async getStatus() {
@@ -38,108 +43,169 @@ export class TelegramService {
       channel: 'telegram',
       status: this.status,
       phone: this.accountInfo.phone || '+380 (73) 427-71-74',
-      accountName: this.accountInfo.name || this.accountInfo.username || 'Корпоративний Telegram',
-      botToken: this.botToken ? '●●●●●●' : null,
+      accountName: this.accountInfo.name || this.accountInfo.username || 'Корпоративний Telegram (Користувач)',
       updatedAt: new Date()
     };
   }
 
-  // Option 1: Official Telegram Bot Token (100% Reliable, 0 errors, instant)
-  public async connectBotToken(token: string) {
+  // 1. Step 1: Send real official MTProto code to human phone
+  public async sendCodeToPhone(phone: string, customApiId?: number, customApiHash?: string) {
     try {
-      const cleanToken = token.trim();
-      const res = await axios.get(`https://api.telegram.org/bot${cleanToken}/getMe`);
-      if (res.data?.ok) {
-        const bot = res.data.result;
-        this.botToken = cleanToken;
-        this.status = 'connected';
-        this.accountInfo = {
-          name: `${bot.first_name} (@${bot.username})`,
-          username: `@${bot.username}`,
-          phone: `@${bot.username}`,
-          botToken: cleanToken
-        };
-
-        await this.persistSession(this.accountInfo.name, this.accountInfo.username, cleanToken);
-        this.broadcastStatus();
-
-        return {
-          success: true,
-          botUsername: `@${bot.username}`,
-          name: bot.first_name
-        };
-      } else {
-        throw new Error('Telegram API не підтвердив токен бота');
-      }
-    } catch (err: any) {
-      throw new Error(err.response?.data?.description || 'Невірний Telegram Bot Token. Перевірте токен від @BotFather');
-    }
-  }
-
-  // Option 2: Phone Authentication
-  public async sendCodeToPhone(phone: string, apiId?: string, apiHash?: string) {
-    try {
+      const apiId = customApiId || DEFAULT_API_ID;
+      const apiHash = customApiHash || DEFAULT_API_HASH;
       const cleanPhone = phone.replace(/\D/g, '');
       this.pendingPhone = `+${cleanPhone}`;
+
+      // Initialize Telegram MTProto Client
+      this.client = new TelegramClient(new StringSession(''), apiId, apiHash, {
+        connectionRetries: 5,
+        useWSS: false
+      });
+
+      await this.client.connect();
+
+      // Real MTProto call to Telegram official servers
+      const res = await this.client.sendCode(
+        {
+          apiId,
+          apiHash
+        },
+        this.pendingPhone
+      );
+
+      this.phoneCodeHash = res.phoneCodeHash;
       this.status = 'awaiting_code';
       this.broadcastStatus();
 
       return {
         success: true,
         phone: this.pendingPhone,
-        message: `Запит на код надіслано на номер ${this.pendingPhone}`
+        phoneCodeHash: this.phoneCodeHash,
+        message: `Офіційний 5-значний код надіслано серверами Telegram на номер ${this.pendingPhone}`
       };
-    } catch (e: any) {
-      throw new Error(e.message || 'Помилка надсилання коду Telegram');
+    } catch (err: any) {
+      console.error('Error in sendCodeToPhone:', err);
+      throw new Error(err.message || 'Помилка надсилання коду Telegram. Перевірте номер.');
     }
   }
 
+  // 2. Step 2: Sign in with the 5-digit code received in Telegram app
   public async signInWithCode(code: string, password2FA?: string) {
     try {
-      if (!this.pendingPhone) {
-        throw new Error('Спочатку введіть номер телефону');
+      if (!this.client || !this.pendingPhone || !this.phoneCodeHash) {
+        throw new Error('Сесія закінчилася. Введіть номер телефону знову.');
       }
+
+      await this.client.invoke(
+        new (await import('telegram/tl')).Api.auth.SignIn({
+          phoneNumber: this.pendingPhone,
+          phoneCodeHash: this.phoneCodeHash,
+          phoneCode: code.trim()
+        })
+      ).catch(async (err: any) => {
+        if (err.message?.includes('SESSION_PASSWORD_NEEDED') && password2FA) {
+          // Handle 2FA Password if account has Cloud Password
+          await (this.client as any).signInWithPassword({
+            password: password2FA
+          });
+        } else {
+          throw err;
+        }
+      });
+
+      // Fetch logged-in user profile
+      const me: any = await this.client.getMe();
+      const sessionStr = (this.client.session as StringSession).save();
 
       this.status = 'connected';
       this.accountInfo = {
-        phone: this.pendingPhone,
-        name: `Telegram (${this.pendingPhone})`,
-        username: '@corporate_hr'
+        name: `${me.firstName || ''} ${me.lastName || ''}`.trim() || me.username || 'Корпоративний Telegram',
+        username: me.username ? `@${me.username}` : undefined,
+        phone: me.phone ? `+${me.phone}` : this.pendingPhone
       };
 
-      await this.persistSession(this.accountInfo.name, this.pendingPhone);
+      await this.persistSession(this.accountInfo.name, this.accountInfo.phone, sessionStr);
+      this.setupMessageListener();
       this.broadcastStatus();
 
       return {
         success: true,
-        phone: this.pendingPhone,
-        name: this.accountInfo.name
+        name: this.accountInfo.name,
+        phone: this.accountInfo.phone
       };
-    } catch (e: any) {
-      throw new Error(e.message || 'Невірний код підтвердження');
+    } catch (err: any) {
+      console.error('Error in signInWithCode:', err);
+      throw new Error(err.message || 'Невірний код безпеки Telegram');
     }
   }
 
+  // Connect using saved StringSession
+  private async connectWithSessionString(sessionStr: string) {
+    try {
+      this.client = new TelegramClient(new StringSession(sessionStr), DEFAULT_API_ID, DEFAULT_API_HASH, {
+        connectionRetries: 5
+      });
+      await this.client.connect();
+      const me: any = await this.client.getMe();
+      if (me) {
+        this.status = 'connected';
+        this.accountInfo = {
+          name: `${me.firstName || ''} ${me.lastName || ''}`.trim() || me.username,
+          username: me.username ? `@${me.username}` : undefined,
+          phone: me.phone ? `+${me.phone}` : undefined
+        };
+        this.setupMessageListener();
+        this.broadcastStatus();
+      }
+    } catch (e) {
+      console.warn('Session string connect failed:', e);
+      this.status = 'disconnected';
+    }
+  }
+
+  // Listen to incoming messages to this human Telegram account
+  private setupMessageListener() {
+    if (!this.client) return;
+
+    this.client.addEventHandler(async (event: any) => {
+      const message = event.message;
+      if (!message || message.out) return; // Only incoming messages
+
+      try {
+        const sender: any = await message.getSender();
+        const senderName = `${sender?.firstName || ''} ${sender?.lastName || ''}`.trim() || sender?.username || 'Користувач Telegram';
+        const senderUsername = sender?.username ? `@${sender.username}` : (sender?.phone ? `+${sender.phone}` : `tg_${sender?.id}`);
+        const text = message.text || '[Медіа / Документ]';
+
+        await this.handleIncomingMessage(senderUsername, senderName, text, String(sender?.id));
+      } catch (err) {
+        console.error('Error handling incoming MTProto message:', err);
+      }
+    }, new NewMessage({}));
+  }
+
   public async disconnect() {
+    try {
+      if (this.client) {
+        await this.client.disconnect();
+      }
+    } catch (e) {}
     this.status = 'disconnected';
-    this.botToken = null;
+    this.client = null;
+    this.sessionString = '';
     this.accountInfo = {};
     this.pendingPhone = null;
     await this.persistSession();
     this.broadcastStatus();
   }
 
+  // Send message as real human Telegram user
   public async sendMessage(toTgIdOrUsername: string, text: string, dealId?: string, contactId?: string) {
-    // Send via real Telegram Bot API if connected
-    if (this.botToken) {
+    if (this.client && this.status === 'connected') {
       try {
-        const cleanChatId = toTgIdOrUsername.replace('@', '');
-        await axios.post(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
-          chat_id: cleanChatId,
-          text
-        });
+        await this.client.sendMessage(toTgIdOrUsername, { message: text });
       } catch (err) {
-        console.warn('Error sending Telegram bot message:', err);
+        console.warn('Error sending MTProto message:', err);
       }
     }
 
@@ -162,7 +228,20 @@ export class TelegramService {
     return savedMsg;
   }
 
+  // Send file as real human Telegram user
   public async sendFile(toTgIdOrUsername: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
+    if (this.client && this.status === 'connected') {
+      try {
+        const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+        await this.client.sendFile(toTgIdOrUsername, {
+          file: buffer,
+          caption: caption || fileName
+        });
+      } catch (err) {
+        console.warn('Error sending MTProto file:', err);
+      }
+    }
+
     const fileLabel = `📎 Файл TG: ${fileName}${caption ? ` — ${caption}` : ''}`;
 
     const savedMsg = await this.prisma.chatMessage.create({
@@ -278,20 +357,20 @@ export class TelegramService {
     }
   }
 
-  private async persistSession(accountName?: string, phone?: string, tokenData?: string) {
+  private async persistSession(accountName?: string, phone?: string, sessionStr?: string) {
     try {
       await this.prisma.messengerSession.upsert({
         where: { channel: 'telegram' },
         create: {
           channel: 'telegram',
           status: this.status,
-          qrCodeData: tokenData || null,
-          accountName: accountName || 'Telegram',
+          qrCodeData: sessionStr || null,
+          accountName: accountName || 'Telegram Користувач',
           phone: phone || null
         },
         update: {
           status: this.status,
-          qrCodeData: tokenData !== undefined ? tokenData : undefined,
+          qrCodeData: sessionStr !== undefined ? sessionStr : undefined,
           accountName: accountName !== undefined ? accountName : undefined,
           phone: phone !== undefined ? phone : undefined
         }

@@ -14,8 +14,8 @@ import {
   ArrowRight,
   Send,
   HelpCircle,
-  Bot,
-  ExternalLink
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 
@@ -46,11 +46,10 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
-  // Telegram Connection State
-  const [tgMode, setTgMode] = useState<'bot_token' | 'phone'>('bot_token');
-  const [tgBotToken, setTgBotToken] = useState('');
+  // Telegram Real Human User Account State
   const [tgPhone, setTgPhone] = useState('+380734277174');
   const [tgCode, setTgCode] = useState('');
+  const [tgPassword2FA, setTgPassword2FA] = useState('');
   const [tgStep, setTgStep] = useState<'enter_phone' | 'enter_code'>('enter_phone');
 
   const fetchStatus = async () => {
@@ -106,24 +105,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     };
   }, [activeChannel]);
 
-  // Connect Telegram Bot Token from @BotFather
-  const handleConnectTelegramBot = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorNotice(null);
-    setLoading(true);
-    try {
-      const res = await api.post('/chat/telegram/connect-bot', { botToken: tgBotToken });
-      setTgStatus({ status: 'connected', name: res.data.name, phone: res.data.botUsername });
-      setSuccessNotice(`🎉 Telegram успішно підключено: ${res.data.botUsername}`);
-      setTimeout(() => setSuccessNotice(null), 5000);
-    } catch (err: any) {
-      setErrorNotice(err?.response?.data?.error || 'Невірний токен від @BotFather. Перевірте правильність.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Telegram Phone Login (Code sent)
+  // Telegram Step 1: Send real official MTProto code to phone
   const handleTgSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorNotice(null);
@@ -131,27 +113,30 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     try {
       await api.post('/chat/telegram/send-code', { phone: tgPhone });
       setTgStep('enter_code');
-      setSuccessNotice(`✅ Запит надіслано на номер ${tgPhone}`);
-      setTimeout(() => setSuccessNotice(null), 5000);
+      setSuccessNotice(`✅ 5-значний офіційний код надіслано в додаток Telegram на номер ${tgPhone}`);
+      setTimeout(() => setSuccessNotice(null), 6000);
     } catch (err: any) {
-      setErrorNotice(err?.response?.data?.error || 'Помилка надсилання коду. Перевірте номер.');
+      setErrorNotice(err?.response?.data?.error || 'Помилка надсилання коду. Перевірте правильність номера.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Telegram Verify Code
+  // Telegram Step 2: Sign In with 5-digit Code (and optional 2FA password)
   const handleTgVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorNotice(null);
     setLoading(true);
     try {
-      await api.post('/chat/telegram/verify-code', { code: tgCode });
-      setTgStatus({ status: 'connected', phone: tgPhone, accountName: `Telegram (${tgPhone})` });
-      setSuccessNotice('🎉 Корпоративний Telegram успішно підключено!');
+      const res = await api.post('/chat/telegram/verify-code', { 
+        code: tgCode,
+        password: tgPassword2FA || undefined
+      });
+      setTgStatus({ status: 'connected', phone: tgPhone, accountName: res.data.name || `Telegram (${tgPhone})` });
+      setSuccessNotice('🎉 Корпоративний Telegram успішно підключено як живий акаунт!');
       setTimeout(() => setSuccessNotice(null), 5000);
     } catch (err: any) {
-      setErrorNotice(err?.response?.data?.error || 'Невірний код. Спробуйте ще раз.');
+      setErrorNotice(err?.response?.data?.error || 'Невірний код або пароль 2FA. Спробуйте ще раз.');
     } finally {
       setLoading(false);
     }
@@ -166,7 +151,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
         fetchWhatsAppQR();
       } else {
         setTgStatus({ status: 'disconnected', phone: null });
-        setTgBotToken('');
+        setTgStep('enter_phone');
       }
     } catch (e) {}
   };
@@ -187,11 +172,11 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <span>Шлюз месенджерів (WhatsApp & Telegram)</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">REAL GATEWAY</span>
+                <span>Корпоративні месенджери (Живі акаунти)</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">REAL SYNC</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Прямий зв'язок з кандидатами та клієнтами без посередників
+                Прямий зв'язок з кандидатами та роботодавцями від вашого реального імені
               </p>
             </div>
           </div>
@@ -223,7 +208,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <span>Telegram (Миттєве підключення)</span>
+            <span>Telegram (Особистий акаунт)</span>
             {isTgConnected && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
           </button>
         </div>
@@ -251,13 +236,13 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white">
-                  {activeChannel === 'whatsapp' ? 'WhatsApp підключено та активний' : 'Telegram підключено та активний'}
+                  {activeChannel === 'whatsapp' ? 'WhatsApp підключено' : 'Telegram акаунт підключено'}
                 </h3>
                 <p className="text-xs text-slate-300 mt-1">
-                  Активний акаунт: <span className="text-emerald-400 font-bold">{activeChannel === 'whatsapp' ? (waStatus.phone || 'Корпоративний номер') : (tgStatus.phone || tgBotToken)}</span>
+                  Активний акаунт: <span className="text-emerald-400 font-bold">{activeChannel === 'whatsapp' ? (waStatus.phone || 'Корпоративний номер') : (tgStatus.accountName || tgPhone)}</span>
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto mt-2">
-                  Ви можете надсилати повідомлення та файли кандидатам і роботодавцям прямо з CRM.
+                  Ви можете писати кандидатам і клієнтам напряму як реальна людина та надсилати файли.
                 </p>
               </div>
 
@@ -315,52 +300,34 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
               </button>
             </div>
           ) : (
-            /* Telegram Options: 1) Bot Token (100% Reliable, 15 sec) | 2) Phone */
+            /* Telegram Real Human User Phone MTProto Login */
             <div className="space-y-4 text-left max-w-md mx-auto text-xs">
-              <div className="flex justify-center gap-2 bg-slate-900 p-1 rounded-2xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setTgMode('bot_token')}
-                  className={`flex-1 py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 ${
-                    tgMode === 'bot_token' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30' : 'text-slate-400'
-                  }`}
-                >
-                  <Bot className="w-4 h-4" />
-                  <span>1. Bot Token (Рекомендовано)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTgMode('phone')}
-                  className={`flex-1 py-2 rounded-xl font-bold transition flex items-center justify-center gap-1.5 ${
-                    tgMode === 'phone' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30' : 'text-slate-400'
-                  }`}
-                >
-                  <Phone className="w-4 h-4" />
-                  <span>2. По номеру телефону</span>
-                </button>
+              <div className="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center mx-auto border border-sky-500/20 shadow-lg shadow-sky-500/10">
+                <UserCheck className="w-6 h-6" />
               </div>
 
-              {tgMode === 'bot_token' ? (
-                /* Bot Token Form */
-                <form onSubmit={handleConnectTelegramBot} className="space-y-3.5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
-                  <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 text-slate-300 text-[11px] space-y-1">
-                    <span className="font-bold text-sky-400 block">Як отримати токен за 30 секунд:</span>
-                    <p>1. Відкрийте офіційного бота в Telegram: <b>@BotFather</b></p>
-                    <p>2. Надішліть команду <code className="text-white bg-slate-800 px-1 rounded">/newbot</code> та введіть назву компанії</p>
-                    <p>3. Скопіюйте отриманий токен (наприклад: <code className="text-sky-300">7182938192:AAHj...</code>) і вставте нижче:</p>
-                  </div>
+              <div className="text-center">
+                <h3 className="text-base font-bold text-white">Вхід у реальний Telegram-акаунт</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Листування з кандидатами та роботодавцями як реальна людина (не бот)
+                </p>
+              </div>
 
+              {tgStep === 'enter_phone' ? (
+                <form onSubmit={handleTgSendCode} className="space-y-3.5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
                   <div>
-                    <label className="text-slate-400 font-semibold block mb-1">Telegram Bot Token від @BotFather</label>
+                    <label className="text-slate-400 font-semibold block mb-1.5">
+                      Номер телефону вашого Telegram
+                    </label>
                     <div className="relative">
-                      <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
-                        type="text"
+                        type="tel"
                         required
-                        placeholder="7182938192:AAHj-K9LmNoPqRsTuVwXyZ..."
-                        value={tgBotToken}
-                        onChange={(e) => setTgBotToken(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-sky-500"
+                        placeholder="+380 73 427 71 74"
+                        value={tgPhone}
+                        onChange={(e) => setTgPhone(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-white text-xs focus:outline-none focus:border-sky-500"
                       />
                     </div>
                   </div>
@@ -370,59 +337,65 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                     disabled={loading}
                     className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-sky-600/30"
                   >
-                    <span>{loading ? 'Перевірка токена...' : 'Підключити Telegram миттєво'}</span>
+                    <span>{loading ? 'Надсилання офіційного запиту...' : 'Отримати код у Telegram'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
+
+                  <p className="text-[11px] text-slate-500 text-center">
+                    Офіційний код надійде безпосередньо у ваш додаток Telegram від сервісної служби <b>Telegram Notifications</b>.
+                  </p>
                 </form>
               ) : (
-                /* Phone Code Form */
-                <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-3">
-                  {tgStep === 'enter_phone' ? (
-                    <form onSubmit={handleTgSendCode} className="space-y-3">
-                      <div>
-                        <label className="text-slate-400 font-semibold block mb-1">Номер телефону Telegram</label>
-                        <input
-                          type="tel"
-                          required
-                          placeholder="+380 73 427 71 74"
-                          value={tgPhone}
-                          onChange={(e) => setTgPhone(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-sky-500"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold flex items-center justify-center gap-2"
-                      >
-                        <span>{loading ? 'Надсилання...' : 'Запитати код'}</span>
-                      </button>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleTgVerifyCode} className="space-y-3">
-                      <div>
-                        <label className="text-slate-400 font-semibold block mb-1">5-значний код із додатку Telegram</label>
-                        <input
-                          type="text"
-                          required
-                          maxLength={6}
-                          placeholder="12345"
-                          value={tgCode}
-                          onChange={(e) => setTgCode(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-center text-lg text-white font-mono"
-                          autoFocus
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold"
-                      >
-                        <span>Підтвердити</span>
-                      </button>
-                    </form>
-                  )}
-                </div>
+                <form onSubmit={handleTgVerifyCode} className="space-y-3.5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                  <div>
+                    <label className="text-slate-400 font-semibold block mb-1.5">
+                      5-значний код із додатку Telegram на {tgPhone}
+                    </label>
+                    <div className="relative">
+                      <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        placeholder="12345"
+                        value={tgCode}
+                        onChange={(e) => setTgCode(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-center text-lg tracking-widest text-white font-mono focus:outline-none focus:border-sky-500"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-500 text-[11px] font-semibold block mb-1">
+                      Хмарний пароль 2FA (якщо увімкнено у налаштуваннях Telegram)
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Необов'язково (якщо є 2FA)"
+                      value={tgPassword2FA}
+                      onChange={(e) => setTgPassword2FA(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-600/30"
+                  >
+                    <span>{loading ? 'Авторизація...' : 'Увійти в особистий Telegram'}</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTgStep('enter_phone')}
+                    className="w-full text-center text-[11px] text-slate-400 hover:text-white pt-1"
+                  >
+                    ← Змінити номер телефону
+                  </button>
+                </form>
               )}
             </div>
           )}
