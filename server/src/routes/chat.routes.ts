@@ -24,7 +24,27 @@ export function createChatRouter(
     }
   });
 
-  // 2. WhatsApp: Get real dynamic Meta QR Code
+  // 2. Get all chat messages for Unified Inbox
+  router.get('/messages', async (req, res) => {
+    try {
+      const { channel, dealId, contactId } = req.query;
+      const where: any = {};
+      if (channel) where.channel = String(channel);
+      if (dealId) where.dealId = String(dealId);
+      if (contactId) where.contactId = String(contactId);
+
+      const messages = await prisma.chatMessage.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        take: 300
+      });
+      res.json(messages);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+  });
+
+  // 3. WhatsApp: Get real dynamic Meta QR Code
   router.get('/whatsapp/qr', async (req, res) => {
     try {
       const qrCodeData = await whatsappService.generateQR();
@@ -34,7 +54,7 @@ export function createChatRouter(
     }
   });
 
-  // 3. WhatsApp: Disconnect
+  // 4. WhatsApp: Disconnect
   router.post('/whatsapp/disconnect', async (req, res) => {
     try {
       await whatsappService.disconnect();
@@ -44,7 +64,17 @@ export function createChatRouter(
     }
   });
 
-  // 4. Telegram: Send code to user's phone number
+  // 5. Telegram: Get dynamic Web Login QR code for Telegram App scanning
+  router.get('/telegram/qr', async (req, res) => {
+    try {
+      const qrCodeData = await telegramService.generateUserQR();
+      res.json({ qrCodeData });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to generate Telegram QR' });
+    }
+  });
+
+  // 6. Telegram: Send code to user's phone number
   router.post('/telegram/send-code', async (req, res) => {
     try {
       const { phone } = req.body;
@@ -56,7 +86,7 @@ export function createChatRouter(
     }
   });
 
-  // 5. Telegram: Verify code from Telegram app
+  // 7. Telegram: Verify code from Telegram app
   router.post('/telegram/verify-code', async (req, res) => {
     try {
       const { code, password } = req.body;
@@ -68,7 +98,7 @@ export function createChatRouter(
     }
   });
 
-  // 6. Telegram: Disconnect
+  // 8. Telegram: Disconnect
   router.post('/telegram/disconnect', async (req, res) => {
     try {
       await telegramService.disconnect();
@@ -78,7 +108,7 @@ export function createChatRouter(
     }
   });
 
-  // 7. Send message from CRM
+  // 9. Send message from CRM
   router.post('/send', async (req, res) => {
     try {
       const { channel, to, text, dealId, contactId } = req.body;
