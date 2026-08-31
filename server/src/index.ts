@@ -5,6 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
+import { LeadDistributionService } from './services/lead-distribution.service';
 import { WhatsAppService } from './services/whatsapp.service';
 import { TelegramService } from './services/telegram.service';
 import { AutomationService } from './services/automation.service';
@@ -29,10 +30,12 @@ const io = new SocketIOServer(server, {
 });
 
 const prisma = new PrismaClient();
-const waService = new WhatsAppService(prisma);
-const tgService = new TelegramService(prisma);
+const leadDistributionService = new LeadDistributionService(prisma);
+const waService = new WhatsAppService(prisma, leadDistributionService);
+const tgService = new TelegramService(prisma, leadDistributionService);
 const automationService = new AutomationService(prisma, waService, tgService);
 
+leadDistributionService.setSocketIO(io);
 waService.setSocketIO(io);
 tgService.setSocketIO(io);
 automationService.setSocketIO(io);
@@ -50,7 +53,7 @@ app.use('/api/chat', createChatRouter(prisma, waService, tgService));
 app.use('/api/users', createUsersRouter(prisma));
 app.use('/api/analytics', createAnalyticsRouter(prisma));
 app.use('/api/automation', createAutomationRouter(prisma));
-app.use('/api/webhooks', createWebhookRouter(prisma, io));
+app.use('/api/webhooks', createWebhookRouter(prisma, leadDistributionService, io));
 
 // Health check
 app.get('/api/health', (req, res) => {

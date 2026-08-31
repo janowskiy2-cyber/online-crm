@@ -3,23 +3,25 @@ import { Server as SocketIOServer } from 'socket.io';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { NewMessage } from 'telegram/events';
+import { LeadDistributionService } from './lead-distribution.service';
 
-// Official MTProto Desktop Client credentials
 const DEFAULT_API_ID = 2040;
 const DEFAULT_API_HASH = 'b18441a1ff607e10a989891a5462e627';
 
 export class TelegramService {
   private io: SocketIOServer | null = null;
   private prisma: PrismaClient;
+  private distributionService: LeadDistributionService;
   private client: TelegramClient | null = null;
-  private status: 'disconnected' | 'awaiting_code' | 'awaiting_password' | 'connected' = 'disconnected';
+  private status: 'disconnected' | 'awaiting_code' | 'connected' = 'disconnected';
   private sessionString: string = '';
   private pendingPhone: string | null = null;
   private phoneCodeHash: string | null = null;
   private accountInfo: { name?: string; phone?: string; username?: string } = {};
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, distributionService: LeadDistributionService) {
     this.prisma = prisma;
+    this.distributionService = distributionService;
   }
 
   public setSocketIO(io: SocketIOServer) {
@@ -48,7 +50,6 @@ export class TelegramService {
     };
   }
 
-  // 1. Step 1: Send real official MTProto code to human phone
   public async sendCodeToPhone(phone: string, customApiId?: number, customApiHash?: string) {
     try {
       const apiId = customApiId || DEFAULT_API_ID;
@@ -56,7 +57,6 @@ export class TelegramService {
       const cleanPhone = phone.replace(/\D/g, '');
       this.pendingPhone = `+${cleanPhone}`;
 
-      // Initialize Telegram MTProto Client
       this.client = new TelegramClient(new StringSession(''), apiId, apiHash, {
         connectionRetries: 5,
         useWSS: false
@@ -64,7 +64,6 @@ export class TelegramService {
 
       await this.client.connect();
 
-      // Real MTProto call to Telegram official servers
       const res = await this.client.sendCode(
         {
           apiId,
@@ -89,7 +88,6 @@ export class TelegramService {
     }
   }
 
-  // 2. Step 2: Sign in with the 5-digit code received in Telegram app
   public async signInWithCode(code: string, password2FA?: string) {
     try {
       if (!this.client || !this.pendingPhone || !this.phoneCodeHash) {
@@ -104,7 +102,6 @@ export class TelegramService {
         })
       ).catch(async (err: any) => {
         if (err.message?.includes('SESSION_PASSWORD_NEEDED') && password2FA) {
-          // Handle 2FA Password if account has Cloud Password
           await (this.client as any).signInWithPassword({
             password: password2FA
           });
@@ -113,7 +110,6 @@ export class TelegramService {
         }
       });
 
-      // Fetch logged-in user profile
       const me: any = await this.client.getMe();
       const sessionStr = (this.client.session as StringSession).save();
 
@@ -139,7 +135,6 @@ export class TelegramService {
     }
   }
 
-  // Connect using saved StringSession
   private async connectWithSessionString(sessionStr: string) {
     try {
       this.client = new TelegramClient(new StringSession(sessionStr), DEFAULT_API_ID, DEFAULT_API_HASH, {
@@ -163,13 +158,12 @@ export class TelegramService {
     }
   }
 
-  // Listen to incoming messages to this human Telegram account
   private setupMessageListener() {
     if (!this.client) return;
 
     this.client.addEventHandler(async (event: any) => {
       const message = event.message;
-      if (!message || message.out) return; // Only incoming messages
+      if (!message || message.out) return;
 
       try {
         const sender: any = await message.getSender();
@@ -199,7 +193,6 @@ export class TelegramService {
     this.broadcastStatus();
   }
 
-  // Send message as real human Telegram user
   public async sendMessage(toTgIdOrUsername: string, text: string, dealId?: string, contactId?: string) {
     if (this.client && this.status === 'connected') {
       try {
@@ -228,7 +221,6 @@ export class TelegramService {
     return savedMsg;
   }
 
-  // Send file as real human Telegram user
   public async sendFile(toTgIdOrUsername: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
     if (this.client && this.status === 'connected') {
       try {
@@ -289,33 +281,15 @@ export class TelegramService {
         orderBy: { updatedAt: 'desc' }
       });
 
+      // If new lead from Telegram -> Auto-Distribute via Round-Robin or Unassigned Stage
       if (!deal) {
-        const defaultPipeline = await this.prisma.pipeline.findFirst({
-          where: { isDefault: true },
-          include: { stages: { orderBy: { sortOrder: 'asc' } } }
-        });
-
-        const firstStage = defaultPipeline?.stages[0];
-        const adminUser = await this.prisma.user.findFirst();
-
-        if (defaultPipeline && firstStage && adminUser) {
-          deal = await this.prisma.deal.create({
-            data: {
-              title: `Звернення Telegram: ${fullName || username}`,
-              budget: 0,
-              pipelineId: defaultPipeline.id,
-              stageId: firstStage.id,
-              responsibleId: adminUser.id,
-              contactId: contact.id,
-              tags: JSON.stringify(['Telegram', 'Кандидат']),
-              projectId: 'candidates'
-            }
-          });
-
-          if (this.io) {
-            this.io.emit('deal_created', deal);
-          }
-        }
+        deal = await this.distributionService.processInboundLead({
+          title: `Звернення Telegram: ${fullName || username}`,
+          contactId: contact.id,
+          channel: 'telegram',
+          text,
+          budget: 0
+        }) || null;
       }
 
       const savedMsg = await this.prisma.chatMessage.create({

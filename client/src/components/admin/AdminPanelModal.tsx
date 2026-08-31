@@ -14,7 +14,11 @@ import {
   Phone, 
   Search, 
   AlertCircle, 
-  ExternalLink 
+  ExternalLink,
+  Bot,
+  Sliders,
+  Sparkles,
+  Users
 } from 'lucide-react';
 import { User } from '../../types';
 import { api } from '../../services/api';
@@ -36,6 +40,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+
+  // Lead Distribution Engine Settings
+  const [autoDistribute, setAutoDistribute] = useState(true);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -64,11 +71,28 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     }
   };
 
+  const fetchSettings = async () => {
+    try {
+      const res = await api.get('/webhooks/distribution-settings');
+      if (res.data) setAutoDistribute(!!res.data.autoDistribute);
+    } catch (e) {}
+  };
+
   useEffect(() => {
     if (isAdminAuthorized) {
       fetchUsers();
+      fetchSettings();
     }
   }, [isAdminAuthorized]);
+
+  const handleToggleAutoDistribute = async (val: boolean) => {
+    setAutoDistribute(val);
+    try {
+      await api.post('/webhooks/distribution-settings', { autoDistribute: val });
+      setSuccessNotice(val ? '🤖 Увімкнено автоматичний розподіл лідів (Round-Robin)' : '📥 Увімкнено ручний розподіл лідів адміністратором');
+      setTimeout(() => setSuccessNotice(null), 4000);
+    } catch (e) {}
+  };
 
   const handleVerifyPin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,13 +109,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     e.preventDefault();
     try {
       if (editingUserId) {
-        // Update
         const res = await api.put(`/users/${editingUserId}`, formData);
         setUserList(prev => prev.map(u => u.id === editingUserId ? res.data : u));
         setSuccessNotice(`✅ Співробітника ${formData.name} оновлено!`);
         setEditingUserId(null);
       } else {
-        // Create
         const res = await api.post('/users', formData);
         setUserList(prev => [res.data, ...prev]);
         setSuccessNotice(`✅ Співробітника ${formData.name} успішно створено!`);
@@ -100,7 +122,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
       refreshUsers();
       setTimeout(() => setSuccessNotice(null), 4000);
 
-      // Reset form
       setFormData({
         name: '',
         email: '',
@@ -192,7 +213,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Створення працівників, видача логінів і паролів, налаштування прав доступу
+                Створення працівників, видача логінів і паролів, розподіл лідів
               </p>
             </div>
           </div>
@@ -246,15 +267,49 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
           /* Main Admin Panel Dashboard */
           <div className="flex-1 grid grid-cols-12 overflow-hidden bg-[#080c14]">
             
-            {/* Left: User List (6 Cols) */}
+            {/* Left: User List & Distribution Settings (6 Cols) */}
             <div className="col-span-6 border-r border-slate-800/80 p-5 flex flex-col justify-between overflow-hidden">
-              <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+              <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
                 
                 {successNotice && (
                   <div className="p-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-semibold text-center animate-in fade-in">
                     {successNotice}
                   </div>
                 )}
+
+                {/* Lead Distribution Engine Toggle Card */}
+                <div className="p-4 bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/30 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Bot className="w-4 h-4 text-blue-400" />
+                      <span>Розумний розподіл вхідних лідів</span>
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold">
+                      {autoDistribute ? 'ROUND-ROBIN' : 'MANUAL'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Автоматично призначати нові звернення з WhatsApp, Telegram та реклами порівну між менеджерами
+                  </p>
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      onClick={() => handleToggleAutoDistribute(true)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        autoDistribute ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      Авто-розподіл (ВКЛ)
+                    </button>
+                    <button
+                      onClick={() => handleToggleAutoDistribute(false)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                        !autoDistribute ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      Ручний розподіл (Адмін)
+                    </button>
+                  </div>
+                </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -349,7 +404,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-semibold flex items-center gap-1.5 transition"
                           >
                             {copiedId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{copiedId === u.id ? 'Дані для входу скопійовано!' : 'Скопіювати посилання & логін'}</span>
+                            <span>{copiedId === u.id ? 'Дані скопійовано!' : 'Скопіювати посилання & логін'}</span>
                           </button>
                         </div>
                       </div>

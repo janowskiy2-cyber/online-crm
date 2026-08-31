@@ -4,18 +4,21 @@ import QRCode from 'qrcode';
 import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
+import { LeadDistributionService } from './lead-distribution.service';
 
 export class WhatsAppService {
   private io: SocketIOServer | null = null;
   private prisma: PrismaClient;
+  private distributionService: LeadDistributionService;
   private qrCode: string | null = null;
   private status: 'disconnected' | 'qr_ready' | 'connecting' | 'connected' = 'qr_ready';
   private sock: any = null;
   private accountPhone: string | null = null;
   private authDir: string;
 
-  constructor(prisma: PrismaClient) {
+  constructor(prisma: PrismaClient, distributionService: LeadDistributionService) {
     this.prisma = prisma;
+    this.distributionService = distributionService;
     this.authDir = path.join(process.cwd(), 'whatsapp_auth_session');
     if (!fs.existsSync(this.authDir)) {
       fs.mkdirSync(this.authDir, { recursive: true });
@@ -146,6 +149,8 @@ export class WhatsAppService {
         }
       });
 
+      const isNewContact = !contact;
+
       if (!contact) {
         contact = await this.prisma.contact.create({
           data: {
@@ -162,35 +167,15 @@ export class WhatsAppService {
         orderBy: { updatedAt: 'desc' }
       });
 
+      // If new lead from WhatsApp -> Auto-Distribute via Round-Robin or Unassigned Stage
       if (!deal) {
-        const defaultPipeline = await this.prisma.pipeline.findFirst({
-          where: { isDefault: true },
-          include: { stages: { orderBy: { sortOrder: 'asc' } } }
-        }) || await this.prisma.pipeline.findFirst({
-          include: { stages: { orderBy: { sortOrder: 'asc' } } }
-        });
-
-        const firstStage = defaultPipeline?.stages[0];
-        const adminUser = await this.prisma.user.findFirst();
-
-        if (defaultPipeline && firstStage && adminUser) {
-          deal = await this.prisma.deal.create({
-            data: {
-              title: `Запит WhatsApp: ${contact.name}`,
-              budget: 0,
-              pipelineId: defaultPipeline.id,
-              stageId: firstStage.id,
-              responsibleId: adminUser.id,
-              contactId: contact.id,
-              tags: JSON.stringify(['WhatsApp', 'Вхідний']),
-              projectId: 'employers'
-            }
-          });
-
-          if (this.io) {
-            this.io.emit('deal_created', deal);
-          }
-        }
+        deal = await this.distributionService.processInboundLead({
+          title: `Запит WhatsApp: ${contact.name}`,
+          contactId: contact.id,
+          channel: 'whatsapp',
+          text,
+          budget: 0
+        }) || null;
       }
 
       const savedMsg = await this.prisma.chatMessage.create({
@@ -289,7 +274,6 @@ export class WhatsAppService {
     return savedMsg;
   }
 
-  // Real WhatsApp File / PDF / Image Sender
   public async sendFile(toPhone: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
     const cleanPhone = toPhone.replace(/\D/g, '');
     const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
