@@ -64,33 +64,19 @@ export function createChatRouter(
     }
   });
 
-  // 5. Telegram: Connect via Bot Token from @BotFather (100% Reliable, Instant)
-  router.post('/telegram/connect-bot', async (req, res) => {
-    try {
-      const { botToken } = req.body;
-      if (!botToken || !botToken.includes(':')) {
-        return res.status(400).json({ error: 'Введіть коректний Telegram Bot Token від @BotFather' });
-      }
-      const result = await telegramService.connectBotToken(botToken);
-      res.json(result);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message || 'Помилка підключення бота Telegram' });
-    }
-  });
-
-  // 6. Telegram: Send code to user's phone number
+  // 5. Telegram: Send official MTProto code to phone
   router.post('/telegram/send-code', async (req, res) => {
     try {
       const { phone, apiId, apiHash } = req.body;
       if (!phone) return res.status(400).json({ error: 'Введіть номер телефону' });
-      const result = await telegramService.sendCodeToPhone(phone, apiId, apiHash);
+      const result = await telegramService.sendCodeToPhone(phone, apiId ? Number(apiId) : undefined, apiHash);
       res.json(result);
     } catch (e: any) {
-      res.status(400).json({ error: e.message || 'Помилка надсилання коду' });
+      res.status(400).json({ error: e.message || 'Помилка надсилання коду Telegram' });
     }
   });
 
-  // 7. Telegram: Verify code from Telegram app
+  // 6. Telegram: Verify 5-digit code
   router.post('/telegram/verify-code', async (req, res) => {
     try {
       const { code, password } = req.body;
@@ -102,7 +88,7 @@ export function createChatRouter(
     }
   });
 
-  // 8. Telegram: Disconnect
+  // 7. Telegram: Disconnect
   router.post('/telegram/disconnect', async (req, res) => {
     try {
       await telegramService.disconnect();
@@ -112,7 +98,7 @@ export function createChatRouter(
     }
   });
 
-  // 9. Send text message from CRM
+  // 8. Send text message from CRM
   router.post('/send', async (req, res) => {
     try {
       const { channel, to, text, dealId, contactId } = req.body;
@@ -130,7 +116,7 @@ export function createChatRouter(
     }
   });
 
-  // 10. Send file (PDF / Image / Document) from CRM
+  // 9. Send file (PDF / Image / Document) from CRM
   router.post('/send-file', async (req, res) => {
     try {
       const { channel, to, fileBase64, fileName, mimeType, caption, dealId, contactId } = req.body;
@@ -147,6 +133,32 @@ export function createChatRouter(
       }
     } catch (e) {
       res.status(500).json({ error: 'Помилка надсилання файлу' });
+    }
+  });
+
+  // 10. Live Simulator / Pipeline Diagnostic: Simulate inbound message
+  router.post('/simulate-incoming', async (req, res) => {
+    try {
+      const { channel, senderName, phoneOrTg, text } = req.body;
+      const ch = channel || 'whatsapp';
+      const name = senderName || 'Тестовий Завод (Лід)';
+      const phone = phoneOrTg || '+380734277174';
+      const msgText = text || 'Доброго дня! Потрібно 15 пакувальників та операторів лінії на виробництво в Одесу.';
+
+      let savedMsg;
+      if (ch === 'whatsapp') {
+        savedMsg = await whatsappService.processIncomingOrOutgoingMessage(phone.replace(/\D/g, ''), name, msgText, false);
+      } else {
+        savedMsg = await telegramService.handleIncomingMessage(phone, name, msgText);
+      }
+
+      res.json({
+        success: true,
+        message: 'Імітацію вхідного ліда успішно оброблено розподільником',
+        data: savedMsg
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message || 'Помилка симуляції' });
     }
   });
 

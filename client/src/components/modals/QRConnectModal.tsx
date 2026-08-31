@@ -15,7 +15,8 @@ import {
   Send,
   HelpCircle,
   UserCheck,
-  Lock
+  Lock,
+  Play
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 
@@ -43,6 +44,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
 
   const [waQrImage, setWaQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
@@ -113,7 +115,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     try {
       await api.post('/chat/telegram/send-code', { phone: tgPhone });
       setTgStep('enter_code');
-      setSuccessNotice(`✅ 5-значний офіційний код надіслано в додаток Telegram на номер ${tgPhone}`);
+      setSuccessNotice(`✅ 5-значний код надіслано в додаток Telegram на номер ${tgPhone}`);
       setTimeout(() => setSuccessNotice(null), 6000);
     } catch (err: any) {
       setErrorNotice(err?.response?.data?.error || 'Помилка надсилання коду. Перевірте правильність номера.');
@@ -122,7 +124,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     }
   };
 
-  // Telegram Step 2: Sign In with 5-digit Code (and optional 2FA password)
+  // Telegram Step 2: Sign In with 5-digit Code
   const handleTgVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorNotice(null);
@@ -133,12 +135,32 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
         password: tgPassword2FA || undefined
       });
       setTgStatus({ status: 'connected', phone: tgPhone, accountName: res.data.name || `Telegram (${tgPhone})` });
-      setSuccessNotice('🎉 Корпоративний Telegram успішно підключено як живий акаунт!');
+      setSuccessNotice('🎉 Корпоративний Telegram успішно підключено!');
       setTimeout(() => setSuccessNotice(null), 5000);
     } catch (err: any) {
       setErrorNotice(err?.response?.data?.error || 'Невірний код або пароль 2FA. Спробуйте ще раз.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Test Inbound Lead Flow (Simulator)
+  const handleSimulateLead = async (channel: 'whatsapp' | 'telegram') => {
+    setIsSimulating(true);
+    setErrorNotice(null);
+    try {
+      await api.post('/chat/simulate-incoming', {
+        channel,
+        senderName: channel === 'whatsapp' ? 'ТОВ "Агро-Холдинг Південь" (WA)' : 'Андрій Директор (TG)',
+        phoneOrTg: channel === 'whatsapp' ? '+380734277174' : '@director_agro',
+        text: 'Доброго дня! Потрібно 20 робітників на склад і фасування в Одесу. Надішліть КП 4х25% та договір.'
+      });
+      setSuccessNotice(`🚀 Тестовий вхідний лід (${channel.toUpperCase()}) успішно створено та розподілено в CRM! Перевірте Воронку та Месенджери.`);
+      setTimeout(() => setSuccessNotice(null), 6000);
+    } catch (err) {
+      setErrorNotice('Помилка виконання тесту зв\'язку.');
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -172,11 +194,11 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <span>Корпоративні месенджери (Живі акаунти)</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">REAL SYNC</span>
+                <span>Шлюз месенджерів (WhatsApp & Telegram)</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">REAL GATEWAY</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Прямий зв'язок з кандидатами та роботодавцями від вашого реального імені
+                Прямий зв'язок з кандидатами та роботодавцями від імені компанії
               </p>
             </div>
           </div>
@@ -208,7 +230,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <span>Telegram (Особистий акаунт)</span>
+            <span>Telegram (Особистий номер)</span>
             {isTgConnected && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
           </button>
         </div>
@@ -236,28 +258,31 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white">
-                  {activeChannel === 'whatsapp' ? 'WhatsApp підключено' : 'Telegram акаунт підключено'}
+                  {activeChannel === 'whatsapp' ? 'WhatsApp підключено' : 'Telegram підключено'}
                 </h3>
                 <p className="text-xs text-slate-300 mt-1">
                   Активний акаунт: <span className="text-emerald-400 font-bold">{activeChannel === 'whatsapp' ? (waStatus.phone || 'Корпоративний номер') : (tgStatus.accountName || tgPhone)}</span>
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto mt-2">
-                  Ви можете писати кандидатам і клієнтам напряму як реальна людина та надсилати файли.
+                  Ви можете писати кандидатам і клієнтам напряму та надсилати файли.
                 </p>
               </div>
 
               <div className="flex justify-center gap-3 pt-2">
                 <button
+                  onClick={() => handleSimulateLead(activeChannel)}
+                  disabled={isSimulating}
+                  className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>{isSimulating ? 'Тестування...' : '⚡ Протестувати прийом ліда'}</span>
+                </button>
+
+                <button
                   onClick={() => handleDisconnect(activeChannel)}
                   className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition"
                 >
                   Відключити
-                </button>
-                <button
-                  onClick={onClose}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/30"
-                >
-                  Готово
                 </button>
               </div>
             </div>
@@ -290,14 +315,25 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                 </div>
               </div>
 
-              <button
-                onClick={fetchWhatsAppQR}
-                disabled={loading}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 mx-auto transition"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>Оновити WhatsApp QR</span>
-              </button>
+              <div className="flex justify-center gap-2">
+                <button
+                  onClick={fetchWhatsAppQR}
+                  disabled={loading}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Оновити QR</span>
+                </button>
+
+                <button
+                  onClick={() => handleSimulateLead('whatsapp')}
+                  disabled={isSimulating}
+                  className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>⚡ Тест прийому ліда</span>
+                </button>
+              </div>
             </div>
           ) : (
             /* Telegram Real Human User Phone MTProto Login */
@@ -307,9 +343,9 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
               </div>
 
               <div className="text-center">
-                <h3 className="text-base font-bold text-white">Вхід у реальний Telegram-акаунт</h3>
+                <h3 className="text-base font-bold text-white">Вхід у корпоративний Telegram</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Листування з кандидатами та роботодавцями як реальна людина (не бот)
+                  Пряме підключення до офіційного сервера Telegram
                 </p>
               </div>
 
@@ -317,7 +353,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                 <form onSubmit={handleTgSendCode} className="space-y-3.5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
                   <div>
                     <label className="text-slate-400 font-semibold block mb-1.5">
-                      Номер телефону вашого Telegram
+                      Номер телефону Telegram
                     </label>
                     <div className="relative">
                       <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -337,13 +373,21 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                     disabled={loading}
                     className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-sky-600/30"
                   >
-                    <span>{loading ? 'Надсилання офіційного запиту...' : 'Отримати код у Telegram'}</span>
+                    <span>{loading ? 'Надсилання запиту...' : 'Отримати код у Telegram'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
 
-                  <p className="text-[11px] text-slate-500 text-center">
-                    Офіційний код надійде безпосередньо у ваш додаток Telegram від сервісної служби <b>Telegram Notifications</b>.
-                  </p>
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSimulateLead('telegram')}
+                      disabled={isSimulating}
+                      className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 transition"
+                    >
+                      <Play className="w-3 h-3" />
+                      <span>⚡ Перевірити обробку ліда Telegram</span>
+                    </button>
+                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleTgVerifyCode} className="space-y-3.5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
@@ -366,25 +410,12 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-slate-500 text-[11px] font-semibold block mb-1">
-                      Хмарний пароль 2FA (якщо увімкнено у налаштуваннях Telegram)
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="Необов'язково (якщо є 2FA)"
-                      value={tgPassword2FA}
-                      onChange={(e) => setTgPassword2FA(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-
                   <button
                     type="submit"
                     disabled={loading}
                     className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-600/30"
                   >
-                    <span>{loading ? 'Авторизація...' : 'Увійти в особистий Telegram'}</span>
+                    <span>{loading ? 'Авторизація...' : 'Увійти'}</span>
                     <CheckCircle2 className="w-4 h-4" />
                   </button>
 
@@ -393,7 +424,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                     onClick={() => setTgStep('enter_phone')}
                     className="w-full text-center text-[11px] text-slate-400 hover:text-white pt-1"
                   >
-                    ← Змінити номер телефону
+                    ← Змінити номер
                   </button>
                 </form>
               )}
