@@ -10,6 +10,7 @@ import { AutomationView } from './components/automation/AutomationView';
 import { CandidatesView } from './components/recruiting/CandidatesView';
 import { RecruitingCalculatorModal } from './components/recruiting/RecruitingCalculatorModal';
 import { ObjectionsCheatSheetModal } from './components/recruiting/ObjectionsCheatSheetModal';
+import { AdminPanelModal } from './components/admin/AdminPanelModal';
 import { DealDetailModal } from './components/deal-modal/DealDetailModal';
 import { QRConnectModal } from './components/modals/QRConnectModal';
 import { UserSwitcherModal } from './components/modals/UserSwitcherModal';
@@ -116,7 +117,6 @@ export const App: React.FC = () => {
 
   const [activePipelineId, setActivePipelineId] = useState<string>(allWorkspacesPipelines[0].id);
 
-  // When project changes, automatically switch active pipeline to the first in that project
   useEffect(() => {
     if (currentProjectPipelines.length > 0) {
       setActivePipelineId(currentProjectPipelines[0].id);
@@ -133,6 +133,7 @@ export const App: React.FC = () => {
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [isObjectionsOpen, setIsObjectionsOpen] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
 
   // Live Toast Notifications
   const [notification, setNotification] = useState<{ title: string; body: string; dealId?: string } | null>(null);
@@ -225,7 +226,7 @@ export const App: React.FC = () => {
   const activePipeline = currentProjectPipelines.find(p => p.id === activePipelineId) || currentProjectPipelines[0] || allWorkspacesPipelines[0];
 
   return (
-    <div className="h-screen w-screen flex bg-[#0b0f19] text-slate-100 overflow-hidden font-['Inter',sans-serif]">
+    <div className="h-screen w-screen flex bg-[#080c14] text-slate-100 overflow-hidden font-['Inter',sans-serif]">
       {/* Toast Notification */}
       {notification && (
         <div 
@@ -262,6 +263,7 @@ export const App: React.FC = () => {
         openUserSwitcher={() => setIsUserSwitcherOpen(true)}
         openCalculator={() => setIsCalculatorOpen(true)}
         openObjections={() => setIsObjectionsOpen(true)}
+        openAdminPanel={() => setIsAdminPanelOpen(true)}
       />
 
       {/* Content Area */}
@@ -321,7 +323,7 @@ export const App: React.FC = () => {
           {currentTab === 'automation' && <AutomationView pipelines={pipelines} />}
 
           {currentTab === 'users' && (
-            <div className="flex-1 p-8 bg-[#0b0f19] flex items-center justify-center">
+            <div className="flex-1 p-8 bg-[#080c14] flex items-center justify-center">
               <div className="text-center space-y-4 max-w-md">
                 <div className="w-16 h-16 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center mx-auto border border-purple-500/30 shadow-lg shadow-purple-500/20">
                   <span className="text-2xl font-black">20</span>
@@ -330,12 +332,20 @@ export const App: React.FC = () => {
                 <p className="text-xs text-slate-400">
                   Керуйте правами доступу та перемикайтеся між генеральним директором, РОП, рекрутерами, візовими координаторами та підтримкою.
                 </p>
-                <button
-                  onClick={() => setIsUserSwitcherOpen(true)}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-purple-600/30"
-                >
-                  Відкрити матрицю 20 користувачів
-                </button>
+                <div className="flex justify-center gap-3">
+                  <button
+                    onClick={() => setIsUserSwitcherOpen(true)}
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-purple-600/30"
+                  >
+                    Перемикач ролей
+                  </button>
+                  <button
+                    onClick={() => setIsAdminPanelOpen(true)}
+                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-rose-600/30"
+                  >
+                    Адмін-панель (22222222)
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -354,6 +364,11 @@ export const App: React.FC = () => {
             fetchDeals();
           }}
         />
+      )}
+
+      {/* Admin Panel Modal (Root password 22222222) */}
+      {isAdminPanelOpen && (
+        <AdminPanelModal onClose={() => setIsAdminPanelOpen(false)} />
       )}
 
       {/* Recruiting Calculator Modal */}

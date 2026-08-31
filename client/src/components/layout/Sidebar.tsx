@@ -11,6 +11,7 @@ import {
   Globe2,
   Calculator,
   Sparkles,
+  Lock,
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +23,7 @@ interface SidebarProps {
   openUserSwitcher: () => void;
   openCalculator: () => void;
   openObjections: () => void;
+  openAdminPanel: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -30,7 +32,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openQRModal,
   openUserSwitcher,
   openCalculator,
-  openObjections
+  openObjections,
+  openAdminPanel
 }) => {
   const { currentUser, logout } = useAuth();
 
@@ -46,10 +49,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-[#111827] border-r border-slate-800 flex flex-col justify-between flex-shrink-0 select-none font-['Inter',sans-serif]">
+    <aside className="w-64 bg-[#0e1320] border-r border-slate-800 flex flex-col justify-between flex-shrink-0 select-none font-['Inter',sans-serif]">
       <div>
         {/* Brand Header */}
-        <div className="h-16 flex items-center px-5 border-b border-slate-800 gap-3">
+        <div className="h-16 flex items-center px-5 border-b border-slate-800 gap-3 bg-[#111827]">
           <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Globe2 className="w-5 h-5 text-white" />
           </div>
@@ -113,31 +116,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Messengers QR Quick Connect Card */}
+      {/* Admin Panel & Messengers & User Profile */}
       <div className="p-3 space-y-2 border-t border-slate-800/80 bg-slate-900/40">
+        
+        {/* Admin Panel Master Trigger */}
+        <button
+          onClick={openAdminPanel}
+          className="w-full py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center justify-between transition shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <Lock className="w-3.5 h-3.5 text-rose-400" />
+            <span>Адмін-панель (22222222)</span>
+          </div>
+          <span className="text-[10px] bg-rose-500/20 px-1.5 py-0.5 rounded font-mono">ROOT</span>
+        </button>
+
+        {/* Messengers QR Quick Connect Card */}
         <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl p-3 border border-slate-700/60">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
               <QrCode className="w-3.5 h-3.5 text-emerald-400" />
-              <span>QR Месенджери</span>
+              <span>Шлюз месенджерів</span>
             </span>
-            <span className="text-[10px] text-emerald-400 font-bold">● Без плати</span>
+            <span className="text-[10px] text-emerald-400 font-bold">● 0 €</span>
           </div>
-          <p className="text-[11px] text-slate-400 mb-2.5 leading-relaxed">
-            WhatsApp & Telegram підключення для переписки зі штатом і клієнтами.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 mt-2">
             <button
               onClick={() => openQRModal('whatsapp')}
               className="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
             >
-              <span>WhatsApp QR</span>
+              <span>WhatsApp</span>
             </button>
             <button
               onClick={() => openQRModal('telegram')}
               className="px-2.5 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
             >
-              <span>Telegram QR</span>
+              <span>Telegram</span>
             </button>
           </div>
         </div>
