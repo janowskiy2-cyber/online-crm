@@ -36,7 +36,7 @@ export class WhatsAppService {
     try {
       const baileys = await import('@whiskeysockets/baileys');
       const makeWASocket = baileys.default || baileys.makeWASocket;
-      const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileys;
+      const { useMultiFileAuthState, DisconnectReason } = baileys;
 
       const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
 
@@ -60,11 +60,7 @@ export class WhatsAppService {
           this.qrCode = await QRCode.toDataURL(qr, {
             errorCorrectionLevel: 'M',
             margin: 2,
-            scale: 8,
-            color: {
-              dark: '#080c14',
-              light: '#ffffff'
-            }
+            scale: 8
           });
           this.status = 'qr_ready';
           this.broadcastStatus();
@@ -89,24 +85,19 @@ export class WhatsAppService {
         }
       });
 
-      // Robust Message Extraction from all possible WhatsApp event types
       this.sock.ev.on('messages.upsert', async (m: any) => {
         try {
           if (!m.messages || m.messages.length === 0) return;
 
           for (const msg of m.messages) {
-            // Ignore protocol sync messages
             if (msg.messageStubType) continue;
 
             const remoteJid = msg.key?.remoteJid || '';
-            // Ignore status updates
             if (remoteJid === 'status@broadcast') continue;
 
-            const isGroup = remoteJid.endsWith('@g.us');
             const cleanPhone = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '').split(':')[0].replace(/\D/g, '');
             const isFromMe = !!msg.key?.fromMe;
 
-            // Extract text from any container type
             const content = msg.message;
             let text = '';
             if (content) {
@@ -117,24 +108,19 @@ export class WhatsAppService {
                 content.documentMessage?.caption ||
                 content.ephemeralMessage?.message?.conversation ||
                 content.ephemeralMessage?.message?.extendedTextMessage?.text ||
-                content.viewOnceMessage?.message?.conversation ||
-                content.viewOnceMessage?.message?.extendedTextMessage?.text ||
-                content.buttonsResponseMessage?.selectedDisplayText ||
-                content.templateButtonReplyMessage?.selectedId ||
                 '';
             }
 
             if (!text && content) {
               if (content.imageMessage) text = '📷 [Зображення]';
-              else if (content.documentMessage) text = '📄 [Документ / Резюме]';
+              else if (content.documentMessage) text = '📄 [Документ / Резюме / КП]';
               else if (content.audioMessage) text = '🎤 [Голосове повідомлення]';
               else if (content.videoMessage) text = '🎥 [Відеовізитка]';
             }
 
             if (!text) continue;
 
-            const pushName = msg.pushName || (isFromMe ? 'Менеджер' : `Клієнт WhatsApp (+${cleanPhone})`);
-
+            const pushName = msg.pushName || (isFromMe ? 'Менеджер' : `Клієнт (+${cleanPhone})`);
             await this.processIncomingOrOutgoingMessage(cleanPhone, pushName, text, isFromMe);
           }
         } catch (err) {
@@ -151,7 +137,6 @@ export class WhatsAppService {
       if (!cleanPhone) return;
       const formattedPhone = `+${cleanPhone}`;
 
-      // 1. Find or create Contact
       let contact = await this.prisma.contact.findFirst({
         where: {
           OR: [
@@ -172,7 +157,6 @@ export class WhatsAppService {
         });
       }
 
-      // 2. Find or create active Deal in the CRM
       let deal = await this.prisma.deal.findFirst({
         where: { contactId: contact.id },
         orderBy: { updatedAt: 'desc' }
@@ -209,7 +193,6 @@ export class WhatsAppService {
         }
       }
 
-      // 3. Save message to database
       const savedMsg = await this.prisma.chatMessage.create({
         data: {
           channel: 'whatsapp',
@@ -223,7 +206,6 @@ export class WhatsAppService {
         }
       });
 
-      // 4. Real-time broadcast to all CRM clients
       if (this.io) {
         this.io.emit('new_message', savedMsg);
         if (!isFromMe) {
@@ -279,13 +261,12 @@ export class WhatsAppService {
   public async sendMessage(toPhone: string, text: string, dealId?: string, contactId?: string) {
     const cleanPhone = toPhone.replace(/\D/g, '');
 
-    // Send via real WhatsApp WebSocket
     if (this.sock && this.status === 'connected') {
       try {
         const jid = `${cleanPhone}@s.whatsapp.net`;
         await this.sock.sendMessage(jid, { text });
       } catch (err) {
-        console.warn('Error sending via real Baileys socket:', err);
+        console.warn('Error sending text via WhatsApp:', err);
       }
     }
 
@@ -297,6 +278,53 @@ export class WhatsAppService {
         contactId,
         senderPhone: cleanPhone,
         text,
+        status: 'sent'
+      }
+    });
+
+    if (this.io) {
+      this.io.emit('new_message', savedMsg);
+    }
+
+    return savedMsg;
+  }
+
+  // Real WhatsApp File / PDF / Image Sender
+  public async sendFile(toPhone: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
+    const cleanPhone = toPhone.replace(/\D/g, '');
+    const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+
+    if (this.sock && this.status === 'connected') {
+      try {
+        const jid = `${cleanPhone}@s.whatsapp.net`;
+        if (mimeType.startsWith('image/')) {
+          await this.sock.sendMessage(jid, {
+            image: buffer,
+            caption: caption || fileName
+          });
+        } else {
+          await this.sock.sendMessage(jid, {
+            document: buffer,
+            mimetype: mimeType || 'application/pdf',
+            fileName: fileName || 'Document.pdf',
+            caption: caption || fileName
+          });
+        }
+      } catch (err) {
+        console.warn('Error sending file via WhatsApp:', err);
+      }
+    }
+
+    const fileLabel = `📎 Файл: ${fileName}${caption ? ` — ${caption}` : ''}`;
+
+    const savedMsg = await this.prisma.chatMessage.create({
+      data: {
+        channel: 'whatsapp',
+        direction: 'outgoing',
+        dealId,
+        contactId,
+        senderPhone: cleanPhone,
+        text: fileLabel,
         status: 'sent'
       }
     });

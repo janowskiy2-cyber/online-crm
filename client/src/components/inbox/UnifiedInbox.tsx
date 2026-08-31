@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, 
   Search, 
@@ -16,7 +16,9 @@ import {
   CheckCircle2, 
   Calendar, 
   ChevronRight, 
-  FileText 
+  FileText,
+  Paperclip,
+  X
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { ChatMessage, Deal, Pipeline } from '../../types';
@@ -36,6 +38,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [search, setSearch] = useState('');
   const [filterChannel, setFilterChannel] = useState<'all' | 'whatsapp' | 'telegram'>('all');
   
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<{ name: string; base64: string; type: string } | null>(null);
+  const [isSendingFile, setIsSendingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   // Active deal connected to selected chat
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -78,7 +85,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     };
   }, []);
 
-  // Group messages into distinct dialogs
   const dialogsMap = new Map<string, {
     key: string;
     senderName: string;
@@ -120,7 +126,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   const activeDialog = dialogs.find(d => d.key === selectedChatKey) || filteredDialogs[0];
 
-  // Fetch deal details for active dialog
   useEffect(() => {
     if (activeDialog?.dealId) {
       api.get(`/deals/${activeDialog.dealId}`).then(res => {
@@ -141,13 +146,54 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedFile({
+        name: file.name,
+        base64: reader.result as string,
+        type: file.type || 'application/pdf'
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
-    const textToSend = customText || replyText;
-    if (!textToSend.trim() || !activeDialog) return;
+    if (!activeDialog) return;
 
     const to = activeDialog.phoneOrId;
     const channel = activeDialog.channel;
+
+    // Send file if attached
+    if (selectedFile) {
+      setIsSendingFile(true);
+      try {
+        await api.post('/chat/send-file', {
+          channel,
+          to,
+          fileBase64: selectedFile.base64,
+          fileName: selectedFile.name,
+          mimeType: selectedFile.type,
+          caption: replyText || undefined,
+          dealId: activeDialog.dealId
+        });
+        setSelectedFile(null);
+        setReplyText('');
+        fetchMessages();
+      } catch (err) {
+        alert('Помилка відправки файлу');
+      } finally {
+        setIsSendingFile(false);
+      }
+      return;
+    }
+
+    const textToSend = customText || replyText;
+    if (!textToSend.trim()) return;
 
     try {
       await api.post('/chat/send', {
@@ -191,7 +237,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             </button>
           </div>
 
-          {/* Search */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -203,7 +248,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             />
           </div>
 
-          {/* Channel filter tabs */}
           <div className="flex gap-1.5 bg-slate-900 p-1 rounded-xl text-[11px] font-bold">
             <button
               onClick={() => setFilterChannel('all')}
@@ -272,7 +316,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       <div className="flex-1 flex flex-col justify-between overflow-hidden bg-[#080c14] border-r border-slate-800">
         {activeDialog ? (
           <>
-            {/* Room Header with In-Chat Quick Stage Bar */}
             <div className="border-b border-slate-800 bg-[#0e1320] flex-shrink-0">
               <div className="h-14 px-6 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -300,7 +343,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 )}
               </div>
 
-              {/* In-Chat Instant Pipeline Stage Bar */}
               {activeDeal && currentPipeline && (
                 <div className="px-6 py-2 bg-[#0c101c] border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto">
                   <span className="text-[10px] text-slate-500 uppercase font-bold mr-1">Етап:</span>
@@ -329,6 +371,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             <div className="flex-1 p-6 overflow-y-auto space-y-3.5">
               {activeDialog.messages.map((m) => {
                 const isOut = m.direction === 'outgoing';
+                const isFile = m.text.startsWith('📎 Файл');
                 return (
                   <div
                     key={m.id}
@@ -344,7 +387,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         isOut
                           ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/20'
                           : 'bg-[#141b2d] text-slate-100 border border-slate-800 rounded-tl-none'
-                      }`}
+                      } ${isFile ? 'border-2 border-amber-400/40 font-semibold' : ''}`}
                     >
                       {m.text}
                     </div>
@@ -353,7 +396,20 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               })}
             </div>
 
-            {/* Message Reply Form with Quick Snippets */}
+            {/* File Attachment preview */}
+            {selectedFile && (
+              <div className="mx-4 p-2.5 bg-slate-900 border border-amber-500/40 rounded-2xl flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
+                <div className="flex items-center gap-2 truncate">
+                  <Paperclip className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <span className="font-semibold truncate">Прикріплено: {selectedFile.name}</span>
+                </div>
+                <button onClick={() => setSelectedFile(null)} className="p-1 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Message Reply Form with File Attachment & Quick Snippets */}
             <div className="p-3.5 border-t border-slate-800 bg-[#0e1320] space-y-2">
               <div className="flex gap-1.5 overflow-x-auto pb-1">
                 {quickSnippets.map((snip, idx) => (
@@ -371,6 +427,23 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
               <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-2">
                 <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept="application/pdf,image/*,.doc,.docx"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Прикріпити файл (PDF / Фото / Договір)"
+                  className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
+
+                <input
                   type="text"
                   placeholder={`Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
                   value={replyText}
@@ -379,10 +452,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 />
                 <button
                   type="submit"
+                  disabled={isSendingFile}
                   className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Надіслати</span>
+                  <span>{isSendingFile ? 'Надсилання...' : 'Надіслати'}</span>
                 </button>
               </form>
             </div>
@@ -394,7 +468,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         )}
       </div>
 
-      {/* Right Smart Deal Mini-Sidebar (Right) */}
+      {/* Right Smart Deal Mini-Sidebar */}
       {activeDeal && (
         <div className="w-72 border-l border-slate-800 p-4 bg-[#0e1320] flex flex-col justify-between overflow-y-auto text-xs space-y-4 hidden lg:flex">
           <div className="space-y-3.5">
@@ -421,7 +495,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               )}
             </div>
 
-            {/* 4-Stage Payment Milestone Card */}
             <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Графік оплати (4х25%):

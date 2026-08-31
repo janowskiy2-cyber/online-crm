@@ -64,7 +64,7 @@ export function createChatRouter(
     }
   });
 
-  // 5. Telegram: Get dynamic Web Login QR code for Telegram App scanning
+  // 5. Telegram: Get dynamic Web Login QR code
   router.get('/telegram/qr', async (req, res) => {
     try {
       const qrCodeData = await telegramService.generateUserQR();
@@ -108,7 +108,7 @@ export function createChatRouter(
     }
   });
 
-  // 9. Send message from CRM
+  // 9. Send text message from CRM
   router.post('/send', async (req, res) => {
     try {
       const { channel, to, text, dealId, contactId } = req.body;
@@ -123,6 +123,26 @@ export function createChatRouter(
       }
     } catch (e) {
       res.status(500).json({ error: 'Помилка надсилання повідомлення' });
+    }
+  });
+
+  // 10. Send file (PDF / Image / Document) from CRM
+  router.post('/send-file', async (req, res) => {
+    try {
+      const { channel, to, fileBase64, fileName, mimeType, caption, dealId, contactId } = req.body;
+      if (!fileBase64 || !fileName) {
+        return res.status(400).json({ error: 'Файл та назва обов\'язкові' });
+      }
+
+      if (channel === 'whatsapp') {
+        const msg = await whatsappService.sendFile(to, fileBase64, fileName, mimeType, caption, dealId, contactId);
+        return res.json(msg);
+      } else {
+        const msg = await telegramService.sendFile(to, fileBase64, fileName, mimeType, caption, dealId, contactId);
+        return res.json(msg);
+      }
+    } catch (e) {
+      res.status(500).json({ error: 'Помилка надсилання файлу' });
     }
   });
 

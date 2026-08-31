@@ -20,7 +20,6 @@ export class TelegramService {
   }
 
   public async initialize() {
-    // Check saved session in database
     try {
       const session = await this.prisma.messengerSession.findUnique({ where: { channel: 'telegram' } });
       if (session && session.status === 'connected') {
@@ -140,9 +139,30 @@ export class TelegramService {
     return savedMsg;
   }
 
+  public async sendFile(toTgIdOrUsername: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
+    const fileLabel = `📎 Файл TG: ${fileName}${caption ? ` — ${caption}` : ''}`;
+
+    const savedMsg = await this.prisma.chatMessage.create({
+      data: {
+        channel: 'telegram',
+        direction: 'outgoing',
+        dealId,
+        contactId,
+        senderTgId: toTgIdOrUsername,
+        text: fileLabel,
+        status: 'sent'
+      }
+    });
+
+    if (this.io) {
+      this.io.emit('new_message', savedMsg);
+    }
+
+    return savedMsg;
+  }
+
   public async handleIncomingMessage(username: string, fullName: string, text: string, tgId?: string) {
     try {
-      // 1. Find or create Contact
       let contact = await this.prisma.contact.findFirst({
         where: {
           OR: [
@@ -162,7 +182,6 @@ export class TelegramService {
         });
       }
 
-      // 2. Find active Deal
       let deal = await this.prisma.deal.findFirst({
         where: { contactId: contact.id },
         orderBy: { updatedAt: 'desc' }
@@ -197,7 +216,6 @@ export class TelegramService {
         }
       }
 
-      // 3. Save Message
       const savedMsg = await this.prisma.chatMessage.create({
         data: {
           channel: 'telegram',
