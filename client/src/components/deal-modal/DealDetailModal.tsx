@@ -739,9 +739,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       )}
 
       {/* Objections Modal */}
-      {isObjectionsOpen && (
+      {isObjectionsModalOpen && (
         <ObjectionsCheatSheetModal
-          onClose={() => setIsObjectionsOpen(false)}
+          onClose={() => setIsObjectionsModalOpen(false)}
           onSendToChat={(text) => setChatMessageText(text)}
         />
       )}

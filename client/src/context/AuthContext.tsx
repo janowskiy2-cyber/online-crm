@@ -33,8 +33,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('crm_active_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('crm_active_user');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    if (localStorage.getItem('crm_auth_token')) return defaultRootUser;
+    return null;
   });
 
   const [users, setUsers] = useState<User[]>([defaultRootUser]);
@@ -74,7 +78,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const cleanEmail = email.trim().toLowerCase();
       
-      // Try server login
       try {
         const res = await api.post('/auth/login', { email: cleanEmail, password: pass });
         if (res.data?.user) {
@@ -87,7 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
       } catch (err: any) {
-        // Fallback for root admin credentials if offline / render starting up
         if ((cleanEmail === 'admin@crm.pro' || cleanEmail === 'admin') && pass === '22222222') {
           setCurrentUser(defaultRootUser);
           setIsAuthenticated(true);
