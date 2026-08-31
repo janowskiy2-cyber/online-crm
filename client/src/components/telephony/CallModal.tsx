@@ -15,9 +15,11 @@ import {
   Pause, 
   Sparkles,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Radio
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { startSpeechToText } from '../../utils/speechRecognition';
 
 interface CallModalProps {
   dealId?: string;
@@ -41,8 +43,10 @@ export const CallModal: React.FC<CallModalProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [callNote, setCallNote] = useState('');
+  const [isDictating, setIsDictating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const timerRef = useRef<any>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     // Simulate connection after 2 seconds
@@ -56,12 +60,36 @@ export const CallModal: React.FC<CallModalProps> = ({
     return () => {
       clearTimeout(ringTimeout);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (recognitionRef.current) recognitionRef.current.stop();
     };
   }, []);
 
   const handleEndCall = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setCallState('ended');
+  };
+
+  const toggleVoiceDictation = () => {
+    if (isDictating) {
+      if (recognitionRef.current) recognitionRef.current.stop();
+      setIsDictating(false);
+    } else {
+      setIsDictating(true);
+      const instance = startSpeechToText({
+        language: 'uk-UA',
+        onResult: (text) => {
+          setCallNote(text);
+        },
+        onError: (err) => {
+          console.warn('Speech recognition error:', err);
+          setIsDictating(false);
+        },
+        onEnd: () => {
+          setIsDictating(false);
+        }
+      });
+      recognitionRef.current = instance;
+    }
   };
 
   const handleSaveCallSummary = async () => {
@@ -180,7 +208,7 @@ export const CallModal: React.FC<CallModalProps> = ({
             </button>
           </div>
         ) : (
-          /* Post-Call Summary Note & Audio Record Attachment */
+          /* Post-Call Summary Note with Speech-to-Text Voice Dictation */
           <div className="space-y-3 text-left pt-2 animate-in fade-in">
             <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-1.5 text-xs text-slate-300">
               <div className="flex items-center justify-between text-[11px] text-emerald-400 font-bold">
@@ -193,15 +221,34 @@ export const CallModal: React.FC<CallModalProps> = ({
             </div>
 
             <div>
-              <label className="text-slate-400 text-xs font-semibold block mb-1">
-                Результат розмови (Коментар у картку)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-slate-400 text-xs font-semibold">
+                  Підсумок розмови
+                </label>
+                
+                {/* Voice Dictation Button */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceDictation}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition ${
+                    isDictating 
+                      ? 'bg-rose-600 text-white animate-pulse' 
+                      : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30'
+                  }`}
+                >
+                  <Mic className="w-3 h-3" />
+                  <span>{isDictating ? 'Слухаю голос...' : '🎙️ Надиктувати голосом'}</span>
+                </button>
+              </div>
+
               <textarea
                 rows={2}
-                placeholder="Про що домовилися: відправити КП на 15 робітників, узгодити дату дзвінка з директором заводу..."
+                placeholder="Надиктуйте голосом або напишіть підсумок розмови..."
                 value={callNote}
                 onChange={(e) => setCallNote(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className={`w-full bg-slate-900 border rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                  isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-blue-500'
+                }`}
               />
             </div>
 
