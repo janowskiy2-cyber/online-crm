@@ -12,6 +12,7 @@ import {
   Calculator,
   Sparkles,
   Lock,
+  Share2,
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -41,11 +42,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'deals', label: 'Воронка угод', icon: Kanban, badge: null },
     { id: 'inbox', label: 'Месенджери', icon: MessageSquare, badge: 'WA / TG' },
     { id: 'candidates', label: 'База кандидатів', icon: Globe2, badge: 'POOL' },
+    { id: 'integrations', label: 'Реклама & Вебхуки', icon: Share2, badge: 'ADS' },
     { id: 'tasks', label: 'Завдання', icon: CheckSquare, badge: null },
     { id: 'contacts', label: 'Підприємства', icon: Users, badge: null },
     { id: 'analytics', label: 'Аналітика & KPI', icon: BarChart3, badge: null },
     { id: 'automation', label: 'Автоворонка', icon: Zap, badge: 'AUTO' },
-    { id: 'users', label: '20 Користувачів', icon: ShieldAlert, badge: 'RBAC' },
   ];
 
   return (
@@ -158,19 +159,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* User Account / Role Switcher Trigger & Logout */}
         <div className="flex items-center justify-between gap-2 p-2 rounded-2xl bg-slate-800/40 border border-slate-700/50">
-          <div 
-            onClick={openUserSwitcher}
-            className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer group"
-            title="Натисніть для зміни ролі (20 користувачів)"
-          >
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <img
               src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
               alt={currentUser?.name}
               className="w-8 h-8 rounded-full object-cover border border-slate-600"
             />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-white truncate group-hover:text-blue-400 transition">
-                {currentUser?.name || 'Користувач'}
+              <div className="text-xs font-bold text-white truncate">
+                {currentUser?.name || 'Адміністратор'}
               </div>
               <div className="text-[10px] text-slate-400 truncate">
                 {currentUser?.department}

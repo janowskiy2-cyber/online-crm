@@ -18,7 +18,10 @@ import {
   Sparkles,
   Calculator,
   Globe2,
-  HelpCircle
+  HelpCircle,
+  Users,
+  Video,
+  ExternalLink
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -44,7 +47,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 }) => {
   const { currentUser, users } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'notes' | 'tasks'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'candidates' | 'notes' | 'tasks'>('all');
   
   // Modals state
   const [isKPModalOpen, setIsKPModalOpen] = useState(false);
@@ -146,7 +149,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     if (!text.trim()) return;
 
     const to = chatChannel === 'whatsapp' 
-      ? (deal.contact?.whatsapp || deal.contact?.phone || '79990001122')
+      ? (deal.contact?.whatsapp || deal.contact?.phone || '+380734277174')
       : (deal.contact?.telegram || '@client_tg');
 
     try {
@@ -203,7 +206,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   };
 
-  const customFieldsObj = deal.customFields ? JSON.parse(deal.customFields) : {};
+  const customFieldsObj: Record<string, string> = deal.customFields ? JSON.parse(deal.customFields) : {};
   const tagsList: string[] = deal.tags ? JSON.parse(deal.tags) : [];
 
   const timelineItems = [
@@ -211,18 +214,25 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     ...(deal.messages || []).map(m => ({ ...m, itemType: 'message', timestamp: new Date(m.createdAt).getTime() }))
   ].sort((a, b) => b.timestamp - a.timestamp);
 
+  // Sample assigned candidates for this deal
+  const assignedCandidates = [
+    { id: 'cand-1', name: 'Бахром Юлдашев', country: 'Узбекистан', profession: 'Оператор автоматичної лінії / Склад', status: 'Віза D готова' },
+    { id: 'cand-2', name: 'Раджеш Кумар', country: 'Індія', profession: 'Зварювальник MIG/MAG', status: 'Дозвіл видано' },
+    { id: 'cand-3', name: 'Алішер Карімов', country: 'Узбекистан', profession: 'Пакувальник / Комплектувальник', status: 'Вийшов на зміну' }
+  ];
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none font-['Inter',sans-serif]">
-      <div className="bg-[#111827] border border-slate-700/80 rounded-3xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-[#0e1422] border border-slate-700/80 rounded-3xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Top Bar */}
-        <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between bg-[#141b2d] flex-shrink-0">
+        <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between bg-[#131929] flex-shrink-0">
           <div className="flex items-center gap-4 min-w-0">
             <h2 className="text-lg font-bold text-white truncate max-w-md">
               {deal.title}
             </h2>
             <span className="text-emerald-400 font-extrabold text-base px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-              {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(deal.budget || 0)}
+              €{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(deal.budget || 0)}
             </span>
           </div>
 
@@ -249,7 +259,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Скрипти заперечень</span>
+              <span>Скрипти</span>
             </button>
 
             {currentUser?.canDeleteDeals && (
@@ -271,7 +281,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         </div>
 
         {/* Pipeline Stage Switcher Bar */}
-        <div className="px-6 py-2.5 border-b border-slate-800 bg-[#0f1523] flex items-center gap-2 overflow-x-auto">
+        <div className="px-6 py-2.5 border-b border-slate-800 bg-[#0a0f1d] flex items-center gap-2 overflow-x-auto">
           {pipeline.stages.map((stage) => {
             const isCurrent = stage.id === deal.stageId;
             return (
@@ -298,7 +308,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         <div className="flex-1 grid grid-cols-12 overflow-hidden">
           
           {/* Left Column: Client & Project Params (3 Cols) */}
-          <div className="col-span-3 border-r border-slate-800/80 p-5 overflow-y-auto space-y-5 bg-[#111827] text-xs">
+          <div className="col-span-3 border-r border-slate-800/80 p-5 overflow-y-auto space-y-5 bg-[#0e1422] text-xs">
             {/* Responsible manager */}
             <div>
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
@@ -419,9 +429,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Central Column: Live Timeline & Messengers Chat (6 Cols) */}
-          <div className="col-span-6 flex flex-col h-full bg-[#0b0f19] border-r border-slate-800/80">
+          <div className="col-span-6 flex flex-col h-full bg-[#080c14] border-r border-slate-800/80">
             {/* Timeline Filter tabs */}
-            <div className="p-3 border-b border-slate-800/80 flex items-center justify-between bg-[#0f1523]">
+            <div className="p-3 border-b border-slate-800/80 flex items-center justify-between bg-[#0e1320]">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setActiveTab('all')}
@@ -438,7 +448,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>WhatsApp / TG Чат</span>
+                  <span>Чат (WA / TG)</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('candidates')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                    activeTab === 'candidates' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Кандидати ({assignedCandidates.length})</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('notes')}
@@ -456,74 +475,104 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Підказка AI</span>
+                <span>Скрипти</span>
               </button>
             </div>
 
-            {/* Timeline Stream */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3">
-              {timelineItems.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 text-xs">
-                  Історія подій поки порожня
+            {/* Content Area based on Tab */}
+            {activeTab === 'candidates' ? (
+              /* Attached Candidates List */
+              <div className="flex-1 p-5 overflow-y-auto space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <h4 className="font-bold text-sm text-white">Відібрані кандидати для підприємства</h4>
+                  <button
+                    onClick={() => alert('Форма прикріплення кандидата з бази')}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                  >
+                    + Додати кандидата
+                  </button>
                 </div>
-              ) : (
-                timelineItems.map((item: any) => {
-                  if (item.itemType === 'message') {
-                    const isOutgoing = item.direction === 'outgoing';
-                    const isWhatsApp = item.channel === 'whatsapp';
+
+                <div className="space-y-2.5">
+                  {assignedCandidates.map(c => (
+                    <div key={c.id} className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-white text-xs">{c.name}</div>
+                        <div className="text-[11px] text-slate-400">{c.profession} • <span className="text-blue-400">{c.country}</span></div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-xl bg-purple-500/20 text-purple-300 text-[10px] font-bold border border-purple-500/30">
+                        {c.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* Timeline Stream */
+              <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                {timelineItems.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    Історія подій поки порожня
+                  </div>
+                ) : (
+                  timelineItems.map((item: any) => {
+                    if (item.itemType === 'message') {
+                      const isOutgoing = item.direction === 'outgoing';
+                      const isWhatsApp = item.channel === 'whatsapp';
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex flex-col ${isOutgoing ? 'items-end' : 'items-start'}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              isWhatsApp ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'
+                            }`}>
+                              {isWhatsApp ? 'WhatsApp' : 'Telegram'}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {isOutgoing ? 'Менеджер' : (item.senderName || 'Клієнт')}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div
+                            className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed ${
+                              isOutgoing
+                                ? 'bg-blue-600 text-white rounded-tr-none'
+                                : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-none'
+                            }`}
+                          >
+                            {item.text}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={item.id}
-                        className={`flex flex-col ${isOutgoing ? 'items-end' : 'items-start'}`}
+                        className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 text-xs space-y-1.5"
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            isWhatsApp ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'
-                          }`}>
-                            {isWhatsApp ? 'WhatsApp' : 'Telegram'}
-                          </span>
-                          <span className="text-[11px] text-slate-400">
-                            {isOutgoing ? 'Менеджер' : (item.senderName || 'Клієнт')}
+                        <div className="flex items-center justify-between text-slate-400">
+                          <span className="font-semibold text-slate-200">
+                            {item.user?.name || 'Система'}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(item.createdAt).toLocaleString('uk-UA')}
                           </span>
                         </div>
-                        <div
-                          className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed ${
-                            isOutgoing
-                              ? 'bg-blue-600 text-white rounded-tr-none'
-                              : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-none'
-                          }`}
-                        >
-                          {item.text}
-                        </div>
+                        <p className="text-slate-300 leading-relaxed">{item.content}</p>
                       </div>
                     );
-                  }
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 text-xs space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span className="font-semibold text-slate-200">
-                          {item.user?.name || 'Система'}
-                        </span>
-                        <span className="text-[10px] text-slate-500">
-                          {new Date(item.createdAt).toLocaleString('uk-UA')}
-                        </span>
-                      </div>
-                      <p className="text-slate-300 leading-relaxed">{item.content}</p>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                  })
+                )}
+              </div>
+            )}
 
             {/* Message Bar */}
-            <div className="p-3.5 border-t border-slate-800/80 bg-[#111827] space-y-2.5">
+            <div className="p-3.5 border-t border-slate-800/80 bg-[#0e1422] space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <button
@@ -567,28 +616,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <span>Надіслати</span>
                 </button>
               </form>
-
-              {/* Note Input */}
-              <form onSubmit={handleAddNote} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Додати внутрішній коментар / замітку до угоди..."
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  className="flex-1 bg-slate-900/60 border border-slate-800 rounded-2xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-semibold transition"
-                >
-                  Замітка
-                </button>
-              </form>
             </div>
           </div>
 
           {/* Right Column: Tasks Checklist (3 Cols) */}
-          <div className="col-span-3 p-5 overflow-y-auto space-y-4 bg-[#111827]">
+          <div className="col-span-3 p-5 overflow-y-auto space-y-4 bg-[#0e1422]">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-amber-400" />
@@ -707,9 +739,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       )}
 
       {/* Objections Modal */}
-      {isObjectionsModalOpen && (
+      {isObjectionsOpen && (
         <ObjectionsCheatSheetModal
-          onClose={() => setIsObjectionsModalOpen(false)}
+          onClose={() => setIsObjectionsOpen(false)}
           onSendToChat={(text) => setChatMessageText(text)}
         />
       )}

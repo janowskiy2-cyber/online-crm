@@ -9,14 +9,15 @@ import { WhatsAppService } from './services/whatsapp.service';
 import { TelegramService } from './services/telegram.service';
 import { AutomationService } from './services/automation.service';
 import { createAuthRouter } from './routes/auth.routes';
-import { createDealRouter } from './routes/deal.routes';
+import { createDealsRouter } from './routes/deals.routes';
 import { createPipelineRouter } from './routes/pipeline.routes';
 import { createContactRouter } from './routes/contact.routes';
 import { createTaskRouter } from './routes/task.routes';
 import { createChatRouter } from './routes/chat.routes';
-import { createUserRouter } from './routes/user.routes';
+import { createUsersRouter } from './routes/users.routes';
 import { createAnalyticsRouter } from './routes/analytics.routes';
 import { createAutomationRouter } from './routes/automation.routes';
+import { createWebhookRouter } from './routes/webhook.routes';
 
 const app = express();
 const server = http.createServer(app);
@@ -41,14 +42,15 @@ app.use(express.json());
 
 // API Routes
 app.use('/api/auth', createAuthRouter(prisma));
-app.use('/api/deals', createDealRouter(prisma, automationService, () => io));
+app.use('/api/deals', createDealsRouter(prisma));
 app.use('/api/pipelines', createPipelineRouter(prisma));
 app.use('/api/contacts', createContactRouter(prisma));
 app.use('/api/tasks', createTaskRouter(prisma, () => io));
 app.use('/api/chat', createChatRouter(prisma, waService, tgService));
-app.use('/api/users', createUserRouter(prisma));
+app.use('/api/users', createUsersRouter(prisma));
 app.use('/api/analytics', createAnalyticsRouter(prisma));
 app.use('/api/automation', createAutomationRouter(prisma));
+app.use('/api/webhooks', createWebhookRouter(prisma, io));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -60,37 +62,14 @@ const clientDistPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
   app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(clientDistPath, 'index.html'));
-    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
   });
 }
 
-// Socket.io Realtime connections
-io.on('connection', (socket) => {
-  console.log('Client connected to real-time CRM updates:', socket.id);
+const PORT = process.env.PORT || 4000;
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
+server.listen(PORT, async () => {
+  console.log(`🚀 Production CRM Server running on port ${PORT}`);
+  await waService.initialize();
+  await tgService.initialize();
 });
-
-const PORT = process.env.PORT || 5000;
-
-async function start() {
-  try {
-    await prisma.$connect();
-    console.log('Connected to Database successfully.');
-
-    await waService.initialize();
-    await tgService.initialize();
-
-    server.listen(PORT, () => {
-      console.log(`🚀 Online CRM API Server is running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('Failed to start CRM server:', err);
-  }
-}
-
-start();

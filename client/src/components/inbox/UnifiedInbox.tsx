@@ -8,13 +8,18 @@ import {
   Building2, 
   CheckCheck, 
   Clock, 
-  QrCode,
-  Sparkles,
-  ExternalLink,
-  RefreshCw
+  QrCode, 
+  Sparkles, 
+  ExternalLink, 
+  RefreshCw, 
+  DollarSign, 
+  CheckCircle2, 
+  Calendar, 
+  ChevronRight, 
+  FileText 
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
-import { ChatMessage } from '../../types';
+import { ChatMessage, Deal, Pipeline } from '../../types';
 
 interface UnifiedInboxProps {
   onOpenDeal: (dealId: string) => void;
@@ -30,7 +35,17 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [replyText, setReplyText] = useState('');
   const [search, setSearch] = useState('');
   const [filterChannel, setFilterChannel] = useState<'all' | 'whatsapp' | 'telegram'>('all');
-  const [loading, setLoading] = useState(false);
+  
+  // Active deal connected to selected chat
+  const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+
+  const fetchPipelines = async () => {
+    try {
+      const res = await api.get('/pipelines');
+      if (res.data) setPipelines(res.data);
+    } catch (e) {}
+  };
 
   const fetchMessages = async () => {
     try {
@@ -45,8 +60,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   useEffect(() => {
     fetchMessages();
+    fetchPipelines();
 
-    // Fast polling every 2.5 seconds to guarantee 100% instant sync with WhatsApp phone
     const interval = setInterval(fetchMessages, 2500);
 
     const handleNewMessage = (msg: ChatMessage) => {
@@ -63,7 +78,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     };
   }, []);
 
-  // Group messages into distinct dialogs by phone / tg / deal
+  // Group messages into distinct dialogs
   const dialogsMap = new Map<string, {
     key: string;
     senderName: string;
@@ -105,9 +120,31 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   const activeDialog = dialogs.find(d => d.key === selectedChatKey) || filteredDialogs[0];
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim() || !activeDialog) return;
+  // Fetch deal details for active dialog
+  useEffect(() => {
+    if (activeDialog?.dealId) {
+      api.get(`/deals/${activeDialog.dealId}`).then(res => {
+        if (res.data) setActiveDeal(res.data);
+      }).catch(() => setActiveDeal(null));
+    } else {
+      setActiveDeal(null);
+    }
+  }, [activeDialog?.dealId]);
+
+  const handleStageChange = async (newStageId: string) => {
+    if (!activeDeal) return;
+    try {
+      const res = await api.put(`/deals/${activeDeal.id}`, { stageId: newStageId });
+      setActiveDeal(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault();
+    const textToSend = customText || replyText;
+    if (!textToSend.trim() || !activeDialog) return;
 
     const to = activeDialog.phoneOrId;
     const channel = activeDialog.channel;
@@ -116,7 +153,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       await api.post('/chat/send', {
         channel,
         to,
-        text: replyText,
+        text: textToSend,
         dealId: activeDialog.dealId
       });
       setReplyText('');
@@ -126,10 +163,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
+  const quickSnippets = [
+    { label: '📄 Розрахунок КП', text: 'Доброго дня! Підготували для вашого підприємства офіційну комерційну пропозицію з прорахунком вартості та графіком 4х25%. Надіслати PDF?' },
+    { label: '💳 Схема 4х25%', text: 'Оплата здійснюється безпечно за 4 транші по 25%: 1) Договір ➔ 2) Затвердження кандидатів ➔ 3) Віза D ➔ 4) Фактичний вихід на завод.' },
+    { label: '🛡️ Гарантія заміни', text: 'У нас діє 1 місяць повного супроводу координатором та 1 безкоштовна гарантійна заміна у разі необхідності.' }
+  ];
+
+  const currentPipeline = pipelines.find(p => p.id === activeDeal?.pipelineId) || pipelines[0];
+
   return (
     <div className="flex-1 flex overflow-hidden bg-[#080c14] select-none font-['Inter',sans-serif]">
+      
       {/* Dialogs List (Left) */}
-      <div className="w-80 sm:w-96 border-r border-slate-800 flex flex-col justify-between bg-[#0e1320] flex-shrink-0">
+      <div className="w-80 border-r border-slate-800 flex flex-col justify-between bg-[#0e1320] flex-shrink-0">
         <div className="p-4 border-b border-slate-800/80 space-y-3 bg-[#111827]">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -186,7 +232,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             <div className="p-8 text-center text-slate-500 text-xs space-y-2">
               <MessageSquare className="w-8 h-8 text-slate-600 mx-auto" />
               <p>Немає активних діалогів.</p>
-              <p className="text-[11px] text-slate-400">Надішліть повідомлення на підключений номер WhatsApp, і воно з'явиться тут у режимі реального часу!</p>
+              <p className="text-[11px] text-slate-400">Надішліть повідомлення на підключений номер WhatsApp/TG, і воно з'явиться тут миттєво!</p>
             </div>
           ) : (
             filteredDialogs.map((d) => {
@@ -222,39 +268,64 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         </div>
       </div>
 
-      {/* Active Dialog Room (Right) */}
-      <div className="flex-1 flex flex-col justify-between overflow-hidden bg-[#080c14]">
+      {/* Central Chat Room (Center) */}
+      <div className="flex-1 flex flex-col justify-between overflow-hidden bg-[#080c14] border-r border-slate-800">
         {activeDialog ? (
           <>
-            {/* Room Header */}
-            <div className="h-16 px-6 border-b border-slate-800 bg-[#0e1320] flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs ${
-                  activeDialog.channel === 'whatsapp' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                }`}>
-                  {activeDialog.channel === 'whatsapp' ? 'WA' : 'TG'}
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-white">{activeDialog.senderName}</h3>
-                  <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                    <span>{activeDialog.phoneOrId}</span>
-                    <span className="text-emerald-400 font-bold">● Пряме з'єднання</span>
+            {/* Room Header with In-Chat Quick Stage Bar */}
+            <div className="border-b border-slate-800 bg-[#0e1320] flex-shrink-0">
+              <div className="h-14 px-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-xs ${
+                    activeDialog.channel === 'whatsapp' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                  }`}>
+                    {activeDialog.channel === 'whatsapp' ? 'WA' : 'TG'}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-white">{activeDialog.senderName}</h3>
+                    <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                      <span>{activeDialog.phoneOrId}</span>
+                    </div>
                   </div>
                 </div>
+
+                {activeDialog.dealId && (
+                  <button
+                    onClick={() => onOpenDeal(activeDialog.dealId!)}
+                    className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                  >
+                    <span>Відкрити повну картку</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              {activeDialog.dealId && (
-                <button
-                  onClick={() => onOpenDeal(activeDialog.dealId!)}
-                  className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <span>Відкрити угоду в CRM</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
+              {/* In-Chat Instant Pipeline Stage Bar */}
+              {activeDeal && currentPipeline && (
+                <div className="px-6 py-2 bg-[#0c101c] border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold mr-1">Етап:</span>
+                  {currentPipeline.stages.map((stg) => {
+                    const isCurrent = activeDeal.stageId === stg.id;
+                    return (
+                      <button
+                        key={stg.id}
+                        onClick={() => handleStageChange(stg.id)}
+                        className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition ${
+                          isCurrent
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: stg.color }} />
+                        <span className="truncate max-w-[120px]">{stg.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
-            {/* Chat History */}
+            {/* Chat History Stream */}
             <div className="flex-1 p-6 overflow-y-auto space-y-3.5">
               {activeDialog.messages.map((m) => {
                 const isOut = m.direction === 'outgoing';
@@ -282,21 +353,35 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               })}
             </div>
 
-            {/* Message Reply Form */}
-            <div className="p-4 border-t border-slate-800 bg-[#0e1320]">
-              <form onSubmit={handleSendMessage} className="flex gap-2">
+            {/* Message Reply Form with Quick Snippets */}
+            <div className="p-3.5 border-t border-slate-800 bg-[#0e1320] space-y-2">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {quickSnippets.map((snip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSendMessage(undefined, snip.text)}
+                    className="px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 rounded-xl text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap transition"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <span>{snip.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder={`Написати клієнту у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
+                  placeholder={`Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
                 <button
                   type="submit"
-                  className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30"
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-3.5 h-3.5" />
                   <span>Надіслати</span>
                 </button>
               </form>
@@ -308,6 +393,70 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           </div>
         )}
       </div>
+
+      {/* Right Smart Deal Mini-Sidebar (Right) */}
+      {activeDeal && (
+        <div className="w-72 border-l border-slate-800 p-4 bg-[#0e1320] flex flex-col justify-between overflow-y-auto text-xs space-y-4 hidden lg:flex">
+          <div className="space-y-3.5">
+            <div className="border-b border-slate-800 pb-2.5 flex items-center justify-between">
+              <span className="font-bold text-white text-xs">Параметри угоди</span>
+              <span className="text-emerald-400 font-extrabold text-xs px-2 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                €{activeDeal.budget || 0}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="font-bold text-white text-xs truncate">{activeDeal.title}</div>
+              {activeDeal.company && (
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <Building2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                  <span className="truncate">{activeDeal.company.name}</span>
+                </div>
+              )}
+              {activeDeal.contact && (
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <UserIcon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                  <span className="truncate">{activeDeal.contact.name}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 4-Stage Payment Milestone Card */}
+            <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Графік оплати (4х25%):
+              </span>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex justify-between items-center text-slate-300">
+                  <span>1. Договір (25%):</span>
+                  <span className="text-emerald-400 font-bold">Оплачено</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-300">
+                  <span>2. Скринінг (25%):</span>
+                  <span className="text-blue-400 font-bold">Очікується</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>3. Віза D (25%):</span>
+                  <span>Очікується</span>
+                </div>
+                <div className="flex justify-between items-center text-slate-400">
+                  <span>4. Вихід на завод (25%):</span>
+                  <span>Очікується</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onOpenDeal(activeDeal.id)}
+            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition"
+          >
+            <span>Повна карточка угоди</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
     </div>
   );
 };
