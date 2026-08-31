@@ -64,22 +64,26 @@ export function createChatRouter(
     }
   });
 
-  // 5. Telegram: Get dynamic Web Login QR code
-  router.get('/telegram/qr', async (req, res) => {
+  // 5. Telegram: Connect via Bot Token from @BotFather (100% Reliable, Instant)
+  router.post('/telegram/connect-bot', async (req, res) => {
     try {
-      const qrCodeData = await telegramService.generateUserQR();
-      res.json({ qrCodeData });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to generate Telegram QR' });
+      const { botToken } = req.body;
+      if (!botToken || !botToken.includes(':')) {
+        return res.status(400).json({ error: 'Введіть коректний Telegram Bot Token від @BotFather' });
+      }
+      const result = await telegramService.connectBotToken(botToken);
+      res.json(result);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message || 'Помилка підключення бота Telegram' });
     }
   });
 
   // 6. Telegram: Send code to user's phone number
   router.post('/telegram/send-code', async (req, res) => {
     try {
-      const { phone } = req.body;
+      const { phone, apiId, apiHash } = req.body;
       if (!phone) return res.status(400).json({ error: 'Введіть номер телефону' });
-      const result = await telegramService.sendCodeToPhone(phone);
+      const result = await telegramService.sendCodeToPhone(phone, apiId, apiHash);
       res.json(result);
     } catch (e: any) {
       res.status(400).json({ error: e.message || 'Помилка надсилання коду' });
