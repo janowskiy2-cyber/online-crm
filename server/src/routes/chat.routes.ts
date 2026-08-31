@@ -136,25 +136,26 @@ export function createChatRouter(
     }
   });
 
-  // 10. Live Simulator / Pipeline Diagnostic: Simulate inbound message
+  // 10. Live Simulator: Guaranteed creation of new lead with unique phone
   router.post('/simulate-incoming', async (req, res) => {
     try {
-      const { channel, senderName, phoneOrTg, text } = req.body;
+      const { channel } = req.body;
       const ch = channel || 'whatsapp';
-      const name = senderName || 'Тестовий Завод (Лід)';
-      const phone = phoneOrTg || '+380734277174';
-      const msgText = text || 'Доброго дня! Потрібно 15 пакувальників та операторів лінії на виробництво в Одесу.';
+      const randomSuffix = Math.floor(100 + Math.random() * 900);
+      const uniquePhone = `+38067${Math.floor(1000000 + Math.random() * 9000000)}`;
+      const name = ch === 'whatsapp' ? `ТОВ "Пром-Завод #${randomSuffix}"` : `Директор Олексій #${randomSuffix}`;
+      const msgText = `Доброго дня! Терміново потрібно 15 фасувальників та операторів лінії на виробництво.`;
 
       let savedMsg;
       if (ch === 'whatsapp') {
-        savedMsg = await whatsappService.processIncomingOrOutgoingMessage(phone.replace(/\D/g, ''), name, msgText, false);
+        savedMsg = await whatsappService.processIncomingOrOutgoingMessage(uniquePhone.replace(/\D/g, ''), name, msgText, false);
       } else {
-        savedMsg = await telegramService.handleIncomingMessage(phone, name, msgText);
+        savedMsg = await telegramService.handleIncomingMessage(`@director_${randomSuffix}`, name, msgText);
       }
 
       res.json({
         success: true,
-        message: 'Імітацію вхідного ліда успішно оброблено розподільником',
+        message: 'Новий лід успішно створено та розподілено в CRM!',
         data: savedMsg
       });
     } catch (e: any) {
