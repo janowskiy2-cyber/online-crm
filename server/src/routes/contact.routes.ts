@@ -38,11 +38,12 @@ export function createContactRouter(prisma: PrismaClient) {
   // Create contact
   router.post('/', async (req, res) => {
     try {
-      const { name, phone, email, whatsapp, telegram, position, companyId } = req.body;
+      const { name, phone, phone2, email, whatsapp, telegram, position, companyId } = req.body;
       const contact = await prisma.contact.create({
         data: {
           name,
           phone,
+          phone2,
           email,
           whatsapp: whatsapp || phone,
           telegram,

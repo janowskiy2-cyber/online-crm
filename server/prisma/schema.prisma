@@ -84,6 +84,7 @@ model Contact {
   companyId   String?
   name        String
   phone       String?
+  phone2      String?
   email       String?
   whatsapp    String?
   telegram    String?

@@ -14,7 +14,6 @@ export function createDealsRouter(prisma: PrismaClient) {
 
       if (pipelineId) where.pipelineId = String(pipelineId);
       if (stageId) where.stageId = String(stageId);
-      if (projectId) where.projectId = String(projectId);
 
       // Strict user-level access isolation
       if (currentUserId) {

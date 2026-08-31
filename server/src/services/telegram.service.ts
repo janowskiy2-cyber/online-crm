@@ -257,22 +257,44 @@ export class TelegramService {
 
   public async handleIncomingMessage(username: string, fullName: string, text: string, tgId?: string) {
     try {
+      const cleanPhone = username.replace(/\D/g, '');
+      const whereConditions: any[] = [
+        { telegram: username },
+        { telegram: `@${username.replace('@', '')}` }
+      ];
+
+      if (fullName && fullName.trim()) {
+        whereConditions.push({ name: fullName });
+      }
+
+      if (cleanPhone.length >= 7) {
+        whereConditions.push({ phone: { contains: cleanPhone } });
+        whereConditions.push({ phone2: { contains: cleanPhone } });
+        whereConditions.push({ whatsapp: { contains: cleanPhone } });
+      }
+
       let contact = await this.prisma.contact.findFirst({
         where: {
-          OR: [
-            { telegram: username },
-            { name: fullName }
-          ]
+          OR: whereConditions
         }
       });
+
+      const formattedTg = username.startsWith('@') ? username : `@${username}`;
 
       if (!contact) {
         contact = await this.prisma.contact.create({
           data: {
             name: fullName || username,
-            telegram: username.startsWith('@') ? username : `@${username}`,
+            telegram: formattedTg,
+            phone: cleanPhone.length >= 7 ? `+${cleanPhone}` : undefined,
             position: 'Клієнт (Telegram)'
           }
+        });
+      } else if (!contact.telegram) {
+        // Auto-save telegram username if matched by phone!
+        contact = await this.prisma.contact.update({
+          where: { id: contact.id },
+          data: { telegram: formattedTg }
         });
       }
 

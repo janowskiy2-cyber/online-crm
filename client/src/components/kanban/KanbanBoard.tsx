@@ -37,7 +37,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const res = await api.get('/deals', {
         params: {
           pipelineId: pipeline?.id,
-          projectId,
           search: searchQuery
         }
       });

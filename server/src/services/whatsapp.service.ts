@@ -144,7 +144,8 @@ export class WhatsAppService {
         where: {
           OR: [
             { whatsapp: { contains: cleanPhone } },
-            { phone: { contains: cleanPhone } }
+            { phone: { contains: cleanPhone } },
+            { phone2: { contains: cleanPhone } }
           ]
         }
       });

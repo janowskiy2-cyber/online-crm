@@ -30,6 +30,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   // Client info
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactPhone2, setContactPhone2] = useState('');
   const [contactTelegram, setContactTelegram] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [tagsInput, setTagsInput] = useState('Лид, WhatsApp');
@@ -41,9 +42,6 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
     try {
       // 1. Create company if provided
       let companyId: string | null = null;
-      if (companyName.trim()) {
-        const compRes = await api.post('/contacts', { name: contactName, phone: contactPhone });
-      }
 
       // 2. Create contact if provided
       let contactId: string | null = null;
@@ -51,6 +49,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
         const contRes = await api.post('/contacts', {
           name: contactName || 'Новый клиент',
           phone: contactPhone,
+          phone2: contactPhone2,
           whatsapp: contactPhone,
           telegram: contactTelegram
         });
@@ -70,6 +69,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
       });
 
       onDealCreated(res.data);
+      alert(`✅ Лід "${title}" успішно додано до воронки на етап "${selectedPipeline.stages.find(s => s.id === stageId)?.name || 'Нова заявка'}"!`);
       onClose();
     } catch (e) {
       console.error('Failed to create deal:', e);
@@ -94,7 +94,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
             <label className="text-slate-400 block mb-1 font-semibold">Название сделки *</label>
             <input
               type="text"
-              placeholder="Например: Поставка оборудования для ООО Вектор"
+              placeholder="Наприклад: Підбір 15 зварювальників для ТОВ Агропром"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -104,7 +104,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-slate-400 block mb-1 font-semibold">Бюджет (₽)</label>
+              <label className="text-slate-400 block mb-1 font-semibold">Бюджет (€)</label>
               <input
                 type="number"
                 placeholder="100000"
@@ -171,7 +171,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
               />
               <input
                 type="text"
-                placeholder="Телефон (+7999...)"
+                placeholder="Телефон (+380...)"
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-500"
@@ -180,11 +180,20 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
+                placeholder="Додатковий телефон"
+                value={contactPhone2}
+                onChange={(e) => setContactPhone2(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-500"
+              />
+              <input
+                type="text"
                 placeholder="Telegram (@username)"
                 value={contactTelegram}
                 onChange={(e) => setContactTelegram(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-500"
               />
+            </div>
+            <div className="grid grid-cols-1 gap-3 mt-3">
               <input
                 type="text"
                 placeholder="Теги (через запятую)"

@@ -384,17 +384,57 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <span>{deal.contact.name}</span>
                   </div>
                   {deal.contact.phone && (
-                    <div className="text-xs text-slate-300 flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{deal.contact.phone}</span>
+                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                        <span className="truncate">{deal.contact.phone}</span>
+                      </div>
+                      <a
+                        href={`https://t.me/+${deal.contact.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
+                        title="Відкрити чат Telegram за номером"
+                      >
+                        <span>t.me/+тел</span>
+                      </a>
                     </div>
                   )}
-                  {deal.contact.telegram && (
-                    <div className="text-xs text-slate-300 flex items-center gap-2">
-                      <span className="text-sky-400 font-bold text-xs">TG:</span>
-                      <span>{deal.contact.telegram}</span>
+                  {deal.contact.phone2 && (
+                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                        <span className="truncate">{deal.contact.phone2}</span>
+                      </div>
+                      <a
+                        href={`https://t.me/+${deal.contact.phone2.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
+                        title="Відкрити чат Telegram за дод. номером"
+                      >
+                        <span>t.me/+тел2</span>
+                      </a>
                     </div>
                   )}
+                  {deal.contact.telegram ? (
+                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-sky-400 font-bold text-xs">TG:</span>
+                        <a href={`https://t.me/${deal.contact.telegram.replace('@', '')}`} target="_blank" rel="noreferrer" className="hover:underline text-sky-400 font-medium truncate">
+                          @{deal.contact.telegram.replace('@', '')}
+                        </a>
+                      </div>
+                      <a
+                        href={`https://t.me/${deal.contact.telegram.replace('@', '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[10px] font-bold transition flex-shrink-0"
+                      >
+                        Відкрити
+                      </a>
+                    </div>
+                  ) : null}
                   {deal.contact.email && (
                     <div className="text-xs text-slate-300 flex items-center gap-2">
                       <Mail className="w-3.5 h-3.5 text-amber-400" />
