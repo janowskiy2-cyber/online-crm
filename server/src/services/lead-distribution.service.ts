@@ -106,7 +106,7 @@ export class LeadDistributionService {
       });
 
       if (!defaultPipeline || !defaultPipeline.stages || defaultPipeline.stages.length === 0) {
-        // Create default pipeline if database is empty
+        // Create default pipeline with the new "Відправка КП" stage
         defaultPipeline = await this.prisma.pipeline.create({
           data: {
             id: 'pipe-employers-sales',
@@ -116,9 +116,11 @@ export class LeadDistributionService {
               create: [
                 { name: 'Нова заявка підприємства', color: '#64748b', sortOrder: 0 },
                 { name: 'Дзвінок-кваліфікація (15 хв)', color: '#3b82f6', sortOrder: 1 },
-                { name: 'Прорахунок & КП (PDF)', color: '#06b6d4', sortOrder: 2 },
-                { name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 3 },
-                { name: 'Договір підписано / В роботі', color: '#10b981', isWon: true, sortOrder: 4 }
+                { name: 'Відправка КП (PDF 4х25%)', color: '#8b5cf6', sortOrder: 2 },
+                { name: 'Прорахунок кошторису & Уточнення', color: '#06b6d4', sortOrder: 3 },
+                { name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 4 },
+                { name: 'Договір підписано / В роботі', color: '#10b981', isWon: true, sortOrder: 5 },
+                { name: 'Відмова', color: '#ef4444', isLost: true, sortOrder: 6 }
               ]
             }
           },

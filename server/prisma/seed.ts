@@ -53,10 +53,11 @@ async function main() {
         create: [
           { name: 'Нова заявка підприємства', color: '#64748b', sortOrder: 0 },
           { name: 'Дзвінок-кваліфікація (15 хв)', color: '#3b82f6', sortOrder: 1 },
-          { name: 'Прорахунок & КП (PDF)', color: '#06b6d4', sortOrder: 2 },
-          { name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 3 },
-          { name: 'Договір підписано / В роботі', color: '#10b981', isWon: true, sortOrder: 4 },
-          { name: 'Відмова', color: '#ef4444', isLost: true, sortOrder: 5 }
+          { name: 'Відправка КП (PDF 4х25%)', color: '#8b5cf6', sortOrder: 2 },
+          { name: 'Прорахунок кошторису & Уточнення', color: '#06b6d4', sortOrder: 3 },
+          { name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 4 },
+          { name: 'Договір підписано / В роботі', color: '#10b981', isWon: true, sortOrder: 5 },
+          { name: 'Відмова', color: '#ef4444', isLost: true, sortOrder: 6 }
         ]
       }
     }
@@ -85,41 +86,41 @@ async function main() {
   // Workspace 3: Agencies (Агенції)
   await prisma.pipeline.create({
     data: {
-      id: 'pipe-agencies-partners',
-      name: '🤝 Кадрові агенції: Постачальники з країн-донорів',
+      id: 'pipe-agencies-network',
+      name: '🤝 Агенції: Партнерська мережа в Азії',
       isDefault: false,
       sortOrder: 2,
       stages: {
         create: [
-          { name: 'Переговори з агенцією', color: '#64748b', sortOrder: 0 },
-          { name: 'Агентський договір підписано', color: '#3b82f6', sortOrder: 1 },
-          { name: 'Отримання пулу резюме (пачка)', color: '#06b6d4', sortOrder: 2 },
-          { name: 'Виплата агентської комісії', color: '#10b981', isWon: true, sortOrder: 3 }
+          { name: 'Запит на співпрацю (Агенція)', color: '#64748b', sortOrder: 0 },
+          { name: 'Перевірка ліцензії країни-донора', color: '#3b82f6', sortOrder: 1 },
+          { name: 'Підписання Agency Agreement', color: '#06b6d4', sortOrder: 2 },
+          { name: 'Активація пулу кандидатів', color: '#10b981', isWon: true, sortOrder: 3 }
         ]
       }
     }
   });
 
-  // Workspace 4: Legal & Logistics (Візи та кордон)
+  // Workspace 4: Visas & Logistics (Візи та Логістика)
   await prisma.pipeline.create({
     data: {
-      id: 'pipe-legal-logistics',
-      name: '🏛️ Візи & Логістика: Дозволи, Візи D, Кордон',
+      id: 'pipe-visas-logistics',
+      name: '✈️ Візи: Дозволи, Візи D та Логістика',
       isDefault: false,
       sortOrder: 3,
       stages: {
         create: [
-          { name: '1. Подача в Держпрацю (~7 днів)', color: '#3b82f6', sortOrder: 0 },
-          { name: '2. Дозвіл отримано / Держзбір', color: '#06b6d4', sortOrder: 1 },
-          { name: '3. Робоча віза D у консульстві', color: '#f59e0b', sortOrder: 2 },
-          { name: '4. Транзитний хаб Молдова ➔ Одеса', color: '#ec4899', sortOrder: 3 },
-          { name: '5. Прибуття на підприємство / Вихід', color: '#10b981', isWon: true, sortOrder: 4 }
+          { name: 'Подача в Держпраці / Центр зайнятості', color: '#64748b', sortOrder: 0 },
+          { name: 'Дозвіл на працю отримано', color: '#3b82f6', sortOrder: 1 },
+          { name: 'Оформлення візи D в консульстві', color: '#f59e0b', sortOrder: 2 },
+          { name: 'Квитки & Транзит Молдова/Одеса', color: '#06b6d4', sortOrder: 3 },
+          { name: 'Робітник прибув на завод', color: '#10b981', isWon: true, sortOrder: 4 }
         ]
       }
     }
   });
 
-  console.log('✅ Clean Database Ready. Master Admin: admin@crm.pro / 22222222');
+  console.log('✅ Seed finished successfully! 1 Master Admin ready.');
 }
 
 main()
