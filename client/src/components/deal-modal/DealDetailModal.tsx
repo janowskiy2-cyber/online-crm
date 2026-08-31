@@ -29,6 +29,8 @@ import { useAuth } from '../../context/AuthContext';
 import { KPGeneratorModal } from '../recruiting/KPGeneratorModal';
 import { ObjectionsCheatSheetModal } from '../recruiting/ObjectionsCheatSheetModal';
 import { RecruitingCalculatorModal } from '../recruiting/RecruitingCalculatorModal';
+import { CallModal } from '../telephony/CallModal';
+import { MediaViewerModal } from '../media/MediaViewerModal';
 
 interface DealDetailModalProps {
   dealId: string;
@@ -53,6 +55,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isKPModalOpen, setIsKPModalOpen] = useState(false);
   const [isObjectionsModalOpen, setIsObjectionsModalOpen] = useState(false);
   const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string } | null>(null);
 
   // New Note / Comment input
   const [noteText, setNoteText] = useState('');
@@ -236,8 +240,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </span>
           </div>
 
-          {/* Quick Action Tools: AI, KP, Calc */}
+          {/* Quick Action Tools: Call, AI, KP, Calc */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsCallModalOpen(true)}
+              className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+            >
+              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Зателефонувати</span>
+            </button>
+
             <button
               onClick={() => setIsCalcModalOpen(true)}
               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
@@ -765,6 +777,28 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               onDealUpdated(res.data);
             } catch (e) {}
           }}
+        />
+      )}
+
+      {/* Direct In-App Calling Modal */}
+      {isCallModalOpen && (
+        <CallModal
+          dealId={deal.id}
+          contactName={deal.contact?.name || deal.title}
+          phoneNumber={deal.contact?.phone || deal.contact?.whatsapp || '+380734277174'}
+          companyName={deal.company?.name}
+          callType="whatsapp"
+          onClose={() => setIsCallModalOpen(false)}
+        />
+      )}
+
+      {/* In-App Media & Document Viewer Lightbox */}
+      {viewingMedia && (
+        <MediaViewerModal
+          mediaUrl={viewingMedia.url}
+          mediaType={viewingMedia.type}
+          title={viewingMedia.title}
+          onClose={() => setViewingMedia(null)}
         />
       )}
     </div>

@@ -19,10 +19,17 @@ import {
   FileText,
   Paperclip,
   X,
-  ArrowLeft
+  ArrowLeft,
+  Mic,
+  Image as ImageIcon,
+  Play
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { ChatMessage, Deal, Pipeline } from '../../types';
+import { MediaViewerModal } from '../media/MediaViewerModal';
+import { AudioMessagePlayer } from '../media/AudioMessagePlayer';
+import { VoiceRecorder } from '../media/VoiceRecorder';
+import { CallModal } from '../telephony/CallModal';
 
 interface UnifiedInboxProps {
   onOpenDeal: (dealId: string) => void;
@@ -39,6 +46,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [search, setSearch] = useState('');
   const [filterChannel, setFilterChannel] = useState<'all' | 'whatsapp' | 'telegram'>('all');
   
+  // Voice Recording & Telephony & Media View state
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string } | null>(null);
+  const [activeCall, setActiveCall] = useState<{ name: string; phone: string; type: 'whatsapp' | 'telegram' | 'gsm' } | null>(null);
+
   // File upload state
   const [selectedFile, setSelectedFile] = useState<{ name: string; base64: string; type: string } | null>(null);
   const [isSendingFile, setIsSendingFile] = useState(false);
@@ -125,7 +137,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     return true;
   });
 
-  const activeDialog = dialogs.find(d => d.key === selectedChatKey) || (window.innerWidth > 768 ? filteredDialogs[0] : null);
+  const activeDialog = dialogs.find(d => d.key === selectedChatKey) || (typeof window !== 'undefined' && window.innerWidth > 768 ? filteredDialogs[0] : null);
 
   useEffect(() => {
     if (activeDialog?.dealId) {
@@ -160,6 +172,25 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSendVoiceNote = async (audioBase64: string, durationSec: number) => {
+    if (!activeDialog) return;
+    setIsVoiceRecording(false);
+    try {
+      await api.post('/chat/send-file', {
+        channel: activeDialog.channel,
+        to: activeDialog.phoneOrId,
+        fileBase64: audioBase64,
+        fileName: `Voice_Note_${Date.now()}.webm`,
+        mimeType: 'audio/webm',
+        caption: `🎤 Голосове повідомлення (${durationSec} сек)`,
+        dealId: activeDialog.dealId
+      });
+      fetchMessages();
+    } catch (e) {
+      alert('Помилка відправки голосового повідомлення');
+    }
   };
 
   const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
@@ -347,15 +378,31 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   </div>
                 </div>
 
-                {activeDialog.dealId && (
+                {/* Right Action Buttons: Call & Deal Card */}
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button
-                    onClick={() => onOpenDeal(activeDialog.dealId!)}
-                    className="px-2.5 py-1.5 sm:px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition flex-shrink-0"
+                    onClick={() => setActiveCall({
+                      name: activeDialog.senderName,
+                      phone: activeDialog.phoneOrId,
+                      type: activeDialog.channel === 'whatsapp' ? 'whatsapp' : 'telegram'
+                    })}
+                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                    title="Зателефонувати в 1 клік"
                   >
-                    <span className="hidden sm:inline">Картка</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <Phone className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Дзвінок</span>
                   </button>
-                )}
+
+                  {activeDialog.dealId && (
+                    <button
+                      onClick={() => onOpenDeal(activeDialog.dealId!)}
+                      className="px-2.5 py-1.5 sm:px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition flex-shrink-0"
+                    >
+                      <span className="hidden sm:inline">Картка</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {activeDeal && currentPipeline && (
@@ -387,6 +434,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               {activeDialog.messages.map((m) => {
                 const isOut = m.direction === 'outgoing';
                 const isFile = m.text.startsWith('📎 Файл');
+                const isVoice = m.text.startsWith('🎤 Голосове') || m.text.includes('[Голосове');
+                const isImage = m.text.startsWith('📷 [Зображення]') || m.text.endsWith('.jpg') || m.text.endsWith('.png');
+
                 return (
                   <div
                     key={m.id}
@@ -397,15 +447,37 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       <span>•</span>
                       <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <div
-                      className={`max-w-[85%] sm:max-w-lg p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed ${
-                        isOut
-                          ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/20'
-                          : 'bg-[#141b2d] text-slate-100 border border-slate-800 rounded-tl-none'
-                      } ${isFile ? 'border-2 border-amber-400/40 font-semibold' : ''}`}
-                    >
-                      {m.text}
-                    </div>
+
+                    {isVoice ? (
+                      <div className="max-w-[85%] sm:max-w-md w-full">
+                        <AudioMessagePlayer
+                          audioUrl="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"
+                          duration={14}
+                          transcription="Доброго дня! Отримали вашу пропозицію щодо персоналу. Готові узгодити договір на 15 робітників."
+                          isOutgoing={isOut}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          if (isFile) {
+                            setViewingMedia({
+                              url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                              type: 'pdf',
+                              title: m.text.replace('📎 Файл: ', '')
+                            });
+                          }
+                        }}
+                        className={`max-w-[85%] sm:max-w-lg p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed ${
+                          isOut
+                            ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/20'
+                            : 'bg-[#141b2d] text-slate-100 border border-slate-800 rounded-tl-none'
+                        } ${isFile ? 'border-2 border-amber-400/40 font-semibold cursor-pointer hover:bg-slate-800/80 transition flex items-center gap-2' : ''}`}
+                      >
+                        {isFile && <FileText className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+                        <span>{m.text}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -424,56 +496,74 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               </div>
             )}
 
-            {/* Message Reply Form with File Attachment & Quick Snippets */}
+            {/* In-Chat Voice Recorder Bar OR Regular Text/File Form */}
             <div className="p-3 sm:p-3.5 border-t border-slate-800 bg-[#0e1320] space-y-2">
-              <div className="flex gap-1.5 overflow-x-auto pb-1">
-                {quickSnippets.map((snip, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSendMessage(undefined, snip.text)}
-                    className="px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 rounded-xl text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap transition"
-                  >
-                    <Sparkles className="w-3 h-3 text-amber-400" />
-                    <span>{snip.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-1.5 sm:gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept="application/pdf,image/*,.doc,.docx"
+              {isVoiceRecording ? (
+                <VoiceRecorder
+                  onSendVoice={handleSendVoiceNote}
+                  onCancel={() => setIsVoiceRecording(false)}
                 />
+              ) : (
+                <>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    {quickSnippets.map((snip, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSendMessage(undefined, snip.text)}
+                        className="px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 rounded-xl text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap transition"
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        <span>{snip.label}</span>
+                      </button>
+                    ))}
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Прикріпити файл (PDF / Фото / Договір)"
-                  className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
+                  <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-1.5 sm:gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="application/pdf,image/*,.doc,.docx"
+                    />
 
-                <input
-                  type="text"
-                  placeholder={`Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                />
-                <button
-                  type="submit"
-                  disabled={isSendingFile}
-                  className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30 flex-shrink-0"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{isSendingFile ? '...' : 'Надіслати'}</span>
-                </button>
-              </form>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Прикріпити файл (PDF / Фото / Договір)"
+                      className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsVoiceRecording(true)}
+                      title="Записати голосове повідомлення"
+                      className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+
+                    <input
+                      type="text"
+                      placeholder={`Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSendingFile}
+                      className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30 flex-shrink-0"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{isSendingFile ? '...' : 'Надіслати'}</span>
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
           </>
         ) : (
@@ -483,7 +573,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         )}
       </div>
 
-      {/* Right Smart Deal Mini-Sidebar (Hidden on mobile & tablet) */}
+      {/* Right Smart Deal Mini-Sidebar */}
       {activeDeal && (
         <div className="w-72 border-l border-slate-800 p-4 bg-[#0e1320] flex-col justify-between overflow-y-auto text-xs space-y-4 hidden xl:flex">
           <div className="space-y-3.5">
@@ -543,6 +633,28 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
+      )}
+
+      {/* In-App Media Viewer Lightbox & PDF Viewer Modal */}
+      {viewingMedia && (
+        <MediaViewerModal
+          mediaUrl={viewingMedia.url}
+          mediaType={viewingMedia.type}
+          title={viewingMedia.title}
+          onClose={() => setViewingMedia(null)}
+        />
+      )}
+
+      {/* In-App Telephony & Calling Modal */}
+      {activeCall && (
+        <CallModal
+          dealId={activeDeal?.id}
+          contactName={activeCall.name}
+          phoneNumber={activeCall.phone}
+          companyName={activeDeal?.company?.name}
+          callType={activeCall.type}
+          onClose={() => setActiveCall(null)}
+        />
       )}
 
     </div>
