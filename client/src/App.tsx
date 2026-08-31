@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
-import { Navbar } from './components/layout/Navbar';
+import { Navbar, PROJECTS_CONFIG } from './components/layout/Navbar';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { UnifiedInbox } from './components/inbox/UnifiedInbox';
 import { TasksView } from './components/tasks/TasksView';
@@ -16,62 +16,113 @@ import { UserSwitcherModal } from './components/modals/UserSwitcherModal';
 import { CreateDealModal } from './components/modals/CreateDealModal';
 import { SimulateMessageModal } from './components/modals/SimulateMessageModal';
 import { LoginPage } from './components/auth/LoginPage';
-import { Pipeline, Deal } from './types';
+import { Pipeline, Deal, ProjectCategory } from './types';
 import { api, socket } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { Bell } from 'lucide-react';
 
-const recruitingDefaultPipelines: Pipeline[] = [
+const allWorkspacesPipelines: Pipeline[] = [
+  // 1. Employers Workspace
   {
-    id: 'pipe-recruiting-sales',
-    name: 'B2B Продажі: Залучення роботодавців',
+    id: 'pipe-employers-sales',
+    name: '🏢 Роботодавці: B2B Продажі та Угоди',
+    projectId: 'employers',
     isDefault: true,
     sortOrder: 0,
     stages: [
-      { id: 'stg-s1', pipelineId: 'pipe-recruiting-sales', name: 'Нова заявка підприємства', color: '#64748b', sortOrder: 0, isWon: false, isLost: false },
-      { id: 'stg-s2', pipelineId: 'pipe-recruiting-sales', name: 'Дзвінок-кваліфікація (15 хв)', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
-      { id: 'stg-s3', pipelineId: 'pipe-recruiting-sales', name: 'Прорахунок & Відправка КП', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
-      { id: 'stg-s4', pipelineId: 'pipe-recruiting-sales', name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
-      { id: 'stg-s5', pipelineId: 'pipe-recruiting-sales', name: 'Договір підписано / В роботі', color: '#10b981', sortOrder: 4, isWon: true, isLost: false },
-      { id: 'stg-s6', pipelineId: 'pipe-recruiting-sales', name: 'Відмова клієнта', color: '#ef4444', sortOrder: 5, isWon: false, isLost: true }
+      { id: 'stg-e1', pipelineId: 'pipe-employers-sales', name: 'Нова заявка підприємства', color: '#64748b', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-e2', pipelineId: 'pipe-employers-sales', name: 'Дзвінок-кваліфікація (15 хв)', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-e3', pipelineId: 'pipe-employers-sales', name: 'Прорахунок & КП (PDF)', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-e4', pipelineId: 'pipe-employers-sales', name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
+      { id: 'stg-e5', pipelineId: 'pipe-employers-sales', name: 'Договір підписано / В роботі', color: '#10b981', sortOrder: 4, isWon: true, isLost: false },
+      { id: 'stg-e6', pipelineId: 'pipe-employers-sales', name: 'Відмова', color: '#ef4444', sortOrder: 5, isWon: false, isLost: true }
     ]
   },
   {
-    id: 'pipe-recruiting-ops',
-    name: 'Операційний процес: Візи та Доставка персоналу',
+    id: 'pipe-employers-ltv',
+    name: '🏢 Роботодавці: Супровід та Продовження (LTV)',
+    projectId: 'employers',
     isDefault: false,
     sortOrder: 1,
     stages: [
-      { id: 'stg-o1', pipelineId: 'pipe-recruiting-ops', name: '1. Договір і заявка (25%)', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
-      { id: 'stg-o2', pipelineId: 'pipe-recruiting-ops', name: '2. Скринінг & Інтерв\'ю (25%)', color: '#06b6d4', sortOrder: 1, isWon: false, isLost: false },
-      { id: 'stg-o3', pipelineId: 'pipe-recruiting-ops', name: '3. Дозвіл на роботу (~7 днів)', color: '#8b5cf6', sortOrder: 2, isWon: false, isLost: false },
-      { id: 'stg-o4', pipelineId: 'pipe-recruiting-ops', name: '4. Робоча віза D (25%)', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
-      { id: 'stg-o5', pipelineId: 'pipe-recruiting-ops', name: '5. Молдова ➔ Одеса (Транзит)', color: '#ec4899', sortOrder: 4, isWon: false, isLost: false },
-      { id: 'stg-o6', pipelineId: 'pipe-recruiting-ops', name: '6. Вихід на зміну (25%)', color: '#10b981', sortOrder: 5, isWon: true, isLost: false }
+      { id: 'stg-el1', pipelineId: 'pipe-employers-ltv', name: 'Місяць супроводу (4 контакти)', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-el2', pipelineId: 'pipe-employers-ltv', name: 'Штат успішно адаптовано', color: '#8b5cf6', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-el3', pipelineId: 'pipe-employers-ltv', name: 'Продовження дозволу (через 6 міс)', color: '#f59e0b', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-el4', pipelineId: 'pipe-employers-ltv', name: 'Успішно продовжено на 1-2 роки', color: '#10b981', sortOrder: 3, isWon: true, isLost: false }
     ]
   },
+
+  // 2. Candidates Workspace
   {
-    id: 'pipe-recruiting-ltv',
-    name: 'LTV & Продовження дозволів на 1-2 роки',
-    isDefault: false,
-    sortOrder: 2,
+    id: 'pipe-candidates-funnel',
+    name: '👤 Кандидати: Скринінг, Анкети та Інтерв\'ю',
+    projectId: 'candidates',
+    isDefault: true,
+    sortOrder: 0,
     stages: [
-      { id: 'stg-l1', pipelineId: 'pipe-recruiting-ltv', name: 'Місяць супроводу (4 контакти)', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
-      { id: 'stg-l2', pipelineId: 'pipe-recruiting-ltv', name: 'Стабільна робота на заводі', color: '#8b5cf6', sortOrder: 1, isWon: false, isLost: false },
-      { id: 'stg-l3', pipelineId: 'pipe-recruiting-ltv', name: 'Продовження дозволу (через 6 міс)', color: '#f59e0b', sortOrder: 2, isWon: false, isLost: false },
-      { id: 'stg-l4', pipelineId: 'pipe-recruiting-ltv', name: 'Успішно продовжено на 1-2 роки', color: '#10b981', sortOrder: 3, isWon: true, isLost: false }
+      { id: 'stg-c1', pipelineId: 'pipe-candidates-funnel', name: 'Нова анкета кандидата', color: '#64748b', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-c2', pipelineId: 'pipe-candidates-funnel', name: 'Перевірка паспорта & Відеовізитка', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-c3', pipelineId: 'pipe-candidates-funnel', name: 'Тестування мови / Спеціальності', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-c4', pipelineId: 'pipe-candidates-funnel', name: 'Інтерв\'ю з роботодавцем', color: '#f59e0b', sortOrder: 3, isWon: false, isLost: false },
+      { id: 'stg-c5', pipelineId: 'pipe-candidates-funnel', name: 'Кандидата затверджено', color: '#10b981', sortOrder: 4, isWon: true, isLost: false },
+      { id: 'stg-c6', pipelineId: 'pipe-candidates-funnel', name: 'Відхилено', color: '#ef4444', sortOrder: 5, isWon: false, isLost: true }
+    ]
+  },
+
+  // 3. Agencies Workspace
+  {
+    id: 'pipe-agencies-partners',
+    name: '🤝 Кадрові агенції: Постачальники з країн-донорів',
+    projectId: 'agencies',
+    isDefault: true,
+    sortOrder: 0,
+    stages: [
+      { id: 'stg-a1', pipelineId: 'pipe-agencies-partners', name: 'Переговори з агенцією', color: '#64748b', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-a2', pipelineId: 'pipe-agencies-partners', name: 'Агентський договір підписано', color: '#3b82f6', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-a3', pipelineId: 'pipe-agencies-partners', name: 'Отримання пулу резюме (пачка)', color: '#06b6d4', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-a4', pipelineId: 'pipe-agencies-partners', name: 'Виплата агентської комісії', color: '#10b981', sortOrder: 3, isWon: true, isLost: false }
+    ]
+  },
+
+  // 4. Legal & Logistics Workspace
+  {
+    id: 'pipe-legal-logistics',
+    name: '🏛️ Візи & Логістика: Дозволи, Візи D, Кордон',
+    projectId: 'legal_logistics',
+    isDefault: true,
+    sortOrder: 0,
+    stages: [
+      { id: 'stg-l1', pipelineId: 'pipe-legal-logistics', name: '1. Подача в Держпрацю (~7 днів)', color: '#3b82f6', sortOrder: 0, isWon: false, isLost: false },
+      { id: 'stg-l2', pipelineId: 'pipe-legal-logistics', name: '2. Дозвіл отримано / Держзбір', color: '#06b6d4', sortOrder: 1, isWon: false, isLost: false },
+      { id: 'stg-l3', pipelineId: 'pipe-legal-logistics', name: '3. Робоча віза D у консульстві', color: '#f59e0b', sortOrder: 2, isWon: false, isLost: false },
+      { id: 'stg-l4', pipelineId: 'pipe-legal-logistics', name: '4. Транзитний хаб Молдова ➔ Одеса', color: '#ec4899', sortOrder: 3, isWon: false, isLost: false },
+      { id: 'stg-l5', pipelineId: 'pipe-legal-logistics', name: '5. Прибуття на підприємство / Вихід', color: '#10b981', sortOrder: 4, isWon: true, isLost: false }
     ]
   }
 ];
 
 export const App: React.FC = () => {
   const { currentUser, isAuthenticated } = useAuth();
+  const [currentProject, setCurrentProject] = useState<ProjectCategory>('employers');
   const [currentTab, setCurrentTab] = useState<string>('deals');
-  const [pipelines, setPipelines] = useState<Pipeline[]>(recruitingDefaultPipelines);
-  const [activePipelineId, setActivePipelineId] = useState<string>(recruitingDefaultPipelines[0].id);
+  const [pipelines, setPipelines] = useState<Pipeline[]>(allWorkspacesPipelines);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Filter pipelines by selected project workspace
+  const currentProjectPipelines = useMemo(() => {
+    return pipelines.filter(p => !p.projectId || p.projectId === currentProject);
+  }, [pipelines, currentProject]);
+
+  const [activePipelineId, setActivePipelineId] = useState<string>(allWorkspacesPipelines[0].id);
+
+  // When project changes, automatically switch active pipeline to the first in that project
+  useEffect(() => {
+    if (currentProjectPipelines.length > 0) {
+      setActivePipelineId(currentProjectPipelines[0].id);
+    }
+  }, [currentProject]);
+
   // Modals state
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
@@ -91,12 +142,9 @@ export const App: React.FC = () => {
       const res = await api.get('/pipelines');
       if (res.data && res.data.length > 0) {
         setPipelines(res.data);
-        if (!activePipelineId || !res.data.some((p: any) => p.id === activePipelineId)) {
-          setActivePipelineId(res.data[0].id);
-        }
       }
     } catch (e) {
-      console.warn('Backend connecting...', e);
+      console.warn('Using full offline workspaces pipelines:', e);
     }
   };
 
@@ -133,7 +181,7 @@ export const App: React.FC = () => {
     const handleDealCreated = (newDeal: Deal) => {
       fetchDeals();
       setNotification({
-        title: 'Нова заявка підприємства!',
+        title: 'Нова подія в проекті!',
         body: `${newDeal.title}`,
         dealId: newDeal.id
       });
@@ -174,7 +222,7 @@ export const App: React.FC = () => {
     return <LoginPage />;
   }
 
-  const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0];
+  const activePipeline = currentProjectPipelines.find(p => p.id === activePipelineId) || currentProjectPipelines[0] || allWorkspacesPipelines[0];
 
   return (
     <div className="h-screen w-screen flex bg-[#0b0f19] text-slate-100 overflow-hidden font-['Inter',sans-serif]">
@@ -219,7 +267,9 @@ export const App: React.FC = () => {
       {/* Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar
-          pipelines={pipelines}
+          currentProject={currentProject}
+          setCurrentProject={setCurrentProject}
+          pipelines={currentProjectPipelines}
           activePipelineId={activePipelineId}
           setActivePipelineId={setActivePipelineId}
           searchQuery={searchQuery}
@@ -332,7 +382,7 @@ export const App: React.FC = () => {
       {/* Create Deal Modal */}
       {isCreateDealOpen && (
         <CreateDealModal
-          pipelines={pipelines}
+          pipelines={currentProjectPipelines}
           activePipelineId={activePipelineId}
           initialStageId={quickStageId}
           onClose={() => setIsCreateDealOpen(false)}

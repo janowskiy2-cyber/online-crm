@@ -1,3 +1,14 @@
+export type ProjectCategory = 'employers' | 'candidates' | 'agencies' | 'legal_logistics';
+
+export interface ProjectInfo {
+  id: ProjectCategory;
+  name: string;
+  shortName: string;
+  description: string;
+  iconName: string;
+  color: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -6,17 +17,14 @@ export interface User {
   department: string;
   avatar?: string;
   phone?: string;
-  canViewAllDeals: boolean;
-  canViewDeptDeals: boolean;
-  canEditDeals: boolean;
-  canDeleteDeals: boolean;
-  canExportData: boolean;
-  canManageUsers: boolean;
-  canManageIntegrations: boolean;
-  _count?: {
-    deals: number;
-    tasks: number;
-  };
+  isActive?: boolean;
+  canViewAllDeals?: boolean;
+  canViewDeptDeals?: boolean;
+  canEditDeals?: boolean;
+  canDeleteDeals?: boolean;
+  canExportData?: boolean;
+  canManageUsers?: boolean;
+  canManageIntegrations?: boolean;
 }
 
 export interface Stage {
@@ -25,28 +33,17 @@ export interface Stage {
   name: string;
   color: string;
   sortOrder: number;
-  isWon: boolean;
-  isLost: boolean;
-  _count?: {
-    deals: number;
-  };
+  isWon?: boolean;
+  isLost?: boolean;
 }
 
 export interface Pipeline {
   id: string;
   name: string;
-  isDefault: boolean;
+  projectId?: ProjectCategory;
+  isDefault?: boolean;
   sortOrder: number;
   stages: Stage[];
-}
-
-export interface Company {
-  id: string;
-  name: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  address?: string;
 }
 
 export interface Contact {
@@ -59,47 +56,19 @@ export interface Contact {
   position?: string;
   companyId?: string;
   company?: Company;
-  deals?: Deal[];
-  _count?: {
-    messages: number;
-  };
+  type?: 'employer' | 'candidate' | 'agency_partner' | 'logistician';
+  country?: string;
 }
 
-export interface DealTask {
+export interface Company {
   id: string;
-  dealId?: string;
-  responsibleId: string;
-  responsible: User;
-  type: string;
-  text: string;
-  dueDate: string;
-  isCompleted: boolean;
-  resultText?: string;
-  deal?: Deal;
-}
-
-export interface DealNote {
-  id: string;
-  dealId: string;
-  userId: string;
-  user: User;
-  type: string;
-  content: string;
-  createdAt: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  channel: 'whatsapp' | 'telegram' | 'internal';
-  direction: 'incoming' | 'outgoing';
-  dealId?: string;
-  contactId?: string;
-  senderName?: string;
-  senderPhone?: string;
-  senderTgId?: string;
-  text: string;
-  status: string;
-  createdAt: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  industry?: string;
+  type?: 'client_enterprise' | 'donor_agency' | 'logistics_partner';
 }
 
 export interface Deal {
@@ -109,29 +78,65 @@ export interface Deal {
   pipelineId: string;
   stageId: string;
   responsibleId: string;
+  responsible?: User;
   contactId?: string;
+  contact?: Contact;
   companyId?: string;
-  lossReason?: string;
+  company?: Company;
   tags?: string;
   customFields?: string;
-  createdAt: string;
-  updatedAt: string;
-
-  pipeline?: Pipeline;
-  stage: Stage;
-  responsible: User;
-  contact?: Contact;
-  company?: Company;
-  tasks?: DealTask[];
+  projectId?: ProjectCategory;
+  createdAt?: string;
+  updatedAt?: string;
   notes?: DealNote[];
   messages?: ChatMessage[];
+  tasks?: Task[];
+  stage?: Stage;
+}
+
+export interface DealNote {
+  id: string;
+  dealId: string;
+  userId: string;
+  user?: User;
+  content: string;
+  type: string;
+  createdAt: string;
+}
+
+export interface Task {
+  id: string;
+  dealId?: string;
+  responsibleId: string;
+  responsible?: User;
+  createdById?: string;
+  createdBy?: User;
+  type: string;
+  text: string;
+  dueDate: string;
+  isCompleted: boolean;
+  createdAt?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  dealId?: string;
+  contactId?: string;
+  channel: 'whatsapp' | 'telegram';
+  direction: 'incoming' | 'outgoing';
+  senderName?: string;
+  senderPhone?: string;
+  senderTgId?: string;
+  text: string;
+  status: string;
+  createdAt: string;
 }
 
 export interface MessengerStatus {
-  channel: string;
+  channel: 'whatsapp' | 'telegram';
   status: 'disconnected' | 'qr_ready' | 'connecting' | 'connected';
-  qrCodeData?: string;
-  phone?: string;
   accountName?: string;
+  phone?: string;
+  qrCodeData?: string | null;
   updatedAt: string;
 }
