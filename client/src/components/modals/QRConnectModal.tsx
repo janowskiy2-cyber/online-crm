@@ -12,7 +12,8 @@ import {
   AlertCircle,
   Key,
   ArrowRight,
-  Send
+  Send,
+  HelpCircle
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 
@@ -39,12 +40,14 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     accountName: 'Telegram Користувач'
   });
 
-  const [qrImage, setQrImage] = useState<string | null>(null);
+  const [waQrImage, setWaQrImage] = useState<string | null>(null);
+  const [tgQrImage, setTgQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
-  // Telegram User Account Login Form (Phone -> 5-digit SMS/Telegram code)
+  // Telegram connection mode: 'qr' vs 'phone_code'
+  const [tgAuthMode, setTgAuthMode] = useState<'qr' | 'phone_code'>('qr');
   const [tgPhone, setTgPhone] = useState('+380734277174');
   const [tgCode, setTgCode] = useState('');
   const [tgStep, setTgStep] = useState<'enter_phone' | 'enter_code'>('enter_phone');
@@ -54,12 +57,15 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
       const res = await api.get('/chat/status');
       if (res.data?.whatsapp) {
         setWaStatus(res.data.whatsapp);
-        if (activeChannel === 'whatsapp' && res.data.whatsapp.qrCodeData) {
-          setQrImage(res.data.whatsapp.qrCodeData);
+        if (res.data.whatsapp.qrCodeData) {
+          setWaQrImage(res.data.whatsapp.qrCodeData);
         }
       }
       if (res.data?.telegram) {
         setTgStatus(res.data.telegram);
+        if (res.data.telegram.qrCodeData) {
+          setTgQrImage(res.data.telegram.qrCodeData);
+        }
       }
     } catch (e) {
       console.warn(e);
@@ -71,7 +77,21 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     try {
       const res = await api.get('/chat/whatsapp/qr');
       if (res.data?.qrCodeData) {
-        setQrImage(res.data.qrCodeData);
+        setWaQrImage(res.data.qrCodeData);
+      }
+    } catch (e) {
+      console.warn(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTelegramQR = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/chat/telegram/qr');
+      if (res.data?.qrCodeData) {
+        setTgQrImage(res.data.qrCodeData);
       }
     } catch (e) {
       console.warn(e);
@@ -85,14 +105,17 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
 
     if (activeChannel === 'whatsapp') {
       fetchWhatsAppQR();
+    } else {
+      fetchTelegramQR();
     }
 
     const handleStatusUpdate = (data: any) => {
       if (data.channel === 'whatsapp') {
         setWaStatus((prev: any) => ({ ...prev, ...data }));
-        if (data.qrCodeData) setQrImage(data.qrCodeData);
+        if (data.qrCodeData) setWaQrImage(data.qrCodeData);
       } else if (data.channel === 'telegram') {
         setTgStatus((prev: any) => ({ ...prev, ...data }));
+        if (data.qrCodeData) setTgQrImage(data.qrCodeData);
       }
     };
 
@@ -147,6 +170,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
       } else {
         setTgStatus({ status: 'disconnected', phone: null });
         setTgStep('enter_phone');
+        fetchTelegramQR();
       }
     } catch (e) {}
   };
@@ -167,11 +191,11 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <span>Корпоративні месенджери (Користувацькі акаунти)</span>
+                <span>Підключення месенджерів по QR-коду</span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">REAL SYNC</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Пряме спілкування з клієнтами та кандидатами з ваших номерів
+                Прямий зв'язок з кандидатами та роботодавцями через WhatsApp та Telegram
               </p>
             </div>
           </div>
@@ -203,7 +227,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                 : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <span>Telegram (Особистий акаунт)</span>
+            <span>Telegram (QR / Номер)</span>
             {isTgConnected && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
           </button>
         </div>
@@ -231,10 +255,10 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white">
-                  {activeChannel === 'whatsapp' ? 'WhatsApp підключено' : 'Telegram підключено'}
+                  {activeChannel === 'whatsapp' ? 'WhatsApp підключено та активний' : 'Telegram підключено та активний'}
                 </h3>
                 <p className="text-xs text-slate-300 mt-1">
-                  Активний акаунт: <span className="text-emerald-400 font-bold">{activeChannel === 'whatsapp' ? (waStatus.phone || 'Корпоративний номер') : (tgStatus.phone || tgPhone)}</span>
+                  Активний номер: <span className="text-emerald-400 font-bold">{activeChannel === 'whatsapp' ? (waStatus.phone || 'Корпоративний номер') : (tgStatus.phone || tgPhone)}</span>
                 </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto mt-2">
                   Ви можете писати кандидатам і роботодавцям напряму з карток угод у CRM.
@@ -260,8 +284,8 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
             /* WhatsApp Real Baileys QR View */
             <div className="space-y-4">
               <div className="inline-block p-3.5 bg-white rounded-3xl shadow-2xl border-4 border-slate-700">
-                {qrImage ? (
-                  <img src={qrImage} alt="WhatsApp QR" className="w-52 h-52 object-contain rounded-xl" />
+                {waQrImage ? (
+                  <img src={waQrImage} alt="WhatsApp QR" className="w-52 h-52 object-contain rounded-xl" />
                 ) : (
                   <div className="w-52 h-52 flex flex-col items-center justify-center text-slate-500 text-xs gap-2">
                     <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
@@ -273,15 +297,15 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
               <div className="space-y-2 max-w-md mx-auto text-left text-xs text-slate-300 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-emerald-600/30 text-emerald-400 flex items-center justify-center font-bold text-[11px] flex-shrink-0">1</span>
-                  <span>Відкрийте <b>WhatsApp</b> на вашому телефоні</span>
+                  <span>Відкрийте <b>WhatsApp</b> на смартфоні</span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-emerald-600/30 text-emerald-400 flex items-center justify-center font-bold text-[11px] flex-shrink-0">2</span>
-                  <span>Натисніть <b>Налаштування (або 3 крапки) ➔ Пов'язані пристрої ➔ Прив'язати пристрій</b></span>
+                  <span>Натисніть <b>Налаштування ➔ Пов'язані пристрої ➔ Прив'язати пристрій</b></span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <span className="w-5 h-5 rounded-full bg-emerald-600/30 text-emerald-400 flex items-center justify-center font-bold text-[11px] flex-shrink-0">3</span>
-                  <span>Наведіть камеру на QR-код вище для підключення</span>
+                  <span>Наведіть камеру на QR-код вище</span>
                 </div>
               </div>
 
@@ -291,87 +315,137 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 mx-auto transition"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>Оновити QR-код</span>
+                <span>Оновити WhatsApp QR</span>
               </button>
             </div>
           ) : (
-            /* Telegram User Account Phone & Code View */
-            <div className="space-y-4 max-w-md mx-auto">
-              <div className="w-14 h-14 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center mx-auto border border-sky-500/20 shadow-lg shadow-sky-500/10">
-                <Smartphone className="w-7 h-7" />
+            /* Telegram QR & Phone Login */
+            <div className="space-y-4">
+              {/* Toggle QR vs Phone Code */}
+              <div className="flex justify-center gap-2 max-w-xs mx-auto bg-slate-900 p-1 rounded-2xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setTgAuthMode('qr')}
+                  className={`flex-1 py-1.5 rounded-xl transition ${tgAuthMode === 'qr' ? 'bg-sky-600 text-white' : 'text-slate-400'}`}
+                >
+                  Вхід по QR-коду
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTgAuthMode('phone_code')}
+                  className={`flex-1 py-1.5 rounded-xl transition ${tgAuthMode === 'phone_code' ? 'bg-sky-600 text-white' : 'text-slate-400'}`}
+                >
+                  Вхід по номеру
+                </button>
               </div>
 
-              <div>
-                <h3 className="text-base font-bold text-white">Вхід у корпоративний Telegram</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Підключення вашого робочого акаунта для відправки повідомлень кандидатам
-                </p>
-              </div>
+              {tgAuthMode === 'qr' ? (
+                /* Telegram QR Mode */
+                <div className="space-y-4 animate-in fade-in">
+                  <div className="inline-block p-3.5 bg-white rounded-3xl shadow-2xl border-4 border-slate-700">
+                    {tgQrImage ? (
+                      <img src={tgQrImage} alt="Telegram QR" className="w-52 h-52 object-contain rounded-xl" />
+                    ) : (
+                      <div className="w-52 h-52 flex flex-col items-center justify-center text-slate-500 text-xs gap-2">
+                        <RefreshCw className="w-6 h-6 animate-spin text-sky-500" />
+                        <span>Генерація Telegram QR...</span>
+                      </div>
+                    )}
+                  </div>
 
-              {tgStep === 'enter_phone' ? (
-                <form onSubmit={handleTgSendCode} className="space-y-3 text-xs text-left">
-                  <div>
-                    <label className="text-slate-400 font-semibold block mb-1">Номер телефону Telegram</label>
-                    <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="tel"
-                        required
-                        placeholder="+380 73 427 71 74"
-                        value={tgPhone}
-                        onChange={(e) => setTgPhone(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-sky-500"
-                      />
+                  <div className="space-y-2 max-w-md mx-auto text-left text-xs text-slate-300 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-sky-600/30 text-sky-400 flex items-center justify-center font-bold text-[11px] flex-shrink-0">1</span>
+                      <span>Відкрийте <b>Telegram</b> на телефоні</span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-sky-600/30 text-sky-400 flex items-center justify-center font-bold text-[11px] flex-shrink-0">2</span>
+                      <span>Зайдіть у <b>Налаштування ➔ Пристрої ➔ Підключити пристрій (Сканувати QR)</b></span>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-sky-600/30 text-sky-400 flex items-center justify-center font-bold text-[11px] flex-shrink-0">3</span>
+                      <span>Наведіть камеру телефону на QR-код вище</span>
                     </div>
                   </div>
 
                   <button
-                    type="submit"
+                    onClick={fetchTelegramQR}
                     disabled={loading}
-                    className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-sky-600/30"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 mx-auto transition"
                   >
-                    <span>{loading ? 'Надсилання коду...' : 'Отримати код у Telegram'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    <span>Оновити Telegram QR</span>
                   </button>
-                </form>
+                </div>
               ) : (
-                <form onSubmit={handleTgVerifyCode} className="space-y-3 text-xs text-left">
-                  <div>
-                    <label className="text-slate-400 font-semibold block mb-1">
-                      5-значний код із додатку Telegram на номер {tgPhone}
-                    </label>
-                    <div className="relative">
-                      <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        placeholder="12345"
-                        value={tgCode}
-                        onChange={(e) => setTgCode(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-center text-lg tracking-widest text-white focus:outline-none focus:border-sky-500"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
+                /* Telegram Phone Code Mode */
+                <div className="space-y-4 max-w-md mx-auto animate-in fade-in">
+                  {tgStep === 'enter_phone' ? (
+                    <form onSubmit={handleTgSendCode} className="space-y-3 text-xs text-left">
+                      <div>
+                        <label className="text-slate-400 font-semibold block mb-1">Номер телефону Telegram</label>
+                        <div className="relative">
+                          <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="tel"
+                            required
+                            placeholder="+380 73 427 71 74"
+                            value={tgPhone}
+                            onChange={(e) => setTgPhone(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-600/30"
-                  >
-                    <span>{loading ? 'Підключення...' : 'Увійти в Telegram'}</span>
-                    <CheckCircle2 className="w-4 h-4" />
-                  </button>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-sky-600/30"
+                      >
+                        <span>{loading ? 'Надсилання коду...' : 'Отримати код у Telegram'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleTgVerifyCode} className="space-y-3 text-xs text-left">
+                      <div>
+                        <label className="text-slate-400 font-semibold block mb-1">
+                          5-значний код із додатку Telegram на номер {tgPhone}
+                        </label>
+                        <div className="relative">
+                          <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            required
+                            maxLength={6}
+                            placeholder="12345"
+                            value={tgCode}
+                            onChange={(e) => setTgCode(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-center text-lg tracking-widest text-white focus:outline-none focus:border-sky-500"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setTgStep('enter_phone')}
-                    className="w-full text-center text-[11px] text-slate-400 hover:text-white pt-1"
-                  >
-                    ← Змінити номер телефону
-                  </button>
-                </form>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-600/30"
+                      >
+                        <span>{loading ? 'Підключення...' : 'Увійти в Telegram'}</span>
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTgStep('enter_phone')}
+                        className="w-full text-center text-[11px] text-slate-400 hover:text-white pt-1"
+                      >
+                        ← Змінити номер телефону
+                      </button>
+                    </form>
+                  )}
+                </div>
               )}
             </div>
           )}
