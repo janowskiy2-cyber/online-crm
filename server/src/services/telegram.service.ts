@@ -271,7 +271,7 @@ export class TelegramService {
           data: {
             name: fullName || username,
             telegram: username.startsWith('@') ? username : `@${username}`,
-            type: 'candidate'
+            position: 'Клієнт (Telegram)'
           }
         });
       }

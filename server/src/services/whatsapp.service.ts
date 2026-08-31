@@ -157,7 +157,7 @@ export class WhatsAppService {
             name: pushName || `Клієнт (+${cleanPhone})`,
             phone: formattedPhone,
             whatsapp: formattedPhone,
-            type: 'employer'
+            position: 'Клієнт (WhatsApp)'
           }
         });
       }

@@ -141,7 +141,6 @@ export class LeadDistributionService {
           responsibleId,
           contactId: data.contactId,
           companyId: data.companyId,
-          projectId: 'employers',
           tags: JSON.stringify([
             data.channel === 'whatsapp' ? 'WhatsApp' : (data.channel === 'telegram' ? 'Telegram' : 'Реклама'),
             isAutoAssigned ? 'Авто-розподіл' : 'Нерозібране',
@@ -156,18 +155,21 @@ export class LeadDistributionService {
         }
       });
 
-      // 3. Create initial Task for the assigned manager
+      // 3. Create initial 15-min SLA Task for the assigned manager
       try {
         await this.prisma.task.create({
           data: {
             dealId: deal.id,
             responsibleId,
+            createdById: responsibleId,
             type: 'call',
             text: `🔥 Зв'язатися з новим клієнтом (${data.channel.toUpperCase()}) протягом 15 хвилин`,
             dueDate: new Date(Date.now() + 15 * 60 * 1000)
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn('SLA Task creation warning:', e);
+      }
 
       // 4. System audit log
       try {
