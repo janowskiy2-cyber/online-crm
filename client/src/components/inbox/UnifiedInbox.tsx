@@ -18,7 +18,8 @@ import {
   ChevronRight, 
   FileText,
   Paperclip,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { ChatMessage, Deal, Pipeline } from '../../types';
@@ -124,7 +125,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     return true;
   });
 
-  const activeDialog = dialogs.find(d => d.key === selectedChatKey) || filteredDialogs[0];
+  const activeDialog = dialogs.find(d => d.key === selectedChatKey) || (window.innerWidth > 768 ? filteredDialogs[0] : null);
 
   useEffect(() => {
     if (activeDialog?.dealId) {
@@ -168,7 +169,6 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     const to = activeDialog.phoneOrId;
     const channel = activeDialog.channel;
 
-    // Send file if attached
     if (selectedFile) {
       setIsSendingFile(true);
       try {
@@ -218,10 +218,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const currentPipeline = pipelines.find(p => p.id === activeDeal?.pipelineId) || pipelines[0];
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-[#080c14] select-none font-['Inter',sans-serif]">
+    <div className="flex-1 flex overflow-hidden bg-[#080c14] select-none font-['Inter',sans-serif] w-full">
       
-      {/* Dialogs List (Left) */}
-      <div className="w-80 border-r border-slate-800 flex flex-col justify-between bg-[#0e1320] flex-shrink-0">
+      {/* Dialogs List (Hidden on mobile if chat is active) */}
+      <div className={`
+        w-full md:w-80 border-r border-slate-800 flex flex-col justify-between bg-[#0e1320] flex-shrink-0
+        ${activeDialog ? 'hidden md:flex' : 'flex'}
+      `}>
         <div className="p-4 border-b border-slate-800/80 space-y-3 bg-[#111827]">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -233,7 +236,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1 transition"
             >
               <QrCode className="w-3.5 h-3.5 text-emerald-400" />
-              <span>QR Шлюз</span>
+              <span>Шлюз</span>
             </button>
           </div>
 
@@ -276,7 +279,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             <div className="p-8 text-center text-slate-500 text-xs space-y-2">
               <MessageSquare className="w-8 h-8 text-slate-600 mx-auto" />
               <p>Немає активних діалогів.</p>
-              <p className="text-[11px] text-slate-400">Надішліть повідомлення на підключений номер WhatsApp/TG, і воно з'явиться тут миттєво!</p>
+              <p className="text-[11px] text-slate-400">Надішліть повідомлення на номер WhatsApp/TG, щоб розпочати спілкування.</p>
             </div>
           ) : (
             filteredDialogs.map((d) => {
@@ -312,21 +315,33 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         </div>
       </div>
 
-      {/* Central Chat Room (Center) */}
-      <div className="flex-1 flex flex-col justify-between overflow-hidden bg-[#080c14] border-r border-slate-800">
+      {/* Central Chat Room (Full Width on Mobile when active) */}
+      <div className={`
+        flex-1 flex-col justify-between overflow-hidden bg-[#080c14] border-r border-slate-800 w-full
+        ${activeDialog ? 'flex' : 'hidden md:flex'}
+      `}>
         {activeDialog ? (
           <>
             <div className="border-b border-slate-800 bg-[#0e1320] flex-shrink-0">
-              <div className="h-14 px-6 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-xs ${
+              <div className="h-14 px-4 sm:px-6 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  {/* Mobile Back Button */}
+                  <button
+                    onClick={() => setSelectedChatKey(null)}
+                    className="md:hidden p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl mr-1"
+                    title="Назад до списку"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center font-bold text-xs flex-shrink-0 ${
                     activeDialog.channel === 'whatsapp' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                   }`}>
                     {activeDialog.channel === 'whatsapp' ? 'WA' : 'TG'}
                   </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-white">{activeDialog.senderName}</h3>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-xs sm:text-sm text-white truncate">{activeDialog.senderName}</h3>
+                    <div className="text-[10px] sm:text-[11px] text-slate-400 truncate">
                       <span>{activeDialog.phoneOrId}</span>
                     </div>
                   </div>
@@ -335,16 +350,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 {activeDialog.dealId && (
                   <button
                     onClick={() => onOpenDeal(activeDialog.dealId!)}
-                    className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                    className="px-2.5 py-1.5 sm:px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition flex-shrink-0"
                   >
-                    <span>Відкрити повну картку</span>
+                    <span className="hidden sm:inline">Картка</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
               {activeDeal && currentPipeline && (
-                <div className="px-6 py-2 bg-[#0c101c] border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto">
+                <div className="px-4 sm:px-6 py-2 bg-[#0c101c] border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto">
                   <span className="text-[10px] text-slate-500 uppercase font-bold mr-1">Етап:</span>
                   {currentPipeline.stages.map((stg) => {
                     const isCurrent = activeDeal.stageId === stg.id;
@@ -352,7 +367,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       <button
                         key={stg.id}
                         onClick={() => handleStageChange(stg.id)}
-                        className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition ${
+                        className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition whitespace-nowrap ${
                           isCurrent
                             ? 'bg-blue-600 text-white shadow-sm'
                             : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800'
@@ -368,7 +383,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             </div>
 
             {/* Chat History Stream */}
-            <div className="flex-1 p-6 overflow-y-auto space-y-3.5">
+            <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-3.5">
               {activeDialog.messages.map((m) => {
                 const isOut = m.direction === 'outgoing';
                 const isFile = m.text.startsWith('📎 Файл');
@@ -383,7 +398,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div
-                      className={`max-w-lg p-3.5 rounded-2xl text-xs leading-relaxed ${
+                      className={`max-w-[85%] sm:max-w-lg p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed ${
                         isOut
                           ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/20'
                           : 'bg-[#141b2d] text-slate-100 border border-slate-800 rounded-tl-none'
@@ -398,7 +413,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
             {/* File Attachment preview */}
             {selectedFile && (
-              <div className="mx-4 p-2.5 bg-slate-900 border border-amber-500/40 rounded-2xl flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
+              <div className="mx-3 sm:mx-4 p-2.5 bg-slate-900 border border-amber-500/40 rounded-2xl flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
                 <div className="flex items-center gap-2 truncate">
                   <Paperclip className="w-4 h-4 text-amber-400 flex-shrink-0" />
                   <span className="font-semibold truncate">Прикріплено: {selectedFile.name}</span>
@@ -410,7 +425,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             )}
 
             {/* Message Reply Form with File Attachment & Quick Snippets */}
-            <div className="p-3.5 border-t border-slate-800 bg-[#0e1320] space-y-2">
+            <div className="p-3 sm:p-3.5 border-t border-slate-800 bg-[#0e1320] space-y-2">
               <div className="flex gap-1.5 overflow-x-auto pb-1">
                 {quickSnippets.map((snip, idx) => (
                   <button
@@ -425,7 +440,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 ))}
               </div>
 
-              <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-2">
+              <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-1.5 sm:gap-2">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -438,7 +453,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   title="Прикріпити файл (PDF / Фото / Договір)"
-                  className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center"
+                  className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                 >
                   <Paperclip className="w-4 h-4" />
                 </button>
@@ -448,29 +463,29 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   placeholder={`Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
                 <button
                   type="submit"
                   disabled={isSendingFile}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30"
+                  className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30 flex-shrink-0"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{isSendingFile ? 'Надсилання...' : 'Надіслати'}</span>
+                  <span className="hidden sm:inline">{isSendingFile ? '...' : 'Надіслати'}</span>
                 </button>
               </form>
             </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center p-8 text-center text-slate-500 text-xs">
-            Виберіть діалог ліворуч для перегляду листування
+            Виберіть діалог для перегляду листування
           </div>
         )}
       </div>
 
-      {/* Right Smart Deal Mini-Sidebar */}
+      {/* Right Smart Deal Mini-Sidebar (Hidden on mobile & tablet) */}
       {activeDeal && (
-        <div className="w-72 border-l border-slate-800 p-4 bg-[#0e1320] flex flex-col justify-between overflow-y-auto text-xs space-y-4 hidden lg:flex">
+        <div className="w-72 border-l border-slate-800 p-4 bg-[#0e1320] flex-col justify-between overflow-y-auto text-xs space-y-4 hidden xl:flex">
           <div className="space-y-3.5">
             <div className="border-b border-slate-800 pb-2.5 flex items-center justify-between">
               <span className="font-bold text-white text-xs">Параметри угоди</span>
