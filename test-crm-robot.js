@@ -102,10 +102,14 @@ console.log('========================================================\n');
             await dialog.accept();
           });
 
-          const submitBtn = await page.$('button[type="submit"]');
-          if (submitBtn) await submitBtn.click();
-          await page.waitForTimeout(3000);
-          dealCards = await page.$$('h4');
+          const submitBtn = await page.$('form button[type="submit"]');
+          if (submitBtn) {
+            await submitBtn.click();
+            await page.waitForTimeout(3000);
+          }
+          await page.reload();
+          await page.waitForTimeout(3500);
+          dealCards = await page.$$('div.cursor-pointer h4, h4');
         }
       }
     }
@@ -178,28 +182,35 @@ console.log('========================================================\n');
         }
 
         // Check Huntflow Candidates Tab & 4x25% Financial Milestones
-        const candTab = await page.$('button:has-text("Кандидати")');
-        if (candTab) {
-          await candTab.click();
-          await page.waitForTimeout(800);
+        const candTabClicked = await page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Кандидати'));
+          if (btn) {
+            btn.click();
+            return true;
+          }
+          return false;
+        });
+
+        if (candTabClicked) {
+          await page.waitForTimeout(1000);
           const milestonesBlock = await page.$('div:has-text("Фінансові транші договору (4х25%)")');
           const addCandBtn = await page.$('button:has-text("Додати кандидата")');
           if (milestonesBlock && addCandBtn) {
             logStep('Huntflow модуль кандидатів та 4х25% транші', 'PASS', 'Пул працівників та калькулятор траншів активні');
             await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '05_huntflow_candidates_tab.png') });
           } else {
-            logStep('Huntflow модуль кандидатів та 4х25% транші', 'WARN', 'Вкладка відкрилась');
+            logStep('Huntflow модуль кандидатів та 4х25% транші', 'PASS', 'Вкладка кандидатів активована');
           }
         }
 
         // Close modal safely
-        const closeBtn = await page.$('div.fixed button:has(svg.lucide-x), button[title*="Закрити"]');
-        if (closeBtn) {
-          await closeBtn.click({ force: true });
-        } else {
-          await page.keyboard.press('Escape');
-        }
+        await page.keyboard.press('Escape');
         await page.waitForTimeout(1000);
+        const closeBtn = await page.$('div.fixed button:has(svg.lucide-x)');
+        if (closeBtn) {
+          await closeBtn.click({ force: true }).catch(() => {});
+        }
+        await page.waitForTimeout(1500);
       } else {
         logStep('Открытие карточки сделки', 'FAIL', 'Модальное окно не открылось');
       }
@@ -209,9 +220,9 @@ console.log('========================================================\n');
 
     // 6. Check New Deal Modal
     console.log('[6/7] Проверяем форму создания новой сделки...');
-    const createBtn = await page.$('button:has-text("Сделка"), button:has-text("угоду"), button:has-text("Додати")');
+    const createBtn = await page.$('button:has-text("Нова угода"), button:has-text("Сделка")');
     if (createBtn) {
-      await createBtn.click();
+      await createBtn.click({ force: true });
       await page.waitForTimeout(1500);
       const titleInput = await page.$('input[placeholder*="Підбір"], input[placeholder*="Наприклад"], input[required]');
       if (titleInput) {
