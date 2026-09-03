@@ -346,6 +346,23 @@ export class TelegramService {
           body: text,
           dealId: deal?.id
         });
+
+        if (deal) {
+          // Digital Pipeline: Speed-to-lead 15-minute auto task
+          const assignee = deal.responsibleId || 'usr-admin';
+          this.prisma.task.create({
+            data: {
+              dealId: deal.id,
+              responsibleId: assignee,
+              createdById: assignee,
+              text: `💬 Клієнт відповів у Telegram: "${text.slice(0, 60)}" — терміново відповісти!`,
+              type: 'call',
+              dueDate: new Date(Date.now() + 15 * 60 * 1000)
+            }
+          }).then(task => {
+            if (this.io && task) this.io.emit('task_created', task);
+          }).catch(() => {});
+        }
       }
 
       return savedMsg;

@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Paperclip,
   Mic,
+  CreditCard,
   Image as ImageIcon
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
@@ -89,6 +90,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [taskType, setTaskType] = useState('call');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
+
+  // Candidate Manager state (Sprint 3: Huntflow)
+  const [isAddingCandidate, setIsAddingCandidate] = useState(false);
+  const [newCandName, setNewCandName] = useState('');
+  const [newCandCountry, setNewCandCountry] = useState('Узбекистан');
+  const [newCandProfession, setNewCandProfession] = useState('Зварювальник MIG/MAG');
+  const [newCandStatus, setNewCandStatus] = useState('Оформлення візи D');
 
   const fetchDealDetails = async () => {
     try {
@@ -355,12 +363,88 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     ...(deal.messages || []).map((m: any) => ({ ...m, itemType: 'message', timestamp: new Date(m.createdAt).getTime() }))
   ].sort((a, b) => b.timestamp - a.timestamp);
 
-  // Sample assigned candidates for this deal
-  const assignedCandidates = [
-    { id: 'cand-1', name: 'Бахром Юлдашев', country: 'Узбекистан', profession: 'Оператор автоматичної лінії / Склад', status: 'Віза D готова' },
+  interface CandidateItem {
+    id: string;
+    name: string;
+    country: string;
+    profession: string;
+    status: string;
+  }
+
+  const defaultCandidates: CandidateItem[] = [
+    { id: 'cand-1', name: 'Бахром Юлдашев', country: 'Узбекистан', profession: 'Оператор лінії', status: 'Віза D готова' },
     { id: 'cand-2', name: 'Раджеш Кумар', country: 'Індія', profession: 'Зварювальник MIG/MAG', status: 'Дозвіл видано' },
     { id: 'cand-3', name: 'Алішер Карімов', country: 'Узбекистан', profession: 'Пакувальник / Комплектувальник', status: 'Вийшов на зміну' }
   ];
+
+  const assignedCandidates: CandidateItem[] = Array.isArray((customFieldsObj as any).candidates)
+    ? (customFieldsObj as any).candidates
+    : defaultCandidates;
+
+  const paidMilestones: number[] = Array.isArray((customFieldsObj as any).paidMilestones)
+    ? (customFieldsObj as any).paidMilestones
+    : [1];
+
+  const handleSaveCandidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCandName.trim()) return;
+    const newCand: CandidateItem = {
+      id: `cand-${Date.now()}`,
+      name: newCandName.trim(),
+      country: newCandCountry,
+      profession: newCandProfession,
+      status: newCandStatus
+    };
+    const updated = [newCand, ...assignedCandidates];
+    const newCustomFields = { ...customFieldsObj, candidates: updated };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+      setIsAddingCandidate(false);
+      setNewCandName('');
+    } catch (err) {
+      console.error('Failed to save candidate:', err);
+    }
+  };
+
+  const handleToggleMilestone = async (milestoneIndex: number) => {
+    const updated = paidMilestones.includes(milestoneIndex)
+      ? paidMilestones.filter(m => m !== milestoneIndex)
+      : [...paidMilestones, milestoneIndex];
+    const newCustomFields = { ...customFieldsObj, paidMilestones: updated };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err) {
+      console.error('Failed to toggle milestone:', err);
+    }
+  };
+
+  const handleUpdateCandidateStatus = async (candId: string, status: string) => {
+    const updated = assignedCandidates.map(c => c.id === candId ? { ...c, status } : c);
+    const newCustomFields = { ...customFieldsObj, candidates: updated };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err) {
+      console.error('Failed to update candidate status:', err);
+    }
+  };
+
+  const handleDeleteCandidate = async (candId: string) => {
+    const updated = assignedCandidates.filter(c => c.id !== candId);
+    const newCustomFields = { ...customFieldsObj, candidates: updated };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err) {
+      console.error('Failed to delete candidate:', err);
+    }
+  };
 
   const currentStages = pipeline?.stages || [];
 
@@ -645,30 +729,202 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {/* Content Area based on Tab */}
             {activeTab === 'candidates' ? (
-              /* Attached Candidates List */
-              <div className="flex-1 p-5 overflow-y-auto space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <h4 className="font-bold text-sm text-white">Відібрані кандидати для підприємства</h4>
+              /* Huntflow Candidate Tracker & 4x25% Milestone Manager */
+              <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4">
+                {/* 4x25% Payment Milestones */}
+                <div className="bg-[#111726] border border-slate-800/90 rounded-2xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Фінансові транші договору (4х25%)</span>
+                    </h5>
+                    <span className="text-[11px] font-bold text-emerald-400">
+                      Бюджет: {formatCurrency(deal.budget || 0)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { index: 1, label: '1. Договір (25%)', sub: 'Аванс' },
+                      { index: 2, label: '2. Списки (25%)', sub: 'Кандидати' },
+                      { index: 3, label: '3. Візи D (25%)', sub: 'Дозволи' },
+                      { index: 4, label: '4. Вихід (25%)', sub: 'На заводі' }
+                    ].map(m => {
+                      const isPaid = paidMilestones.includes(m.index);
+                      const amount = (deal.budget ? (deal.budget * 0.25) : 0);
+                      return (
+                        <button
+                          key={m.index}
+                          type="button"
+                          onClick={() => handleToggleMilestone(m.index)}
+                          className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                            isPaid
+                              ? 'bg-emerald-950/40 border-emerald-500/60 text-white'
+                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold">{m.label}</span>
+                            <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-black ${
+                              isPaid ? 'bg-emerald-500 text-black' : 'bg-slate-800 text-slate-500'
+                            }`}>
+                              {isPaid ? '✓' : ''}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-baseline justify-between">
+                            <span className={`text-xs font-extrabold ${isPaid ? 'text-emerald-300' : 'text-slate-300'}`}>
+                              {formatCurrency(amount)}
+                            </span>
+                            <span className="text-[9px] text-slate-500">{isPaid ? 'Сплачено' : 'Очікується'}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Candidate Pool Header */}
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                      <span>Пул кандидатів</span>
+                      <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold">
+                        {assignedCandidates.length}
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">Керування працівниками, візами та виїздом на об'єкт</p>
+                  </div>
+
                   <button
-                    onClick={() => alert('Форма прикріплення кандидата з бази')}
-                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                    type="button"
+                    onClick={() => setIsAddingCandidate(!isAddingCandidate)}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-purple-600/30 flex items-center gap-1.5"
                   >
-                    + Додати кандидата
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isAddingCandidate ? 'Скасувати' : '+ Додати кандидата'}</span>
                   </button>
                 </div>
 
-                <div className="space-y-2.5">
-                  {assignedCandidates.map(c => (
-                    <div key={c.id} className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-white text-xs">{c.name}</div>
-                        <div className="text-[11px] text-slate-400">{c.profession} • <span className="text-blue-400">{c.country}</span></div>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-xl bg-purple-500/20 text-purple-300 text-[10px] font-bold border border-purple-500/30">
-                        {c.status}
-                      </span>
+                {/* Inline Add Candidate Form */}
+                {isAddingCandidate && (
+                  <form onSubmit={handleSaveCandidate} className="bg-slate-900 border border-purple-500/40 rounded-2xl p-3.5 space-y-3 animate-in fade-in">
+                    <div className="text-xs font-bold text-purple-300">Новий кандидат на об'єкт:</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <input
+                        type="text"
+                        placeholder="ПІБ кандидата (напр. Бахром Юлдашев)"
+                        value={newCandName}
+                        onChange={(e) => setNewCandName(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                        required
+                        autoFocus
+                      />
+                      <input
+                        type="text"
+                        placeholder="Професія / Спеціальність"
+                        value={newCandProfession}
+                        onChange={(e) => setNewCandProfession(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                        required
+                      />
                     </div>
-                  ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <select
+                        value={newCandCountry}
+                        onChange={(e) => setNewCandCountry(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                      >
+                        <option value="Узбекистан">🇺🇿 Узбекистан</option>
+                        <option value="Індія">🇮🇳 Індія</option>
+                        <option value="Азербайджан">🇦🇿 Азербайджан</option>
+                        <option value="Філіппіни">🇵🇭 Філіппіни</option>
+                        <option value="Туреччина">🇹🇷 Туреччина</option>
+                        <option value="Україна">🇺🇦 Україна</option>
+                      </select>
+                      <select
+                        value={newCandStatus}
+                        onChange={(e) => setNewCandStatus(e.target.value)}
+                        className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                      >
+                        <option value="Кваліфіковано / Резюме">Кваліфіковано / Резюме</option>
+                        <option value="Оформлення візи D">Оформлення візи D</option>
+                        <option value="Віза D готова">Віза D готова</option>
+                        <option value="Квитки куплено / В дорозі">Квитки куплено / В дорозі</option>
+                        <option value="Вийшов на зміну">Вийшов на зміну (Успіх)</option>
+                        <option value="Відмова / Заміна">Відмова / Потрібна заміна</option>
+                      </select>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingCandidate(false)}
+                        className="px-3 py-1.5 text-slate-400 hover:text-white text-xs font-semibold"
+                      >
+                        Скасувати
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                      >
+                        Зберегти до пулу
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Candidate List Cards */}
+                <div className="space-y-2.5">
+                  {assignedCandidates.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500 text-xs">
+                      Кандидатів ще не додано. Натисніть "+ Додати кандидата"
+                    </div>
+                  ) : (
+                    assignedCandidates.map(c => (
+                      <div
+                        key={c.id}
+                        className="p-3.5 bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-300 flex-shrink-0">
+                            {c.name.slice(0, 1)}
+                          </div>
+                          <div>
+                            <div className="font-bold text-white text-xs flex items-center gap-1.5">
+                              <span>{c.name}</span>
+                              <span className="text-[10px] text-slate-500">({c.country})</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-medium">
+                              {c.profession}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                          <select
+                            value={c.status}
+                            onChange={(e) => handleUpdateCandidateStatus(c.id, e.target.value)}
+                            className="bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1 text-[11px] font-bold text-purple-300 focus:outline-none"
+                          >
+                            <option value="Кваліфіковано / Резюме">Кваліфіковано</option>
+                            <option value="Оформлення візи D">Оформлення візи D</option>
+                            <option value="Віза D готова">Віза D готова</option>
+                            <option value="Квитки куплено / В дорозі">Квитки / В дорозі</option>
+                            <option value="Вийшов на зміну">Вийшов на зміну</option>
+                            <option value="Відмова / Заміна">Відмова / Заміна</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCandidate(c.id)}
+                            className="p-1 text-slate-500 hover:text-rose-400 transition"
+                            title="Видалити з пулу"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             ) : (

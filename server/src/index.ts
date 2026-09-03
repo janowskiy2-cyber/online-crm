@@ -53,7 +53,7 @@ app.use('/api/uploads', express.static(uploadsDir));
 
 // API Routes
 app.use('/api/auth', createAuthRouter(prisma));
-app.use('/api/deals', createDealsRouter(prisma));
+app.use('/api/deals', createDealsRouter(prisma, io));
 app.use('/api/pipelines', createPipelineRouter(prisma));
 app.use('/api/contacts', createContactRouter(prisma));
 app.use('/api/tasks', createTaskRouter(prisma, () => io));

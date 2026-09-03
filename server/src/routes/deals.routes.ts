@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 
-export function createDealsRouter(prisma: PrismaClient) {
+export function createDealsRouter(prisma: PrismaClient, io?: any) {
   const router = Router();
 
   // Get deals with strict RBAC isolation
@@ -150,11 +150,18 @@ export function createDealsRouter(prisma: PrismaClient) {
     }
   });
 
-  // Update Deal & Move Stage
+  // Update Deal & Move Stage (Digital Pipeline Automation)
   router.put('/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const data = req.body;
+
+      const existingDeal = await prisma.deal.findUnique({
+        where: { id },
+        include: { stage: true, tasks: { where: { isCompleted: false } } }
+      });
+
+      const isStageChanged = data.stageId && existingDeal && existingDeal.stageId !== data.stageId;
 
       const updated = await prisma.deal.update({
         where: { id },
@@ -162,6 +169,7 @@ export function createDealsRouter(prisma: PrismaClient) {
           title: data.title,
           budget: data.budget !== undefined ? Number(data.budget) : undefined,
           stageId: data.stageId,
+          lossReason: data.lossReason !== undefined ? data.lossReason : undefined,
           pipelineId: data.pipelineId,
           responsibleId: data.responsibleId,
           contactId: data.contactId,
@@ -173,13 +181,74 @@ export function createDealsRouter(prisma: PrismaClient) {
           contact: true,
           company: true,
           responsible: true,
-          stage: true
+          stage: true,
+          tasks: { where: { isCompleted: false } }
         }
       });
 
+      // Digital Pipeline: Automatic follow-up tasks upon stage transition
+      if (isStageChanged) {
+        const targetStage = await prisma.stage.findUnique({ where: { id: data.stageId } });
+        if (targetStage && !targetStage.isLost && !targetStage.isWon) {
+          const stageNameLower = targetStage.name.toLowerCase();
+          let taskText = `Контроль переходу на етап: ${targetStage.name}`;
+          let hours = 24;
+          let taskType = 'call';
+
+          if (stageNameLower.includes('кп') || stageNameLower.includes('пропозиці')) {
+            taskText = '📞 Контроль розгляду КП та зворотний зв\'язок щодо розрахунку (4х25%)';
+            hours = 24;
+            taskType = 'call';
+          } else if (stageNameLower.includes('договір') || stageNameLower.includes('узгодження')) {
+            taskText = '⚖️ Узгодження правок до договору та отримання підписаного екземпляра';
+            hours = 48;
+            taskType = 'meeting';
+          } else if (stageNameLower.includes('оплат') || stageNameLower.includes('транш')) {
+            taskText = '💳 Контроль надходження 25% авансу від бухгалтерії підприємства';
+            hours = 24;
+            taskType = 'invoice';
+          } else if (stageNameLower.includes('підбір') || stageNameLower.includes('кандидат')) {
+            taskText = '👥 Формування та узгодження пулу кандидатів (візи D, паспорти)';
+            hours = 48;
+            taskType = 'other';
+          }
+
+          const dueDate = new Date(Date.now() + hours * 3600 * 1000);
+          const assignee = data.responsibleId || existingDeal?.responsibleId || 'usr-admin';
+          const autoTask = await prisma.task.create({
+            data: {
+              dealId: id,
+              responsibleId: assignee,
+              createdById: assignee,
+              text: taskText,
+              type: taskType,
+              dueDate
+            }
+          });
+
+          // Log system activity note
+          await prisma.dealNote.create({
+            data: {
+              dealId: id,
+              userId: existingDeal?.responsibleId || 'usr-admin',
+              content: `🤖 Digital Pipeline: Створено автоматичне завдання: "${taskText}" (термін: ${hours}г)`,
+              type: 'system'
+            }
+          }).catch(() => {});
+
+          if (io) {
+            io.emit('task_created', autoTask);
+          }
+        }
+      }
+
+      if (io) {
+        io.emit('deal_updated', updated);
+      }
+
       res.json(updated);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to update deal:', e);
       res.status(500).json({ error: 'Failed to update deal' });
     }
   });
