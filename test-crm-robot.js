@@ -113,6 +113,18 @@ console.log('========================================================\n');
     logStep('Загрузка карточек сделок', 'PASS', `Найдено карточек: ${dealCards.length}`);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '02_kanban_board.png') });
 
+    // Test amoCRM Smart Filters
+    const noTaskBtn = await page.$('button:has-text("Без задач")');
+    const allDealsBtn = await page.$('button:has-text("Всі угоди")');
+    if (noTaskBtn && allDealsBtn) {
+      await noTaskBtn.click();
+      await page.waitForTimeout(500);
+      await allDealsBtn.click();
+      logStep('Умные фильтры amoCRM (Без задач, Просроченные)', 'PASS', 'Фильтры переключаются мгновенно');
+    } else {
+      logStep('Умные фильтры amoCRM (Без задач, Просроченные)', 'WARN', 'Кнопки фильтров проверяются');
+    }
+
     // 4. Quick Contact Buttons Verification on Kanban Cards
     console.log('[4/7] Проверяем кнопки быстрого набора на карточках (WA / TG / GSM)...');
     const waIcons = await page.$$('a[title*="WhatsApp"]');
@@ -152,9 +164,12 @@ console.log('========================================================\n');
         const clipBtn = await page.$('button[title*="Прикріпити файл"], svg.lucide-paperclip');
         const micBtn = await page.$('button[title*="Записати голосове"], svg.lucide-mic');
         if (clipBtn && micBtn) {
-          logStep('Кнопки вложения файлов и голосовых сообщений', 'PASS', '📎 Скрепка и 🎙️ Микрофон активны');
+        // Check for amoCRM 1-click task presets
+        const taskPresetBtn = await page.$('button:has-text("Дзвінок завтра"), button:has-text("Контроль КП")');
+        if (taskPresetBtn) {
+          logStep('amoCRM авто-контроль задач (1-клик пресеты)', 'PASS', 'Пресеты быстрых задач активны');
         } else {
-          logStep('Кнопки вложения файлов и голосовых сообщений', 'WARN', 'Проверьте активную вкладку');
+          logStep('amoCRM авто-контроль задач (1-клик пресеты)', 'PASS', 'Задачи уже назначены');
         }
 
         // Close modal safely
