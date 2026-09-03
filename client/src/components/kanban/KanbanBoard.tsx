@@ -33,6 +33,26 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'no_tasks' | 'overdue' | 'my_deals'>('all');
+
+  const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
+
+  const noTaskCount = deals.filter(d => !d.tasks || d.tasks.length === 0 || d.tasks.every(t => t.isCompleted)).length;
+  const overdueCount = deals.filter(d => d.tasks && d.tasks.some(t => !t.isCompleted && new Date(t.dueDate) < new Date())).length;
+  const myDealsCount = deals.filter(d => d.responsibleId === currentUserId).length;
+
+  const filteredDeals = deals.filter(d => {
+    if (activeFilter === 'no_tasks') {
+      return !d.tasks || d.tasks.length === 0 || d.tasks.every(t => t.isCompleted);
+    }
+    if (activeFilter === 'overdue') {
+      return d.tasks && d.tasks.some(t => !t.isCompleted && new Date(t.dueDate) < new Date());
+    }
+    if (activeFilter === 'my_deals') {
+      return d.responsibleId === currentUserId;
+    }
+    return true;
+  });
 
   const fetchDeals = async () => {
     try {
@@ -142,11 +162,78 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
 
   return (
-    <div className="flex-1 overflow-x-auto overflow-y-hidden bg-[#080c14] p-4 select-none font-['Inter',sans-serif]">
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-3 h-full min-w-max pb-2">
-          {stagesList.map((stage) => {
-            const stageDeals = (deals || []).filter((d) => d && d.stageId === stage.id);
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#080c14] p-4 select-none font-['Inter',sans-serif]">
+      {/* amoCRM Smart Filter Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-1 flex-shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
+          <button
+            onClick={() => setActiveFilter('all')}
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              activeFilter === 'all'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>Всі угоди</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px]">{deals.length}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('no_tasks')}
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              activeFilter === 'no_tasks'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-rose-400'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+            <span>Без задач</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px] text-rose-300 font-bold">{noTaskCount}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('overdue')}
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              activeFilter === 'overdue'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-amber-400'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Прострочені</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px] text-amber-300 font-bold">{overdueCount}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveFilter('my_deals')}
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              activeFilter === 'my_deals'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-purple-300'
+            }`}
+          >
+            <UserIcon className="w-3.5 h-3.5" />
+            <span>Мої угоди</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px] text-purple-200">{myDealsCount}</span>
+          </button>
+        </div>
+
+        {openCreateDeal && (
+          <button
+            onClick={openCreateDeal}
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Нова угода</span>
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex gap-3 h-full min-w-max pb-2">
+            {stagesList.map((stage) => {
+              const stageDeals = (filteredDeals || []).filter((d) => d && d.stageId === stage.id);
             const totalStageBudget = stageDeals.reduce((sum, d) => sum + (Number(d.budget) || 0), 0);
 
             return (
@@ -297,6 +384,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           })}
         </div>
       </DragDropContext>
+      </div>
 
       {/* Loss Reason Modal */}
       {pendingLossDeal && (

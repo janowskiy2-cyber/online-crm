@@ -299,6 +299,22 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   };
 
+  const handleQuickTaskPreset = async (text: string, hoursAhead: number, type: string) => {
+    try {
+      const dueDate = new Date(Date.now() + hoursAhead * 60 * 60 * 1000).toISOString();
+      await api.post('/tasks', {
+        dealId: deal.id,
+        responsibleId: deal.responsibleId || currentUser?.id,
+        type,
+        text,
+        dueDate
+      });
+      fetchDealDetails();
+    } catch (e) {
+      console.error('Failed to create quick task:', e);
+    }
+  };
+
   const handleToggleTask = async (taskId: string, isCompleted: boolean) => {
     try {
       await api.put(`/tasks/${taskId}`, { isCompleted: !isCompleted });
@@ -939,6 +955,45 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 <span>Завдання</span>
               </button>
             </div>
+
+            {/* amoCRM Warning & Quick Presets: No Open Tasks */}
+            {(!deal.tasks || deal.tasks.filter((t: any) => !t.isCompleted).length === 0) && (
+              <div className="p-3 bg-rose-950/40 border border-rose-500/50 rounded-2xl space-y-2.5 animate-in fade-in">
+                <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                  <span>Угода без наступного кроку!</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-tight">
+                  Клієнт без запланованої задачі буде втрачений. Призначте дію в 1 клік:
+                </p>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickTaskPreset('Зателефонувати клієнту', 24, 'call')}
+                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-left text-[11px] flex items-center justify-between transition group"
+                  >
+                    <span className="font-semibold">📞 Дзвінок завтра</span>
+                    <span className="text-[10px] text-slate-500 group-hover:text-blue-400">+24г</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickTaskPreset('Контроль вивчення КП та розрахунку', 48, 'meeting')}
+                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-left text-[11px] flex items-center justify-between transition group"
+                  >
+                    <span className="font-semibold">📄 Контроль КП</span>
+                    <span className="text-[10px] text-slate-500 group-hover:text-amber-400">+2 дні</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickTaskPreset('Узгодити правки до договору', 72, 'other')}
+                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-left text-[11px] flex items-center justify-between transition group"
+                  >
+                    <span className="font-semibold">⚖️ Договір</span>
+                    <span className="text-[10px] text-slate-500 group-hover:text-emerald-400">+3 дні</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Task Add Form */}
             {isAddingTask && (
