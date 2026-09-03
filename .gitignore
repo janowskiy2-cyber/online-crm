@@ -6,3 +6,13 @@ dev.db
 dev.db-journal
 .DS_Store
 *.log
+
+# Security — never commit these
+server/.env
+server/whatsapp_auth_session/
+server/uploads/
+test-screenshots/
+qa-full-audit.js
+qa-audit-part2.js
+robot-*.js
+push-to-github.bat

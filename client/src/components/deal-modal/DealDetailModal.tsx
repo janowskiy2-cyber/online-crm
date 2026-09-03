@@ -251,8 +251,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
   const handleSendMessage = async (textToSend?: string) => {
     const to = chatChannel === 'whatsapp' 
-      ? (deal.contact?.whatsapp || deal.contact?.phone || '+380734277174')
-      : (deal.contact?.telegram || '@client_tg');
+      ? (deal.contact?.whatsapp || deal.contact?.phone)
+      : (deal.contact?.telegram || deal.contact?.phone);
+
+    if (!to) {
+      alert('У контакту не вказано номер телефону або Telegram. Додайте контактні дані перед надсиланням повідомлення.');
+      return;
+    }
 
     if (selectedFile) {
       setIsSendingFile(true);
@@ -270,8 +275,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         setSelectedFile(null);
         setChatMessageText('');
         fetchDealDetails();
-      } catch (err) {
-        alert('Помилка відправки файлу');
+      } catch (err: any) {
+        alert(err?.response?.data?.error || 'Помилка відправки файлу');
       } finally {
         setIsSendingFile(false);
       }
@@ -291,8 +296,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       });
       setChatMessageText('');
       fetchDealDetails();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to send message:', e);
+      alert(e?.response?.data?.error || 'Помилка надсилання повідомлення');
     }
   };
 
@@ -406,15 +412,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     status: string;
   }
 
-  const defaultCandidates: CandidateItem[] = [
-    { id: 'cand-1', name: 'Бахром Юлдашев', country: 'Узбекистан', profession: 'Оператор лінії', status: 'Віза D готова' },
-    { id: 'cand-2', name: 'Раджеш Кумар', country: 'Індія', profession: 'Зварювальник MIG/MAG', status: 'Дозвіл видано' },
-    { id: 'cand-3', name: 'Алішер Карімов', country: 'Узбекистан', profession: 'Пакувальник / Комплектувальник', status: 'Вийшов на зміну' }
-  ];
-
   const assignedCandidates: CandidateItem[] = Array.isArray((customFieldsObj as any).candidates)
     ? (customFieldsObj as any).candidates
-    : defaultCandidates;
+    : [];
 
   const paidMilestones: number[] = Array.isArray((customFieldsObj as any).paidMilestones)
     ? (customFieldsObj as any).paidMilestones
@@ -562,30 +562,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     uploadedAt: string;
   }
 
-  const defaultDocuments: DocumentItem[] = [
-    {
-      id: 'doc-seed-1',
-      name: 'Договір_поставки_персоналу_2026.pdf',
-      url: 'https://res.cloudinary.com/eta3mkod/image/upload/v1725367890/contract_sample.pdf',
-      category: 'Договір з підприємством',
-      mimeType: 'application/pdf',
-      sizeKb: 142,
-      uploadedAt: new Date(Date.now() - 3600000).toISOString()
-    },
-    {
-      id: 'doc-seed-2',
-      name: 'Бриф_Заявка_на_10_операторів.pdf',
-      url: 'https://res.cloudinary.com/eta3mkod/image/upload/v1725367890/brief_sample.pdf',
-      category: 'Заявка на підбір (Бриф)',
-      mimeType: 'application/pdf',
-      sizeKb: 88,
-      uploadedAt: new Date(Date.now() - 7200000).toISOString()
-    }
-  ];
-
-  const documentsList: DocumentItem[] = Array.isArray((customFieldsObj as any).documents) && (customFieldsObj as any).documents.length > 0
+  const documentsList: DocumentItem[] = Array.isArray((customFieldsObj as any).documents)
     ? (customFieldsObj as any).documents
-    : defaultDocuments;
+    : [];
 
   const handleUploadDocumentFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

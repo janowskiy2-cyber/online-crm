@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { X, TrendingUp, Users, CreditCard, DollarSign, Award, ArrowRight } from 'lucide-react';
 import { Deal, Pipeline } from '../../types';
 
@@ -126,7 +126,7 @@ export const AnalyticsDashboardModal: React.FC<AnalyticsModalProps> = ({
                         <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] font-bold">
                           {idx + 1}
                         </span>
-                        <span className="font-bold text-slate-200">{stage.title}</span>
+                        <span className="font-bold text-slate-200">{stage.name || (stage as any).title}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-slate-400 font-medium">{formatCurrency(stageBudget)}</span>

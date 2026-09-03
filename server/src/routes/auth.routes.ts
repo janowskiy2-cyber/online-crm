@@ -2,17 +2,28 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { verifyPassword } from '../utils/security';
+import { authRequired, AuthRequest } from '../middleware/auth.middleware';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'crm_super_secret_jwt_key_2026';
+
+// Select fields for User — NEVER include password
+const userSafeSelect = {
+  id: true, email: true, name: true, avatar: true, role: true,
+  department: true, phone: true, isActive: true, createdAt: true, updatedAt: true,
+  canViewAllDeals: true, canViewDeptDeals: true, canEditDeals: true,
+  canDeleteDeals: true, canExportData: true, canManageUsers: true,
+  canManageIntegrations: true
+};
 
 export function createAuthRouter(prisma: PrismaClient) {
   const router = Router();
 
-  // Get all users for list / quick switcher
-  router.get('/users', async (req, res) => {
+  // Get all users for list / quick switcher (requires auth)
+  router.get('/users', authRequired, async (req, res) => {
     try {
       const users = await prisma.user.findMany({
         where: { isActive: true },
+        select: userSafeSelect,
         orderBy: { name: 'asc' }
       });
       res.json(users);
@@ -21,7 +32,7 @@ export function createAuthRouter(prisma: PrismaClient) {
     }
   });
 
-  // Standard Email/Password Login
+  // Standard Email/Password Login (public — no auth required)
   router.post('/login', async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -59,61 +70,39 @@ export function createAuthRouter(prisma: PrismaClient) {
           action: 'login',
           entityType: 'user',
           entityId: user.id,
-          details: `Авторизация пользователя ${user.name} (${user.role})`
+          details: `Авторизація ${user.name} (${user.role})`
         }
       });
 
+      // Strip password from response
+      const { password: _, ...safeUser } = user;
+
       res.json({
-        user,
+        user: safeUser,
         token
       });
     } catch (e) {
-      res.status(500).json({ error: 'Ошибка авторизации' });
+      res.status(500).json({ error: 'Помилка авторизації' });
     }
   });
 
-  // Switch user / Login-as
-  router.post('/login-as', async (req, res) => {
+  // Get current session user by JWT token
+  router.get('/me', authRequired, async (req: AuthRequest, res) => {
     try {
-      const { userId } = req.body;
-      const user = await prisma.user.findUnique({
-        where: { id: userId }
-      });
-      if (!user) {
-        return res.status(404).json({ error: 'Пользователь не найден' });
-      }
-
-      const token = jwt.sign(
-        { userId: user.id, role: user.role, email: user.email },
-        JWT_SECRET,
-        { expiresIn: '30d' }
-      );
-
-      res.json({
-        user,
-        token
-      });
-    } catch (e) {
-      res.status(500).json({ error: 'Ошибка смены пользователя' });
-    }
-  });
-
-  // Get current session user by token or header
-  router.get('/me', async (req, res) => {
-    try {
-      const userId = req.headers['x-user-id'] as string;
+      const userId = req.userId;
       if (!userId) {
-        return res.status(401).json({ error: 'Не авторизован' });
+        return res.status(401).json({ error: 'Не авторизовано' });
       }
       const user = await prisma.user.findUnique({
-        where: { id: userId }
+        where: { id: userId },
+        select: userSafeSelect
       });
       if (!user) {
-        return res.status(404).json({ error: 'Пользователь не найден' });
+        return res.status(404).json({ error: 'Користувача не знайдено' });
       }
       res.json(user);
     } catch (e) {
-      res.status(500).json({ error: 'Ошибка проверки сессии' });
+      res.status(500).json({ error: 'Помилка перевірки сесії' });
     }
   });
 

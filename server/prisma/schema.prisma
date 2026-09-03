@@ -10,7 +10,7 @@ generator client {
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
-  password    String   @default("123456")
+  password    String
   name        String
   avatar      String?
   role        String   // super_admin, sales_director, senior_sales_rep, sales_rep, lead_gen_sdr, account_manager, support_agent, etc.
@@ -63,6 +63,9 @@ model Stage {
 
   pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   deals       Deal[]
+
+  @@index([pipelineId])
+  @@index([sortOrder])
 }
 
 model Company {
@@ -77,6 +80,8 @@ model Company {
 
   contacts    Contact[]
   deals       Deal[]
+
+  @@index([name])
 }
 
 model Contact {
@@ -96,6 +101,12 @@ model Contact {
   company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
   deals       Deal[]
   messages    ChatMessage[]
+
+  @@index([companyId])
+  @@index([phone])
+  @@index([whatsapp])
+  @@index([telegram])
+  @@index([email])
 }
 
 model Deal {
@@ -123,6 +134,14 @@ model Deal {
   tasks         Task[]
   notes         DealNote[]
   messages      ChatMessage[]
+
+  @@index([pipelineId])
+  @@index([stageId])
+  @@index([responsibleId])
+  @@index([contactId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@index([updatedAt])
 }
 
 model Task {
@@ -142,6 +161,12 @@ model Task {
   deal          Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   responsible   User      @relation("ResponsibleUser", fields: [responsibleId], references: [id], onDelete: Restrict)
   createdBy     User      @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([dealId])
+  @@index([responsibleId])
+  @@index([createdById])
+  @@index([dueDate])
+  @@index([isCompleted])
 }
 
 model DealNote {
@@ -155,6 +180,10 @@ model DealNote {
 
   deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([dealId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model ChatMessage {
@@ -175,6 +204,11 @@ model ChatMessage {
 
   deal        Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
   contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
+  @@index([contactId])
+  @@index([channel])
+  @@index([createdAt])
 }
 
 model MessengerSession {
@@ -199,6 +233,9 @@ model AutomationRule {
   updatedAt   DateTime @updatedAt
 
   pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@index([pipelineId])
+  @@index([stageId])
 }
 
 model AuditLog {
@@ -212,4 +249,8 @@ model AuditLog {
   createdAt   DateTime @default(now())
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }

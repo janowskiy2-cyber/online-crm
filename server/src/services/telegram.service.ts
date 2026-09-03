@@ -43,6 +43,10 @@ export class TelegramService {
     }
   }
 
+  public isConnected(): boolean {
+    return this.status === 'connected' && !!this.client;
+  }
+
   public async getStatus() {
     return {
       channel: 'telegram',

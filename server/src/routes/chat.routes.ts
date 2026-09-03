@@ -26,35 +26,47 @@ export function createChatRouter(
 
   // 1.1 Real-Time Corporate Line Status (Busy vs Free)
   router.get('/line-status', (req, res) => {
-    res.json({
-      whatsapp: whatsappService.getLineStatus(),
-      telegram: { isBusy: false, channel: 'telegram' }
-    });
+    try {
+      res.json({
+        whatsapp: whatsappService.getLineStatus(),
+        telegram: { isBusy: false, channel: 'telegram' }
+      });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to get line status' });
+    }
   });
 
   // 1.2 Claim line for an active call
   router.post('/line/start-call', (req, res) => {
-    const { channel, managerName, callerPhone } = req.body;
-    if (channel === 'whatsapp' || !channel) {
-      whatsappService.setLineStatus(true, managerName, callerPhone);
+    try {
+      const { channel, managerName, callerPhone } = req.body;
+      if (channel === 'whatsapp' || !channel) {
+        whatsappService.setLineStatus(true, managerName, callerPhone);
+      }
+      res.json({ success: true, status: whatsappService.getLineStatus() });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to start call status' });
     }
-    res.json({ success: true, status: whatsappService.getLineStatus() });
   });
 
   // 1.3 Release line after call ends
   router.post('/line/end-call', (req, res) => {
-    const { channel } = req.body;
-    if (channel === 'whatsapp' || !channel) {
-      whatsappService.setLineStatus(false);
+    try {
+      const { channel } = req.body;
+      if (channel === 'whatsapp' || !channel) {
+        whatsappService.setLineStatus(false);
+      }
+      res.json({ success: true, status: whatsappService.getLineStatus() });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to end call status' });
     }
-    res.json({ success: true, status: whatsappService.getLineStatus() });
   });
 
   // 2. Get chat messages for Unified Inbox with strict RBAC isolation
   router.get('/messages', async (req, res) => {
     try {
       const { channel, dealId, contactId } = req.query;
-      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
       const where: any = {};
       if (channel) where.channel = String(channel);
       if (dealId) where.dealId = String(dealId);
@@ -172,9 +184,15 @@ export function createChatRouter(
       if (!text) return res.status(400).json({ error: 'Повідомлення не може бути порожнім' });
 
       if (channel === 'whatsapp') {
+        if (!whatsappService.isConnected()) {
+          return res.status(503).json({ error: 'WhatsApp не підключений до CRM. Відскануйте QR-код у розділі "Шлюз"' });
+        }
         const msg = await whatsappService.sendMessage(to, text, dealId, contactId);
         return res.json(msg);
       } else {
+        if (!telegramService.isConnected()) {
+          return res.status(503).json({ error: 'Telegram не підключений до CRM. Авторизуйтесь за кодом у розділі "Шлюз"' });
+        }
         const msg = await telegramService.sendMessage(to, text, dealId, contactId);
         return res.json(msg);
       }
@@ -192,9 +210,15 @@ export function createChatRouter(
       }
 
       if (channel === 'whatsapp') {
+        if (!whatsappService.isConnected()) {
+          return res.status(503).json({ error: 'WhatsApp не підключений до CRM. Відскануйте QR-код у розділі "Шлюз"' });
+        }
         const msg = await whatsappService.sendFile(to, fileBase64, fileName, mimeType, caption, dealId, contactId);
         return res.json(msg);
       } else {
+        if (!telegramService.isConnected()) {
+          return res.status(503).json({ error: 'Telegram не підключений до CRM. Авторизуйтесь за кодом у розділі "Шлюз"' });
+        }
         const msg = await telegramService.sendFile(to, fileBase64, fileName, mimeType, caption, dealId, contactId);
         return res.json(msg);
       }

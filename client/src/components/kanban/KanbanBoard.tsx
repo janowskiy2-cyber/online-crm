@@ -21,14 +21,16 @@ interface KanbanBoardProps {
   pipeline: Pipeline;
   projectId?: string;
   searchQuery?: string;
+  refreshTrigger?: number;
   onOpenDeal: (dealId: string) => void;
-  openCreateDeal?: () => void;
+  openCreateDeal?: (stageId?: string) => void;
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   pipeline,
   projectId = 'employers',
   searchQuery = '',
+  refreshTrigger = 0,
   onOpenDeal,
   openCreateDeal,
 }) => {
@@ -62,7 +64,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const res = await api.get('/deals', {
         params: {
           pipelineId: pipeline?.id,
-          search: searchQuery
+          search: searchQuery,
+          projectId: projectId
         }
       });
       if (res.data && Array.isArray(res.data)) {
@@ -76,7 +79,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   useEffect(() => {
     fetchDeals();
 
-    const interval = setInterval(fetchDeals, 2500);
+    const interval = setInterval(fetchDeals, 30000);
 
     const handleDealCreated = (newDeal: Deal) => {
       setDeals((prev) => {
@@ -89,20 +92,36 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       setDeals((prev) => prev.map(d => d.id === updatedDeal.id ? updatedDeal : d));
     };
 
+    const handleDealDeleted = (deletedId: string) => {
+      setDeals((prev) => prev.filter(d => d.id !== deletedId));
+    };
+
     socket.on('deal_created', handleDealCreated);
     socket.on('deal_updated', handleDealUpdated);
+    socket.on('deal_deleted', handleDealDeleted);
 
     return () => {
       clearInterval(interval);
       socket.off('deal_created', handleDealCreated);
       socket.off('deal_updated', handleDealUpdated);
+      socket.off('deal_deleted', handleDealDeleted);
     };
-  }, [pipeline?.id, projectId, searchQuery]);
+  }, [pipeline?.id, projectId, searchQuery, refreshTrigger]);
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
-    if (destination.droppableId === source.droppableId) return;
+    
+    // In-column priority reordering
+    if (destination.droppableId === source.droppableId) {
+      if (destination.index === source.index) return;
+      const columnDeals = deals.filter(d => d.stageId === source.droppableId);
+      const otherDeals = deals.filter(d => d.stageId !== source.droppableId);
+      const [moved] = columnDeals.splice(source.index, 1);
+      columnDeals.splice(destination.index, 0, moved);
+      setDeals([...otherDeals, ...columnDeals]);
+      return;
+    }
 
     const newStageId = destination.droppableId;
     const targetStage = stagesList.find(s => s.id === newStageId);
@@ -386,7 +405,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 {openCreateDeal && (
                   <div className="p-2.5 border-t border-white/[0.06] bg-[#0E1526]/80">
                     <button
-                      onClick={openCreateDeal}
+                      onClick={() => openCreateDeal(stage.id)}
                       className="w-full py-2 text-slate-400 hover:text-white hover:bg-white/[0.04] rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 transition border border-dashed border-white/[0.08] hover:border-blue-500/40 active:scale-[0.99]"
                     >
                       <Plus className="w-3.5 h-3.5 text-blue-400" />

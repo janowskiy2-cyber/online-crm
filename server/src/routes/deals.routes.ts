@@ -8,7 +8,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
   router.get('/', async (req, res) => {
     try {
       const { pipelineId, stageId, search, projectId } = req.query;
-      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
 
       const where: any = {};
 
@@ -175,7 +175,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
         projectId
       } = req.body;
 
-      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
 
       const newDeal = await prisma.deal.create({
         data: {
@@ -312,7 +312,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     try {
       const { id } = req.params;
       const { content, type } = req.body;
-      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
 
       let validUserId = currentUserId;
       if (validUserId) {

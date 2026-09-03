@@ -94,14 +94,31 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     } catch (e) {}
   };
 
-  const handleVerifyPin = (e: React.FormEvent) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPin === '22222222' || adminPin === 'admin' || currentUser?.role === 'super_admin') {
-      setIsAdminAuthorized(true);
-      setPinError('');
-      fetchUsers();
-    } else {
-      setPinError('Невірний майстер-пароль адміністратора');
+    if (!adminPin) {
+      setPinError('Введіть майстер-пароль');
+      return;
+    }
+    try {
+      const res = await api.post('/users/verify-admin-pin', { password: adminPin });
+      if (res.data?.success) {
+        setIsAdminAuthorized(true);
+        setPinError('');
+        fetchUsers();
+      }
+    } catch (err: any) {
+      setPinError(err?.response?.data?.error || 'Невірний майстер-пароль адміністратора');
     }
   };
 
@@ -224,7 +241,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   );
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif]">
+    <div 
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif]"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="bg-[#0e131f] border border-slate-700/80 rounded-3xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Top Header */}

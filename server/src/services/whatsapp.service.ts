@@ -379,6 +379,10 @@ export class WhatsAppService {
     }
   }
 
+  public isConnected(): boolean {
+    return this.status === 'connected' && !!this.sock;
+  }
+
   public async getStatus() {
     return {
       channel: 'whatsapp',

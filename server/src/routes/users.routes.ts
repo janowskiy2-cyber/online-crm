@@ -1,14 +1,36 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword, generateSecurePassword } from '../utils/security';
+import { adminRequired, AuthRequest } from '../middleware/auth.middleware';
+
+const userSafeSelect = {
+  id: true,
+  email: true,
+  name: true,
+  avatar: true,
+  role: true,
+  department: true,
+  phone: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  canViewAllDeals: true,
+  canViewDeptDeals: true,
+  canEditDeals: true,
+  canDeleteDeals: true,
+  canExportData: true,
+  canManageUsers: true,
+  canManageIntegrations: true
+};
 
 export function createUsersRouter(prisma: PrismaClient) {
   const router = Router();
 
-  // Get all users
+  // Get all users (Safe select, no password hashes)
   router.get('/', async (req, res) => {
     try {
       const users = await prisma.user.findMany({
+        select: userSafeSelect,
         orderBy: { createdAt: 'desc' }
       });
       res.json(users);
@@ -19,16 +41,20 @@ export function createUsersRouter(prisma: PrismaClient) {
 
   // Verify Admin Master Password
   router.post('/verify-admin-pin', (req, res) => {
-    const { password } = req.body;
-    const adminKey = process.env.ADMIN_MASTER_KEY || '22222222';
-    if (password === adminKey || password === 'admin') {
-      return res.json({ success: true });
+    try {
+      const { password } = req.body;
+      const adminKey = process.env.ADMIN_MASTER_KEY || '22222222';
+      if (password && password === adminKey) {
+        return res.json({ success: true });
+      }
+      return res.status(401).json({ error: 'Невірний майстер-пароль адміністратора' });
+    } catch (e) {
+      return res.status(500).json({ error: 'Помилка перевірки пароля' });
     }
-    return res.status(401).json({ error: 'Невірний майстер-пароль адміністратора' });
   });
 
-  // Reset employee password
-  router.post('/:id/reset-password', async (req, res) => {
+  // Reset employee password (Admin only)
+  router.post('/:id/reset-password', adminRequired, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const { newPassword } = req.body;
@@ -46,8 +72,8 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Toggle user active status
-  router.post('/:id/toggle-status', async (req, res) => {
+  // Toggle user active status (Admin only)
+  router.post('/:id/toggle-status', adminRequired, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const user = await prisma.user.findUnique({ where: { id } });
@@ -55,7 +81,8 @@ export function createUsersRouter(prisma: PrismaClient) {
 
       const updated = await prisma.user.update({
         where: { id },
-        data: { isActive: !user.isActive }
+        data: { isActive: !user.isActive },
+        select: userSafeSelect
       });
 
       res.json(updated);
@@ -64,8 +91,8 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Create new User
-  router.post('/', async (req, res) => {
+  // Create new User (Admin only)
+  router.post('/', adminRequired, async (req: AuthRequest, res) => {
     try {
       const {
         name,
@@ -116,7 +143,8 @@ export function createUsersRouter(prisma: PrismaClient) {
           canExportData: canExportData ?? false,
           canManageUsers: canManageUsers ?? false,
           canManageIntegrations: canManageIntegrations ?? false
-        }
+        },
+        select: userSafeSelect
       });
 
       // Return user with raw plainPassword only on creation so admin can copy credentials
@@ -127,8 +155,8 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Update User & Permissions
-  router.put('/:id', async (req, res) => {
+  // Update User & Permissions (Admin only)
+  router.put('/:id', adminRequired, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const data = req.body;
@@ -156,7 +184,8 @@ export function createUsersRouter(prisma: PrismaClient) {
 
       const updated = await prisma.user.update({
         where: { id },
-        data: updateData
+        data: updateData,
+        select: userSafeSelect
       });
 
       res.json(updated);
@@ -165,8 +194,8 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Delete User
-  router.delete('/:id', async (req, res) => {
+  // Delete User (Admin only)
+  router.delete('/:id', adminRequired, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       await prisma.user.delete({ where: { id } });

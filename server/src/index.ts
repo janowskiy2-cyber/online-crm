@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -5,6 +6,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
+import { authRequired } from './middleware/auth.middleware';
 import { LeadDistributionService } from './services/lead-distribution.service';
 import { WhatsAppService } from './services/whatsapp.service';
 import { TelegramService } from './services/telegram.service';
@@ -23,10 +25,18 @@ import { createAiRouter } from './routes/ai.routes';
 
 const app = express();
 const server = http.createServer(app);
+
+const ALLOWED_ORIGINS = [
+  'https://online-crm-alpha.vercel.app',
+  'https://online-crm-frontend.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
 const io = new SocketIOServer(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
+    origin: ALLOWED_ORIGINS,
+    methods: ['GET', 'POST']
   }
 });
 
@@ -41,7 +51,7 @@ waService.setSocketIO(io);
 tgService.setSocketIO(io);
 automationService.setSocketIO(io);
 
-app.use(cors());
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -52,23 +62,25 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/api/uploads', express.static(uploadsDir));
 
-// API Routes
+// ── Public routes (no auth required) ──
 app.use('/api/auth', createAuthRouter(prisma));
-app.use('/api/deals', createDealsRouter(prisma, io));
-app.use('/api/pipelines', createPipelineRouter(prisma));
-app.use('/api/contacts', createContactRouter(prisma));
-app.use('/api/tasks', createTaskRouter(prisma, () => io));
-app.use('/api/chat', createChatRouter(prisma, waService, tgService));
-app.use('/api/users', createUsersRouter(prisma));
-app.use('/api/analytics', createAnalyticsRouter(prisma));
-app.use('/api/automation', createAutomationRouter(prisma));
 app.use('/api/webhooks', createWebhookRouter(prisma, leadDistributionService, io));
-app.use('/api/ai', createAiRouter(prisma));
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
+
+// ── Protected routes (require JWT Bearer token) ──
+app.use('/api/deals', authRequired, createDealsRouter(prisma, io));
+app.use('/api/pipelines', authRequired, createPipelineRouter(prisma));
+app.use('/api/contacts', authRequired, createContactRouter(prisma));
+app.use('/api/tasks', authRequired, createTaskRouter(prisma, () => io));
+app.use('/api/chat', authRequired, createChatRouter(prisma, waService, tgService));
+app.use('/api/users', authRequired, createUsersRouter(prisma));
+app.use('/api/analytics', authRequired, createAnalyticsRouter(prisma));
+app.use('/api/automation', authRequired, createAutomationRouter(prisma));
+app.use('/api/ai', authRequired, createAiRouter(prisma));
 
 // Serve frontend client build directly if available
 const clientDistPath = path.join(__dirname, '../../client/dist');

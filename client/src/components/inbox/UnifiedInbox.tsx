@@ -607,29 +607,41 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               )}
             </div>
 
-            <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Графік оплати (4х25%):
-              </span>
-              <div className="space-y-1.5 text-[11px]">
-                <div className="flex justify-between items-center text-slate-300">
-                  <span>1. Договір (25%):</span>
-                  <span className="text-emerald-400 font-bold">Оплачено</span>
+            {(() => {
+              let paid: number[] = [];
+              try {
+                const parsed = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields) : activeDeal.customFields;
+                paid = Array.isArray(parsed?.paidMilestones) ? parsed.paidMilestones : [];
+              } catch (e) {}
+
+              const tranches = [
+                { id: 1, name: '1. Договір (25%)' },
+                { id: 2, name: '2. Скринінг (25%)' },
+                { id: 3, name: '3. Віза D (25%)' },
+                { id: 4, name: '4. Вихід на завод (25%)' }
+              ];
+
+              return (
+                <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Графік оплати (4х25%):
+                  </span>
+                  <div className="space-y-1.5 text-[11px]">
+                    {tranches.map(t => {
+                      const isPaid = paid.includes(t.id);
+                      return (
+                        <div key={t.id} className="flex justify-between items-center text-slate-300">
+                          <span>{t.name}:</span>
+                          <span className={isPaid ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                            {isPaid ? '✅ Оплачено' : 'Очікується'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex justify-between items-center text-slate-300">
-                  <span>2. Скринінг (25%):</span>
-                  <span className="text-blue-400 font-bold">Очікується</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400">
-                  <span>3. Віза D (25%):</span>
-                  <span>Очікується</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400">
-                  <span>4. Вихід на завод (25%):</span>
-                  <span>Очікується</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
           <button

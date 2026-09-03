@@ -3,7 +3,7 @@ services:
     name: online-crm-backend
     env: node
     plan: free
-    buildCommand: cd server && npm install && npx prisma generate && npx prisma db push && npm run seed
+    buildCommand: cd server && npm install && npx prisma generate && npx prisma db push
     startCommand: cd server && npx tsx src/index.ts
     envVars:
       - key: PORT

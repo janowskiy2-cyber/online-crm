@@ -8,7 +8,7 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
   // Get tasks for user or team
   router.get('/', async (req, res) => {
     try {
-      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
       const { status, dealId } = req.query;
 
       let where: any = {};
@@ -59,16 +59,28 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
   // Create task
   router.post('/', async (req, res) => {
     try {
-      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
       const { dealId, responsibleId, type, text, dueDate } = req.body;
+
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'Текст завдання обов’язковий' });
+      }
+
+      let creatorId = currentUserId;
+      if (!creatorId) {
+        const firstUser = await prisma.user.findFirst();
+        creatorId = firstUser ? firstUser.id : 'usr-admin';
+      }
+
+      const assignedId = responsibleId || creatorId;
 
       const task = await prisma.task.create({
         data: {
           dealId: dealId || null,
-          responsibleId: responsibleId || currentUserId,
-          createdById: currentUserId,
+          responsibleId: assignedId,
+          createdById: creatorId,
           type: type || 'call',
-          text,
+          text: text.trim(),
           dueDate: new Date(dueDate || Date.now() + 86400000)
         },
         include: {
@@ -77,15 +89,19 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
         }
       });
 
-      if (dealId && currentUserId) {
-        await prisma.dealNote.create({
-          data: {
-            dealId,
-            userId: currentUserId,
-            type: 'system',
-            content: `Поставлена новая задача: "${text}" (срок: ${new Date(task.dueDate).toLocaleDateString('ru-RU')})`
-          }
-        });
+      if (dealId && creatorId) {
+        try {
+          await prisma.dealNote.create({
+            data: {
+              dealId,
+              userId: creatorId,
+              type: 'system',
+              content: `Поставлено нове завдання: "${text}" (термін: ${new Date(task.dueDate).toLocaleDateString('uk-UA')})`
+            }
+          });
+        } catch (noteErr) {
+          console.warn('Could not create system note for task:', noteErr);
+        }
       }
 
       const io = getIo();
@@ -93,6 +109,7 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
 
       res.status(201).json(task);
     } catch (e) {
+      console.error('Error creating task:', e);
       res.status(500).json({ error: 'Failed to create task' });
     }
   });
@@ -100,7 +117,7 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
   // Complete / update task
   router.put('/:id', async (req, res) => {
     try {
-      const currentUserId = req.headers['x-user-id'] as string;
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
       const { isCompleted, resultText } = req.body;
 
       const task = await prisma.task.update({
@@ -117,14 +134,18 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
       });
 
       if (isCompleted && task.dealId && currentUserId) {
-        await prisma.dealNote.create({
-          data: {
-            dealId: task.dealId,
-            userId: currentUserId,
-            type: 'system',
-            content: `Завершена задача: "${task.text}" ${resultText ? `(Результат: ${resultText})` : ''}`
-          }
-        });
+        try {
+          await prisma.dealNote.create({
+            data: {
+              dealId: task.dealId,
+              userId: currentUserId,
+              type: 'system',
+              content: `Завершено завдання: "${task.text}" ${resultText ? `(Результат: ${resultText})` : ''}`
+            }
+          });
+        } catch (noteErr) {
+          console.warn('Could not create system note for completed task:', noteErr);
+        }
       }
 
       const io = getIo();

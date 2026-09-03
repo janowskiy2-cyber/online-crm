@@ -22,7 +22,7 @@ export const LoginPage: React.FC = () => {
     try {
       await loginWithCredentials(email.trim(), password);
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Невірний логін або пароль. Перевірте введені дані.');
+      setError(err?.message || err?.response?.data?.error || 'Невірний логін або пароль. Перевірте введені дані.');
     } finally {
       setLoading(false);
     }

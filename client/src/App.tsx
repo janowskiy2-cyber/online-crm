@@ -54,6 +54,7 @@ export function App() {
 
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch Pipelines
   const fetchPipelines = async () => {
@@ -177,6 +178,7 @@ export function App() {
               pipeline={activePipeline}
               projectId={currentWorkspace}
               searchQuery={searchQuery}
+              refreshTrigger={refreshTrigger}
               onOpenDeal={(dealId) => setSelectedDealId(dealId)}
               openCreateDeal={() => setIsCreateDealOpen(true)}
             />
@@ -278,8 +280,11 @@ export function App() {
           dealId={selectedDealId}
           pipeline={activePipeline}
           onClose={() => setSelectedDealId(null)}
-          onDealUpdated={() => {}}
-          onDealDeleted={() => setSelectedDealId(null)}
+          onDealUpdated={() => setRefreshTrigger(prev => prev + 1)}
+          onDealDeleted={() => {
+            setSelectedDealId(null);
+            setRefreshTrigger(prev => prev + 1);
+          }}
         />
       )}
 
@@ -291,6 +296,7 @@ export function App() {
           onClose={() => setIsCreateDealOpen(false)}
           onDealCreated={(newDeal) => {
             setIsCreateDealOpen(false);
+            setRefreshTrigger(prev => prev + 1);
           }}
         />
       )}
@@ -303,7 +309,7 @@ export function App() {
         />
       )}
 
-      {/* Admin Panel Modal (Protected by Master PIN 22222222) */}
+      {/* Admin Panel Modal */}
       {isAdminPanelOpen && (
         <AdminPanelModal
           onClose={() => setIsAdminPanelOpen(false)}

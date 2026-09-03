@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { api, setAuthHeader } from '../services/api';
+import { api, setAuthHeader, setAuthToken } from '../services/api';
 
 const defaultRootUser: User = {
   id: 'usr-admin',
@@ -37,17 +37,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = localStorage.getItem('crm_active_user');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    if (localStorage.getItem('crm_auth_token')) return defaultRootUser;
+    const token = localStorage.getItem('crm_auth_token');
+    if (token && token !== 'root_admin_token') return defaultRootUser;
     return null;
   });
 
   const [users, setUsers] = useState<User[]>([defaultRootUser]);
   
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('crm_auth_token') !== null;
+    const token = localStorage.getItem('crm_auth_token');
+    return !!token;
   });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Initialize Authorization header if token exists
+  useEffect(() => {
+    const token = localStorage.getItem('crm_auth_token');
+    const userId = currentUser?.id || localStorage.getItem('crm_user_id');
+    if (token) {
+      setAuthToken(token, userId || undefined);
+    }
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -63,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (e) {
-      console.warn('Backend user sync:', e);
+      console.warn('Backend user sync error:', e);
     }
   };
 
@@ -77,29 +88,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
-      
-      try {
-        const res = await api.post('/auth/login', { email: cleanEmail, password: pass });
-        if (res.data?.user) {
-          const user = res.data.user;
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          setAuthHeader(user.id);
-          localStorage.setItem('crm_auth_token', res.data.token || 'logged_in');
-          localStorage.setItem('crm_active_user', JSON.stringify(user));
-          return;
-        }
-      } catch (err: any) {
-        if ((cleanEmail === 'admin@crm.pro' || cleanEmail === 'admin') && pass === '22222222') {
-          setCurrentUser(defaultRootUser);
-          setIsAuthenticated(true);
-          setAuthHeader(defaultRootUser.id);
-          localStorage.setItem('crm_auth_token', 'root_admin_token');
-          localStorage.setItem('crm_active_user', JSON.stringify(defaultRootUser));
-          return;
-        }
-        throw err;
+      const res = await api.post('/auth/login', { email: cleanEmail, password: pass });
+      if (res.data?.user) {
+        const user = res.data.user;
+        const token = res.data.token;
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        setAuthToken(token, user.id);
+        localStorage.setItem('crm_active_user', JSON.stringify(user));
+        return;
       }
+      throw new Error('Не вдалося увійти. Спробуйте ще раз.');
+    } catch (err: any) {
+      const backendMessage = err?.response?.data?.error || err?.message || 'Помилка авторизації';
+      throw new Error(backendMessage);
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +110,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     localStorage.removeItem('crm_auth_token');
     localStorage.removeItem('crm_active_user');
+    localStorage.removeItem('crm_user_id');
+    delete api.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common['x-user-id'];
     setCurrentUser(null);
     setIsAuthenticated(false);
   };

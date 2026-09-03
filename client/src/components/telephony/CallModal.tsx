@@ -251,11 +251,11 @@ export const CallModal: React.FC<CallModalProps> = ({
           <div className="space-y-3 text-left pt-1 animate-in fade-in">
             <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-1 text-xs text-slate-300">
               <div className="flex items-center justify-between text-[11px] text-emerald-400 font-bold">
-                <span>🎙️ Аудіозапис дзвінка збережено</span>
-                <span>MP3 • {formatTime(callDuration)}</span>
+                <span>📞 Дзвінок завершено</span>
+                <span>Тривалість: {formatTime(callDuration)}</span>
               </div>
               <p className="text-[10px] text-slate-500">
-                Запис автоматично додано до історії взаємодії з клієнтом.
+                Зафіксуйте результат переговорів нижче для додавання до таймлайну угоди.
               </p>
             </div>
 
