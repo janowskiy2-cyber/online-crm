@@ -408,7 +408,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               {activeDeal && currentPipeline && (
                 <div className="px-4 sm:px-6 py-2 bg-[#0c101c] border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto">
                   <span className="text-[10px] text-slate-500 uppercase font-bold mr-1">Етап:</span>
-                  {currentPipeline.stages.map((stg) => {
+                  {(currentPipeline?.stages || []).map((stg) => {
                     const isCurrent = activeDeal.stageId === stg.id;
                     return (
                       <button

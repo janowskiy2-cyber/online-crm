@@ -23,8 +23,8 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   const [title, setTitle] = useState('');
   const [budget, setBudget] = useState('');
   const [pipelineId, setPipelineId] = useState(activePipelineId);
-  const selectedPipeline = pipelines.find(p => p.id === pipelineId) || pipelines[0];
-  const [stageId, setStageId] = useState(initialStageId || selectedPipeline?.stages[0]?.id || '');
+  const selectedPipeline = pipelines.find(p => p.id === pipelineId) || pipelines[0] || { id: 'default', name: 'Воронка', stages: [] };
+  const [stageId, setStageId] = useState(initialStageId || selectedPipeline?.stages?.[0]?.id || '');
   const [responsibleId, setResponsibleId] = useState(currentUser?.id || '');
   
   // Client info
@@ -62,14 +62,14 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
         title,
         budget: Number(budget) || 0,
         pipelineId,
-        stageId: stageId || selectedPipeline.stages[0].id,
+        stageId: stageId || selectedPipeline?.stages?.[0]?.id || 'stage-default',
         responsibleId,
         contactId,
         tags
       });
 
       onDealCreated(res.data);
-      alert(`✅ Лід "${title}" успішно додано до воронки на етап "${selectedPipeline.stages.find(s => s.id === stageId)?.name || 'Нова заявка'}"!`);
+      alert(`✅ Лід "${title}" успішно додано до воронки на етап "${selectedPipeline?.stages?.find(s => s.id === stageId)?.name || 'Нова заявка'}"!`);
       onClose();
     } catch (e) {
       console.error('Failed to create deal:', e);
@@ -133,9 +133,9 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
               <select
                 value={pipelineId}
                 onChange={(e) => {
-                  setPipelineId(e.target.value);
-                  const p = pipelines.find(pl => pl.id === e.target.value);
-                  if (p && p.stages.length > 0) setStageId(p.stages[0].id);
+                   setPipelineId(e.target.value);
+                   const p = pipelines.find(pl => pl.id === e.target.value);
+                   if (p && p.stages && p.stages.length > 0) setStageId(p.stages[0].id);
                 }}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white"
               >
@@ -151,7 +151,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                 onChange={(e) => setStageId(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white"
               >
-                {selectedPipeline.stages.map(s => (
+                {(selectedPipeline?.stages || []).map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
