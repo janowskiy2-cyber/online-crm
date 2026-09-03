@@ -177,6 +177,21 @@ console.log('========================================================\n');
           logStep('amoCRM авто-контроль задач (1-клик пресеты)', 'PASS', 'Задачи уже назначены');
         }
 
+        // Check Huntflow Candidates Tab & 4x25% Financial Milestones
+        const candTab = await page.$('button:has-text("Кандидати")');
+        if (candTab) {
+          await candTab.click();
+          await page.waitForTimeout(800);
+          const milestonesBlock = await page.$('div:has-text("Фінансові транші договору (4х25%)")');
+          const addCandBtn = await page.$('button:has-text("Додати кандидата")');
+          if (milestonesBlock && addCandBtn) {
+            logStep('Huntflow модуль кандидатів та 4х25% транші', 'PASS', 'Пул працівників та калькулятор траншів активні');
+            await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '05_huntflow_candidates_tab.png') });
+          } else {
+            logStep('Huntflow модуль кандидатів та 4х25% транші', 'WARN', 'Вкладка відкрилась');
+          }
+        }
+
         // Close modal safely
         const closeBtn = await page.$('div.fixed button:has(svg.lucide-x), button[title*="Закрити"]');
         if (closeBtn) {
