@@ -210,7 +210,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                     {deal.title}
                                   </h4>
                                   <span className="text-xs font-black text-emerald-400 whitespace-nowrap">
-                                    {formatEUR(deal.budget)}
+                                    {formatCurrency(deal.budget)}
                                   </span>
                                 </div>
 
