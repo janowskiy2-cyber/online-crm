@@ -101,7 +101,33 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
       setPinError('');
       fetchUsers();
     } else {
-      setPinError('Невірний пароль адміністратора. (Пароль: 22222222)');
+      setPinError('Невірний майстер-пароль адміністратора');
+    }
+  };
+
+  const handleResetUserPassword = async (user: User) => {
+    if (!window.confirm(`Згенерувати новий випадковий пароль для ${user.name}?`)) return;
+    try {
+      const res = await api.post(`/users/${user.id}/reset-password`, {});
+      if (res.data?.newPassword) {
+        copyWorkerInvite(user, res.data.newPassword);
+        setSuccessNotice(`🔑 Новий пароль для ${user.name}: "${res.data.newPassword}" скопійовано в буфер!`);
+        setTimeout(() => setSuccessNotice(null), 6000);
+      }
+    } catch (e) {
+      alert('Помилка при скиданні пароля');
+    }
+  };
+
+  const handleToggleUserStatus = async (user: User) => {
+    try {
+      const res = await api.post(`/users/${user.id}/toggle-status`, {});
+      setUserList(prev => prev.map(u => u.id === user.id ? { ...u, isActive: res.data.isActive } : u));
+      refreshUsers();
+      setSuccessNotice(`Статус ${user.name}: ${res.data.isActive ? '🟢 Доступ відкрито' : '🔴 Доступ заблоковано'}`);
+      setTimeout(() => setSuccessNotice(null), 3000);
+    } catch (e) {
+      alert('Помилка при зміні статусу');
     }
   };
 
@@ -116,11 +142,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
       } else {
         const res = await api.post('/users', formData);
         setUserList(prev => [res.data, ...prev]);
-        setSuccessNotice(`✅ Співробітника ${formData.name} успішно створено!`);
+        const passToCopy = res.data.generatedPassword || formData.password;
+        copyWorkerInvite(res.data, passToCopy);
+        setSuccessNotice(`✅ Співробітника ${formData.name} створено! Доступи та пароль скопійовано в буфер обміну.`);
         setIsCreating(false);
       }
       refreshUsers();
-      setTimeout(() => setSuccessNotice(null), 4000);
+      setTimeout(() => setSuccessNotice(null), 5000);
 
       setFormData({
         name: '',
@@ -232,9 +260,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-white">Введіть пароль доступу</h3>
+                <h3 className="text-lg font-bold text-white">Введіть майстер-пароль</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Для входу в адмін-панель введіть майстер-пароль (за замовчуванням: <b>22222222</b>)
+                  Для доступу до панелі керування введіть захисний ключ адміністратора
                 </p>
               </div>
 
@@ -248,7 +276,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
               <form onSubmit={handleVerifyPin} className="space-y-4">
                 <input
                   type="password"
-                  placeholder="Введіть 22222222"
+                  placeholder="••••••••"
                   value={adminPin}
                   onChange={(e) => setAdminPin(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-center text-lg tracking-widest text-white focus:outline-none focus:border-rose-500"
@@ -396,16 +424,52 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                           </div>
                         </div>
 
-                        {/* One-Click Copy Credentials Button */}
-                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500">Доступ до CRM:</span>
-                          <button
-                            onClick={() => copyWorkerInvite(u)}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-semibold flex items-center gap-1.5 transition"
-                          >
-                            {copiedId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{copiedId === u.id ? 'Дані скопійовано!' : 'Скопіювати посилання & логін'}</span>
-                          </button>
+                        {/* Status, Reset Password, Toggle Lock & Copy Invite */}
+                        <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${u.isActive !== false ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                            <span className={u.isActive !== false ? 'text-emerald-400 font-semibold text-[10px]' : 'text-rose-400 font-semibold text-[10px]'}>
+                              {u.isActive !== false ? 'Активний' : 'Заблокований'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {u.role !== 'super_admin' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleResetUserPassword(u)}
+                                  title="Згенерувати новий пароль"
+                                  className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition"
+                                >
+                                  <Key className="w-3 h-3" />
+                                  <span>Скинути пароль</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleUserStatus(u)}
+                                  title={u.isActive !== false ? 'Заблокувати доступ' : 'Відновити доступ'}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition ${
+                                    u.isActive !== false
+                                      ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                      : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                  }`}
+                                >
+                                  {u.isActive !== false ? 'Заблокувати' : 'Розблокувати'}
+                                </button>
+                              </>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => copyWorkerInvite(u)}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-semibold flex items-center gap-1.5 transition text-[10px]"
+                            >
+                              {copiedId === u.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedId === u.id ? 'Скопійовано!' : 'Скопіювати'}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -450,15 +514,30 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                       />
                     </div>
                     <div>
-                      <label className="text-slate-400 font-semibold block mb-1">
-                        {editingUserId ? 'Новий пароль' : 'Пароль для входу'}
-                      </label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-slate-400 font-semibold">
+                          {editingUserId ? 'Новий пароль' : 'Пароль для входу'}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+                            let rand = '';
+                            for (let i = 0; i < 6; i++) rand += chars.charAt(Math.floor(Math.random() * chars.length));
+                            setFormData({ ...formData, password: `Ukr-${rand}!` });
+                          }}
+                          className="text-[10px] text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          <span>Згенерувати</span>
+                        </button>
+                      </div>
                       <input
                         type="text"
-                        placeholder="Введіть пароль (123456)"
+                        placeholder="Введіть або згенеруйте пароль"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500 font-mono"
                       />
                     </div>
                   </div>

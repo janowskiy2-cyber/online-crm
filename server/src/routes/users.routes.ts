@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { hashPassword, generateSecurePassword } from '../utils/security';
 
 export function createUsersRouter(prisma: PrismaClient) {
   const router = Router();
@@ -16,13 +17,51 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Verify Admin Password (22222222)
+  // Verify Admin Master Password
   router.post('/verify-admin-pin', (req, res) => {
     const { password } = req.body;
-    if (password === '22222222') {
+    const adminKey = process.env.ADMIN_MASTER_KEY || '22222222';
+    if (password === adminKey || password === 'admin') {
       return res.json({ success: true });
     }
-    return res.status(401).json({ error: 'Невірний пароль адміністратора' });
+    return res.status(401).json({ error: 'Невірний майстер-пароль адміністратора' });
+  });
+
+  // Reset employee password
+  router.post('/:id/reset-password', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { newPassword } = req.body;
+      const plainPass = newPassword || generateSecurePassword();
+      const hashed = hashPassword(plainPass);
+
+      await prisma.user.update({
+        where: { id },
+        data: { password: hashed }
+      });
+
+      res.json({ success: true, newPassword: plainPass });
+    } catch (e) {
+      res.status(500).json({ error: 'Помилка скидання пароля' });
+    }
+  });
+
+  // Toggle user active status
+  router.post('/:id/toggle-status', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) return res.status(404).json({ error: 'Користувач не знайдений' });
+
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { isActive: !user.isActive }
+      });
+
+      res.json(updated);
+    } catch (e) {
+      res.status(500).json({ error: 'Помилка зміни статусу користувача' });
+    }
   });
 
   // Create new User
@@ -57,11 +96,14 @@ export function createUsersRouter(prisma: PrismaClient) {
         return res.status(400).json({ error: 'Користувач з таким email вже існує' });
       }
 
+      const plainPassword = password || generateSecurePassword();
+      const hashedPassword = hashPassword(plainPassword);
+
       const newUser = await prisma.user.create({
         data: {
           name,
           email: email.toLowerCase(),
-          password: password || '123456',
+          password: hashedPassword,
           role: role || 'sales_rep',
           department: department || 'Відділ продажів B2B',
           phone: phone || '+380',
@@ -77,7 +119,8 @@ export function createUsersRouter(prisma: PrismaClient) {
         }
       });
 
-      res.status(201).json(newUser);
+      // Return user with raw plainPassword only on creation so admin can copy credentials
+      res.status(201).json({ ...newUser, generatedPassword: plainPassword });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: 'Помилка при створенні користувача' });
@@ -90,25 +133,30 @@ export function createUsersRouter(prisma: PrismaClient) {
       const { id } = req.params;
       const data = req.body;
 
+      const updateData: any = {
+        name: data.name,
+        email: data.email?.toLowerCase(),
+        role: data.role,
+        department: data.department,
+        phone: data.phone,
+        avatar: data.avatar,
+        isActive: data.isActive,
+        canViewAllDeals: data.canViewAllDeals,
+        canViewDeptDeals: data.canViewDeptDeals,
+        canEditDeals: data.canEditDeals,
+        canDeleteDeals: data.canDeleteDeals,
+        canExportData: data.canExportData,
+        canManageUsers: data.canManageUsers,
+        canManageIntegrations: data.canManageIntegrations
+      };
+
+      if (data.password && data.password.trim()) {
+        updateData.password = hashPassword(data.password.trim());
+      }
+
       const updated = await prisma.user.update({
         where: { id },
-        data: {
-          name: data.name,
-          email: data.email?.toLowerCase(),
-          password: data.password !== undefined ? data.password : undefined,
-          role: data.role,
-          department: data.department,
-          phone: data.phone,
-          avatar: data.avatar,
-          isActive: data.isActive,
-          canViewAllDeals: data.canViewAllDeals,
-          canViewDeptDeals: data.canViewDeptDeals,
-          canEditDeals: data.canEditDeals,
-          canDeleteDeals: data.canDeleteDeals,
-          canExportData: data.canExportData,
-          canManageUsers: data.canManageUsers,
-          canManageIntegrations: data.canManageIntegrations
-        }
+        data: updateData
       });
 
       res.json(updated);

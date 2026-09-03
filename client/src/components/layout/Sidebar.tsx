@@ -164,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center gap-2">
               <Lock className="w-3.5 h-3.5 text-rose-400" />
-              <span>Адмін-панель (22222222)</span>
+              <span>Адмін-панель</span>
             </div>
             <span className="text-[10px] bg-rose-500/20 px-1.5 py-0.5 rounded font-mono">ROOT</span>
           </button>

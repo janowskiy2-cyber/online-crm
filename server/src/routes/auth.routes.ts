@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
+import { verifyPassword } from '../utils/security';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'crm_super_secret_jwt_key_2026';
 
 export function createAuthRouter(prisma: PrismaClient) {
   const router = Router();
 
-  // Get all 20 users for list / quick switcher
+  // Get all users for list / quick switcher
   router.get('/users', async (req, res) => {
     try {
       const users = await prisma.user.findMany({
@@ -24,17 +25,26 @@ export function createAuthRouter(prisma: PrismaClient) {
   router.post('/login', async (req, res) => {
     try {
       const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Введіть email та пароль' });
+      }
+
       const user = await prisma.user.findUnique({
-        where: { email: email?.toLowerCase() }
+        where: { email: email.trim().toLowerCase() }
       });
 
       if (!user) {
-        return res.status(401).json({ error: 'Пользователь с таким email не найден' });
+        return res.status(401).json({ error: 'Невірний email або пароль' });
       }
 
-      // Check password (default is 123456 or custom)
-      if (user.password && user.password !== password) {
-        return res.status(401).json({ error: 'Неверный пароль (по умолчанию: 123456)' });
+      if (!user.isActive) {
+        return res.status(403).json({ error: 'Обліковий запис заблоковано адміністратором' });
+      }
+
+      // Secure verification against hashed (or plain legacy) password
+      const isValid = verifyPassword(password, user.password || '');
+      if (!isValid) {
+        return res.status(401).json({ error: 'Невірний email або пароль' });
       }
 
       const token = jwt.sign(
