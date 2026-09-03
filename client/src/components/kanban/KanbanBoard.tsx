@@ -9,11 +9,13 @@ import {
   Clock, 
   Flame, 
   Globe2, 
-  Calendar 
+  Calendar,
+  TrendingUp 
 } from 'lucide-react';
 import { Deal, Pipeline, Stage } from '../../types';
 import { api, socket } from '../../services/api';
 import { LossReasonModal } from '../modals/LossReasonModal';
+import { AnalyticsDashboardModal } from '../analytics/AnalyticsDashboardModal';
 
 interface KanbanBoardProps {
   pipeline: Pipeline;
@@ -34,6 +36,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [loading, setLoading] = useState(false);
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'no_tasks' | 'overdue' | 'my_deals'>('all');
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
 
   const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
 
@@ -218,15 +221,26 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </button>
         </div>
 
-        {openCreateDeal && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={openCreateDeal}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30"
+            onClick={() => setIsAnalyticsOpen(true)}
+            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition border border-slate-700/80 shadow-sm"
+            title="Аналітика та конверсія воронки"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Нова угода</span>
+            <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Аналітика воронки</span>
           </button>
-        )}
+
+          {openCreateDeal && (
+            <button
+              onClick={openCreateDeal}
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Нова угода</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
@@ -394,6 +408,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onConfirm={handleConfirmLoss}
         />
       )}
+
+      {/* Analytics & Conversion Funnel Dashboard Modal */}
+      <AnalyticsDashboardModal
+        isOpen={isAnalyticsOpen}
+        onClose={() => setIsAnalyticsOpen(false)}
+        deals={deals}
+        pipeline={pipeline}
+      />
     </div>
   );
 };

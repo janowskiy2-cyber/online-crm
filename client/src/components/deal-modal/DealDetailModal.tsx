@@ -43,6 +43,7 @@ import { AudioMessagePlayer } from '../media/AudioMessagePlayer';
 import { VoiceRecorder } from '../media/VoiceRecorder';
 import { GeminiModal } from '../recruiting/GeminiModal';
 import { startSpeechToText } from '../../utils/speechRecognition';
+import { openPrintableInvoice } from '../../utils/invoiceGenerator';
 
 interface DealDetailModalProps {
   dealId: string;
@@ -115,12 +116,29 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isMatchingLoading, setIsMatchingLoading] = useState(false);
   const [matchedResults, setMatchedResults] = useState<any[]>([]);
 
+  // AI Resume Auto-Parser state
+  const [isParsingResume, setIsParsingResume] = useState(false);
+  const [resumeInputText, setResumeInputText] = useState('');
+  const [isParsingLoading, setIsParsingLoading] = useState(false);
+
+  // Anti-Duplicate Guard state
+  const [duplicateAlert, setDuplicateAlert] = useState<any | null>(null);
+
   const fetchDealDetails = async () => {
     try {
       const res = await api.get(`/deals/${dealId}`);
       if (res.data) {
         setDeal(res.data);
         setTaskAssigneeId(res.data.responsibleId);
+
+        // Anti-Duplicate check
+        api.get(`/deals/check-duplicate?query=${encodeURIComponent(res.data.title)}&dealId=${dealId}`)
+          .then(dupRes => {
+            if (dupRes.data.duplicateFound && dupRes.data.duplicates.length > 0) {
+              setDuplicateAlert(dupRes.data.duplicates[0]);
+            }
+          })
+          .catch(() => {});
       }
     } catch (e) {
       console.error('Failed to load deal details:', e);
@@ -512,6 +530,28 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   };
 
+  const handleParseResume = async () => {
+    if (!resumeInputText.trim()) return;
+    setIsParsingLoading(true);
+    try {
+      const res = await api.post('/ai/parse-resume', { text: resumeInputText });
+      const c = res.data.candidate;
+      if (c) {
+        setNewCandName(c.name || '');
+        setNewCandProfession(c.profession || '');
+        setNewCandCountry(c.country || 'Узбекистан');
+        setNewCandStatus(c.status || 'Кваліфіковано / Резюме');
+        setIsAddingCandidate(true);
+        setIsParsingResume(false);
+        setResumeInputText('');
+      }
+    } catch (err) {
+      console.error('Failed to parse resume:', err);
+    } finally {
+      setIsParsingLoading(false);
+    }
+  };
+
   interface DocumentItem {
     id: string;
     name: string;
@@ -652,6 +692,25 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Anti-Duplicate Guard Banner */}
+        {duplicateAlert && (
+          <div className="bg-amber-950/70 border-b border-amber-500/40 px-4 sm:px-6 py-2 flex items-center justify-between text-xs text-amber-200 animate-in fade-in flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span>
+                <strong>Увага (Захист від дублів):</strong> Знайдено схожу угоду: <strong>«{duplicateAlert.title}»</strong> (Етап: {duplicateAlert.stageName}, Відповідальний: {duplicateAlert.responsibleName})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDuplicateAlert(null)}
+              className="text-amber-400 hover:text-white text-[11px] font-bold underline ml-2"
+            >
+              Зрозуміло
+            </button>
+          </div>
+        )}
 
         {/* Pipeline Stage Bar */}
         <div className="px-4 sm:px-6 py-2.5 bg-[#0a0f1a] border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
@@ -945,6 +1004,31 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       );
                     })}
                   </div>
+
+                  {/* 1-Click Ukrainian Invoice Generator (PDF) */}
+                  <div className="flex flex-wrap items-center justify-between pt-1 text-xs border-t border-slate-800/80 gap-2">
+                    <span className="text-[11px] text-slate-400">Натисніть на транш для позначки або сформуйте офіційний рахунок:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextTranche = [1, 2, 3, 4].find(n => !paidMilestones.includes(n)) || 1;
+                        openPrintableInvoice({
+                          dealTitle: deal.title,
+                          companyName: deal.company?.name || deal.title,
+                          trancheNumber: nextTranche,
+                          tranchePercent: 25,
+                          totalDealBudget: deal.budget || 100000,
+                          dealId: deal.id,
+                          contactName: deal.contact?.name,
+                          contactPhone: deal.contact?.phone
+                        });
+                      }}
+                      className="px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 hover:text-white border border-blue-500/40 rounded-lg text-[11px] font-bold flex items-center gap-1 transition"
+                    >
+                      <FileText className="w-3 h-3" />
+                      <span>🧾 Сформувати Рахунок-фактуру (PDF)</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Candidate Pool Header */}
@@ -959,7 +1043,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <p className="text-[11px] text-slate-400">Керування працівниками, візами та виїздом на об'єкт</p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsParsingResume(!isParsingResume)}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{isParsingResume ? 'Закрити парсер' : '📄 AI-парсинг резюме'}</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -972,7 +1065,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>{isMatchingAI ? 'Сховати смарт-підбір' : '🔍 AI Смарт-підбір (gemini-embedding-2)'}</span>
+                      <span>{isMatchingAI ? 'Сховати смарт-підбір' : '🔍 AI Смарт-підбір'}</span>
                     </button>
 
                     <button
@@ -981,10 +1074,50 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-purple-600/30 flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>{isAddingCandidate ? 'Скасувати' : '+ Додати кандидата'}</span>
+                      <span>{isAddingCandidate ? 'Скасувати' : '+ Додати вручну'}</span>
                     </button>
                   </div>
                 </div>
+
+                {/* AI Resume Parser Input Block */}
+                {isParsingResume && (
+                  <div className="bg-slate-900 border border-indigo-500/40 rounded-2xl p-4 space-y-3 animate-in fade-in">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-indigo-400" />
+                        <span className="text-xs font-bold text-white">AI-парсер резюме (Gemini 2.5 Flash)</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">Вставте текст резюме або анкету</span>
+                    </div>
+
+                    <textarea
+                      value={resumeInputText}
+                      onChange={(e) => setResumeInputText(e.target.value)}
+                      rows={3}
+                      placeholder="Вставте сюди текст резюме кандидата (ПІБ, телефон, спеціальність, досвід)..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsParsingResume(false)}
+                        className="px-3 py-1.5 text-slate-400 hover:text-white text-xs font-semibold"
+                      >
+                        Скасувати
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleParseResume}
+                        disabled={isParsingLoading || !resumeInputText.trim()}
+                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isParsingLoading ? 'animate-spin' : ''}`} />
+                        <span>{isParsingLoading ? 'Розпізнавання...' : '⚡ Розпізнати та створити кандидата'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* AI Semantic Candidate Matchmaking Panel */}
                 {isMatchingAI && (

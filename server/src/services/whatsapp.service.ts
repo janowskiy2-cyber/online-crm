@@ -16,6 +16,35 @@ export class WhatsAppService {
   private sock: any = null;
   private accountPhone: string | null = null;
   private authDir: string;
+  private lineStatus: {
+    isBusy: boolean;
+    channel: string;
+    activeCaller?: string;
+    activeManager?: string;
+    startedAt?: string;
+  } = {
+    isBusy: false,
+    channel: 'whatsapp'
+  };
+
+  public getLineStatus() {
+    return this.lineStatus;
+  }
+
+  public setLineStatus(isBusy: boolean, managerName?: string, callerPhone?: string) {
+    this.lineStatus = {
+      isBusy,
+      channel: 'whatsapp',
+      activeManager: managerName || (isBusy ? 'Менеджер' : undefined),
+      activeCaller: callerPhone,
+      startedAt: isBusy ? (this.lineStatus.startedAt || new Date().toISOString()) : undefined
+    };
+    if (this.io) {
+      this.io.emit('line_status_update', {
+        whatsapp: this.lineStatus
+      });
+    }
+  }
 
   constructor(prisma: PrismaClient, distributionService: LeadDistributionService) {
     this.prisma = prisma;
@@ -129,6 +158,129 @@ export class WhatsAppService {
           }
         } catch (err) {
           console.error('Error handling WhatsApp message upsert:', err);
+        }
+      });
+
+      // Handle real incoming audio / video calls on WhatsApp
+      this.sock.ev.on('call', async (callEvents: any) => {
+        try {
+          if (!callEvents || !Array.isArray(callEvents)) return;
+          for (const call of callEvents) {
+            const rawPhone = (call.from || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+            if (!rawPhone) continue;
+            const formattedPhone = `+${rawPhone}`;
+
+            const contact = await this.prisma.contact.findFirst({
+              where: {
+                OR: [
+                  { phone: { contains: rawPhone } },
+                  { whatsapp: { contains: rawPhone } },
+                  { phone2: { contains: rawPhone } }
+                ]
+              },
+              include: { deals: { include: { stage: true, responsible: true } } }
+            });
+
+            let deal = contact?.deals?.[0];
+            let responsibleId = deal?.responsibleId || 'usr-admin';
+
+            if (!deal) {
+              const newContact = contact || await this.prisma.contact.create({
+                data: {
+                  name: `Клієнт (${formattedPhone})`,
+                  phone: formattedPhone,
+                  whatsapp: formattedPhone,
+                  position: 'Вхідний дзвінок'
+                }
+              });
+
+              const newDeal = await this.distributionService.processInboundLead({
+                title: `Вхідний дзвінок: ${newContact.name}`,
+                contactId: newContact.id,
+                channel: 'whatsapp',
+                text: 'Вхідний аудіо-виклик WhatsApp'
+              });
+              if (newDeal) {
+                deal = newDeal as any;
+                responsibleId = newDeal.responsibleId;
+              }
+            }
+
+            const isOffer = call.status === 'offer' || call.status === 'ringing';
+            const isMissed = call.status === 'timeout' || call.status === 'reject';
+
+            if (isOffer) {
+              if (this.lineStatus.isBusy) {
+                this.sendMessage(rawPhone, 'Вітаємо! Корпоративна лінія наразі зайнята розмовою з іншим клієнтом. Ваш персональний менеджер уже бачить ваш дзвінок і перетелефонує вам рівно за 2 хвилини! Якщо питання термінове — напишіть повідомлення або надішліть голосове тут.').catch(() => {});
+
+                if (deal) {
+                  await this.prisma.dealNote.create({
+                    data: {
+                      dealId: deal.id,
+                      userId: responsibleId,
+                      type: 'call_record',
+                      content: `⚠️ Вхідний дзвінок при ЗАЙНЯТІЙ ЛІНІЇ від ${contact?.name || formattedPhone} о ${new Date().toLocaleTimeString('uk-UA')}. Клієнту надіслано авто-повідомлення.`
+                    }
+                  }).catch(() => {});
+
+                  await this.prisma.task.create({
+                    data: {
+                      dealId: deal.id,
+                      responsibleId,
+                      createdById: responsibleId,
+                      type: 'call',
+                      text: `🔥 ТЕРМІНОВО: Дзвінок при зайнятій лінії від ${contact?.name || formattedPhone}! Набрати одразу після звільнення лінії!`,
+                      dueDate: new Date(Date.now() + 3 * 60 * 1000)
+                    }
+                  }).catch(() => {});
+                }
+              } else {
+                this.setLineStatus(true, 'Вхідний виклик', formattedPhone);
+              }
+
+              if (this.io) {
+                this.io.emit('incoming_call', {
+                  channel: 'whatsapp',
+                  callerPhone: formattedPhone,
+                  callerName: contact?.name || `Клієнт (${formattedPhone})`,
+                  dealId: deal?.id,
+                  dealTitle: deal?.title,
+                  stageName: deal?.stage?.name || 'Етап',
+                  responsibleId,
+                  callId: call.id,
+                  isVideo: !!call.isVideo,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            } else if (call.status === 'accept') {
+              this.setLineStatus(true, 'Розмова', formattedPhone);
+            } else if (isMissed || call.status === 'terminate' || call.status === 'reject') {
+              this.setLineStatus(false);
+              if (deal) {
+                await this.prisma.dealNote.create({
+                  data: {
+                    dealId: deal.id,
+                    userId: responsibleId,
+                    type: 'call_record',
+                    content: `🔴 Пропущений аудіодзвінок WhatsApp від ${contact?.name || formattedPhone} о ${new Date().toLocaleTimeString('uk-UA')}`
+                  }
+                }).catch(() => {});
+
+                await this.prisma.task.create({
+                  data: {
+                    dealId: deal.id,
+                    responsibleId,
+                    createdById: responsibleId,
+                    type: 'call',
+                    text: `🔥 ПРОПУЩЕНИЙ ДЗВІНОК від ${contact?.name || formattedPhone} у WhatsApp! Терміново передзвонити клієнту!`,
+                    dueDate: new Date(Date.now() + 5 * 60 * 1000)
+                  }
+                }).catch(() => {});
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error handling WhatsApp call event:', err);
         }
       });
     } catch (err) {

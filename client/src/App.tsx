@@ -16,6 +16,8 @@ import { AdminPanelModal } from './components/admin/AdminPanelModal';
 import { RecruitingCalculatorModal } from './components/recruiting/RecruitingCalculatorModal';
 import { ObjectionsCheatSheetModal } from './components/recruiting/ObjectionsCheatSheetModal';
 import { LoginPage } from './components/auth/LoginPage';
+import { IncomingCallModal, IncomingCallData } from './components/telephony/IncomingCallModal';
+import { CallModal } from './components/telephony/CallModal';
 import { useAuth } from './context/AuthContext';
 import { api, socket } from './services/api';
 import { Pipeline, Deal } from './types';
@@ -41,6 +43,15 @@ export function App() {
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [isObjectionsOpen, setIsObjectionsOpen] = useState(false);
 
+  // Incoming and Active Call State
+  const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
+  const [activeCallSession, setActiveCallSession] = useState<{
+    name: string;
+    phone: string;
+    type: 'whatsapp' | 'telegram' | 'gsm';
+    dealId?: string;
+  } | null>(null);
+
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -65,6 +76,53 @@ export function App() {
       fetchPipelines();
     }
   }, [isAuthenticated]);
+
+  // Live Incoming Calls Listener (Isolated to responsible manager)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleIncomingCall = (callData: IncomingCallData) => {
+      const myId = currentUser?.id || localStorage.getItem('crm_user_id') || 'usr-admin';
+      const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.canViewAllDeals;
+
+      if (isSuperAdmin || !callData.responsibleId || callData.responsibleId === myId) {
+        setIncomingCall(callData);
+      }
+    };
+
+    socket.on('incoming_call', handleIncomingCall);
+    return () => {
+      socket.off('incoming_call', handleIncomingCall);
+    };
+  }, [isAuthenticated, currentUser]);
+
+  const handleAcceptCall = (call: IncomingCallData) => {
+    setIncomingCall(null);
+    setActiveCallSession({
+      name: call.callerName,
+      phone: call.callerPhone,
+      type: call.channel,
+      dealId: call.dealId
+    });
+  };
+
+  const handleRejectCall = (call: IncomingCallData) => {
+    setIncomingCall(null);
+  };
+
+  const handleQuickReply = async (call: IncomingCallData, text: string) => {
+    setIncomingCall(null);
+    try {
+      const cleanPhone = call.callerPhone.replace(/\D/g, '');
+      if (call.channel === 'whatsapp') {
+        await api.post('/chat/whatsapp/send', { phone: cleanPhone, text, dealId: call.dealId });
+      } else {
+        await api.post('/chat/telegram/send', { peer: cleanPhone, text, dealId: call.dealId });
+      }
+    } catch (e) {
+      console.warn('Quick reply failed:', e);
+    }
+  };
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -267,6 +325,25 @@ export function App() {
       {isCalcOpen && (
         <RecruitingCalculatorModal
           onClose={() => setIsCalcOpen(false)}
+        />
+      )}
+
+      {/* Live Incoming Call Ringing Alert (Isolated per responsible manager) */}
+      <IncomingCallModal
+        call={incomingCall}
+        onAccept={handleAcceptCall}
+        onReject={handleRejectCall}
+        onQuickReply={handleQuickReply}
+      />
+
+      {/* Active In-Call Softphone Modal with Microphone & Audio */}
+      {activeCallSession && (
+        <CallModal
+          contactName={activeCallSession.name}
+          phoneNumber={activeCallSession.phone}
+          callType={activeCallSession.type}
+          dealId={activeCallSession.dealId}
+          onClose={() => setActiveCallSession(null)}
         />
       )}
     </div>

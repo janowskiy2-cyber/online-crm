@@ -24,19 +24,86 @@ export function createChatRouter(
     }
   });
 
-  // 2. Get all chat messages for Unified Inbox
+  // 1.1 Real-Time Corporate Line Status (Busy vs Free)
+  router.get('/line-status', (req, res) => {
+    res.json({
+      whatsapp: whatsappService.getLineStatus(),
+      telegram: { isBusy: false, channel: 'telegram' }
+    });
+  });
+
+  // 1.2 Claim line for an active call
+  router.post('/line/start-call', (req, res) => {
+    const { channel, managerName, callerPhone } = req.body;
+    if (channel === 'whatsapp' || !channel) {
+      whatsappService.setLineStatus(true, managerName, callerPhone);
+    }
+    res.json({ success: true, status: whatsappService.getLineStatus() });
+  });
+
+  // 1.3 Release line after call ends
+  router.post('/line/end-call', (req, res) => {
+    const { channel } = req.body;
+    if (channel === 'whatsapp' || !channel) {
+      whatsappService.setLineStatus(false);
+    }
+    res.json({ success: true, status: whatsappService.getLineStatus() });
+  });
+
+  // 2. Get chat messages for Unified Inbox with strict RBAC isolation
   router.get('/messages', async (req, res) => {
     try {
       const { channel, dealId, contactId } = req.query;
+      const currentUserId = req.headers['x-user-id'] as string;
       const where: any = {};
       if (channel) where.channel = String(channel);
       if (dealId) where.dealId = String(dealId);
       if (contactId) where.contactId = String(contactId);
 
+      // Strict RBAC: Non-admin users see ONLY messages from their assigned deals
+      if (currentUserId) {
+        const user = await prisma.user.findUnique({ where: { id: currentUserId } });
+        if (user && !user.canViewAllDeals) {
+          if (user.canViewDeptDeals) {
+            const deptUsers = await prisma.user.findMany({
+              where: { department: user.department },
+              select: { id: true }
+            });
+            const deptUserIds = deptUsers.map(u => u.id);
+            where.OR = [
+              { deal: { responsibleId: { in: deptUserIds } } },
+              { dealId: null }
+            ];
+          } else {
+            where.OR = [
+              { deal: { responsibleId: user.id } },
+              { dealId: null }
+            ];
+          }
+        }
+      }
+
       const messages = await prisma.chatMessage.findMany({
         where,
         orderBy: { createdAt: 'asc' },
-        take: 300
+        take: 500,
+        include: {
+          deal: {
+            select: {
+              id: true,
+              title: true,
+              responsibleId: true,
+              responsible: { select: { id: true, name: true } }
+            }
+          },
+          contact: {
+            select: {
+              id: true,
+              name: true,
+              phone: true
+            }
+          }
+        }
       });
       res.json(messages);
     } catch (e) {

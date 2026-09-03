@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Users, 
@@ -11,10 +11,12 @@ import {
   Menu,
   QrCode,
   Lock,
-  Sparkles
+  Sparkles,
+  PhoneCall
 } from 'lucide-react';
 import { Pipeline, ProjectCategory, ProjectInfo } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { api, socket } from '../../services/api';
 
 export const PROJECTS_CONFIG: ProjectInfo[] = [
   {
@@ -79,6 +81,30 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleMobileSidebar
 }) => {
   const { currentUser } = useAuth();
+  const [lineBusy, setLineBusy] = useState(false);
+  const [lineDetails, setLineDetails] = useState<any>(null);
+
+  useEffect(() => {
+    api.get('/chat/line-status')
+      .then(res => {
+        if (res.data?.whatsapp?.isBusy) {
+          setLineBusy(true);
+          setLineDetails(res.data.whatsapp);
+        }
+      })
+      .catch(() => {});
+
+    const handleLineUpdate = (data: any) => {
+      const wa = data.whatsapp || data;
+      setLineBusy(!!wa.isBusy);
+      setLineDetails(wa);
+    };
+
+    socket.on('line_status_update', handleLineUpdate);
+    return () => {
+      socket.off('line_status_update', handleLineUpdate);
+    };
+  }, []);
 
   const getProjectIcon = (id: ProjectCategory) => {
     switch (id) {
@@ -132,6 +158,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Quick Admin and Messengers trigger for mobile header */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Corporate Line Live Busy / Free Indicator */}
+          <div
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition cursor-default ${
+              lineBusy
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
+                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+            }`}
+            title={lineBusy ? `Лінія зайнята: ${lineDetails?.activeManager || 'Менеджер'} розмовляє з ${lineDetails?.activeCaller || 'клієнтом'}` : 'Корпоративна лінія вільна для викликів'}
+          >
+            <span className={`w-2 h-2 rounded-full ${lineBusy ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
+            <span className="hidden md:inline">{lineBusy ? 'Лінія зайнята' : 'Лінія вільна'}</span>
+          </div>
+
           <button
             onClick={() => openQRModal()}
             className="p-1.5 sm:px-2.5 sm:py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1 transition"

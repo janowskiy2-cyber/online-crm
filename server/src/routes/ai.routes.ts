@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { GeminiService } from '../services/gemini.service';
 import { ModelRouterService } from '../services/model-router.service';
 import { EmbeddingService } from '../services/embedding.service';
+import { ResumeParserService } from '../services/resume-parser.service';
 import { CloudinaryService } from '../services/cloudinary.service';
 
 export function createAiRouter(prisma: PrismaClient) {
@@ -59,6 +60,18 @@ export function createAiRouter(prisma: PrismaClient) {
       if (!jobRequirements) return res.status(400).json({ error: 'jobRequirements required' });
       const matches = await EmbeddingService.matchCandidates(jobRequirements, candidates || []);
       res.json({ matches, modelUsed: 'gemini-embedding-2' });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // AI: Resume Auto-Parser (Extracts Candidate Data from text or PDF)
+  router.post('/parse-resume', async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ error: 'text required' });
+      const candidate = await ResumeParserService.parseResumeText(text);
+      res.json({ candidate });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

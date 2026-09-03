@@ -73,6 +73,60 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     }
   });
 
+  // Anti-Duplicate Guard: Checks if phone or company already exists
+  router.get('/check-duplicate', async (req, res) => {
+    try {
+      const { query, dealId } = req.query;
+      const term = (String(query || '')).trim();
+      if (!term || term.length < 3) {
+        return res.json({ duplicateFound: false, duplicates: [] });
+      }
+
+      const matchedDeals = await prisma.deal.findMany({
+        where: {
+          AND: [
+            dealId ? { id: { not: String(dealId) } } : {},
+            {
+              OR: [
+                { title: { contains: term, mode: 'insensitive' } },
+                { company: { name: { contains: term, mode: 'insensitive' } } },
+                { contact: { phone: { contains: term, mode: 'insensitive' } } },
+                { contact: { name: { contains: term, mode: 'insensitive' } } },
+                { contact: { email: { contains: term, mode: 'insensitive' } } }
+              ]
+            }
+          ]
+        },
+        include: {
+          company: true,
+          contact: true,
+          responsible: true,
+          stage: true
+        },
+        take: 3
+      });
+
+      if (matchedDeals.length > 0) {
+        return res.json({
+          duplicateFound: true,
+          duplicates: matchedDeals.map(d => ({
+            id: d.id,
+            title: d.title,
+            companyName: d.company?.name || d.title,
+            contactName: d.contact?.name,
+            phone: d.contact?.phone,
+            stageName: d.stage?.name || 'Етап',
+            responsibleName: d.responsible?.name || 'Менеджер'
+          }))
+        });
+      }
+
+      res.json({ duplicateFound: false, duplicates: [] });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Get single deal with full relations
   router.get('/:id', async (req, res) => {
     try {
