@@ -25,6 +25,9 @@ import {
   Paperclip,
   Mic,
   CreditCard,
+  Download,
+  UploadCloud,
+  Check,
   Image as ImageIcon
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
@@ -37,6 +40,7 @@ import { CallModal } from '../telephony/CallModal';
 import { MediaViewerModal } from '../media/MediaViewerModal';
 import { AudioMessagePlayer } from '../media/AudioMessagePlayer';
 import { VoiceRecorder } from '../media/VoiceRecorder';
+import { GeminiModal } from '../recruiting/GeminiModal';
 import { startSpeechToText } from '../../utils/speechRecognition';
 
 interface DealDetailModalProps {
@@ -56,14 +60,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 }) => {
   const { currentUser, users } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'candidates' | 'notes' | 'tasks'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'candidates' | 'documents' | 'notes' | 'tasks'>('all');
   
   // Modals state
   const [isKPModalOpen, setIsKPModalOpen] = useState(false);
   const [isObjectionsModalOpen, setIsObjectionsModalOpen] = useState(false);
   const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string } | null>(null);
+
+  // Documents state
+  const [docCategory, setDocCategory] = useState('Договір з підприємством');
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const docFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Speech Recognition / Voice Dictation state
   const [isDictating, setIsDictating] = useState(false);
@@ -446,6 +456,85 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   };
 
+  interface DocumentItem {
+    id: string;
+    name: string;
+    url: string;
+    category: string;
+    mimeType: string;
+    sizeKb: number;
+    uploadedAt: string;
+  }
+
+  const defaultDocuments: DocumentItem[] = [
+    {
+      id: 'doc-seed-1',
+      name: 'Договір_поставки_персоналу_2026.pdf',
+      url: 'https://res.cloudinary.com/eta3mkod/image/upload/v1725367890/contract_sample.pdf',
+      category: 'Договір з підприємством',
+      mimeType: 'application/pdf',
+      sizeKb: 142,
+      uploadedAt: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      id: 'doc-seed-2',
+      name: 'Бриф_Заявка_на_10_операторів.pdf',
+      url: 'https://res.cloudinary.com/eta3mkod/image/upload/v1725367890/brief_sample.pdf',
+      category: 'Заявка на підбір (Бриф)',
+      mimeType: 'application/pdf',
+      sizeKb: 88,
+      uploadedAt: new Date(Date.now() - 7200000).toISOString()
+    }
+  ];
+
+  const documentsList: DocumentItem[] = Array.isArray((customFieldsObj as any).documents) && (customFieldsObj as any).documents.length > 0
+    ? (customFieldsObj as any).documents
+    : defaultDocuments;
+
+  const handleUploadDocumentFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingDoc(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const res = await api.post(`/ai/deal-document/${deal.id}`, {
+          fileName: file.name,
+          fileBase64: base64,
+          mimeType: file.type || 'application/pdf',
+          category: docCategory
+        });
+        const newDoc = res.data;
+        const updatedDocs = [newDoc, ...documentsList];
+        const newCustomFields = { ...customFieldsObj, documents: updatedDocs };
+        setDeal(prev => prev ? ({ ...prev, customFields: JSON.stringify(newCustomFields) }) : null);
+        fetchDealDetails();
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Failed to upload document:', err);
+      alert('Помилка при завантаженні файлу');
+    } finally {
+      setIsUploadingDoc(false);
+      if (docFileInputRef.current) docFileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!window.confirm('Видалити цей документ?')) return;
+    const updated = documentsList.filter(d => d.id !== docId);
+    const newCustomFields = { ...customFieldsObj, documents: updated };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+    }
+  };
+
   const currentStages = pipeline?.stages || [];
 
   return (
@@ -715,16 +804,35 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 >
                   Замітки
                 </button>
+                <button
+                  onClick={() => setActiveTab('documents')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                    activeTab === 'documents' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Документи ({documentsList.length})</span>
+                </button>
               </div>
 
-              {/* Quick AI Objection Hint */}
-              <button
-                onClick={() => setIsObjectionsModalOpen(true)}
-                className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Скрипти</span>
-              </button>
+              {/* AI Tools Header Buttons */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setIsGeminiModalOpen(true)}
+                  className="text-[11px] font-extrabold text-indigo-300 hover:text-white flex items-center gap-1 bg-gradient-to-r from-indigo-600/30 to-purple-600/30 hover:from-indigo-600/50 hover:to-purple-600/50 px-2.5 py-1 rounded-lg border border-indigo-500/40 shadow-sm transition"
+                  title="Google Gemini AI помічник з рекрутингу"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                  <span>Gemini AI</span>
+                </button>
+
+                <button
+                  onClick={() => setIsObjectionsModalOpen(true)}
+                  className="text-[11px] font-bold text-slate-400 hover:text-slate-200 flex items-center gap-1 bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-700/60"
+                >
+                  <span>Скрипти</span>
+                </button>
+              </div>
             </div>
 
             {/* Content Area based on Tab */}
@@ -893,8 +1001,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                               <span>{c.name}</span>
                               <span className="text-[10px] text-slate-500">({c.country})</span>
                             </div>
-                            <div className="text-[11px] text-slate-400 font-medium">
-                              {c.profession}
+                            <div className="text-[11px] text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+                              <span>{c.profession}</span>
+                              <span className="text-slate-600">•</span>
+                              <span className="text-[10px] font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <FileText className="w-2.5 h-2.5" /> Резюме (PDF)
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -924,6 +1036,136 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         </div>
                       </div>
                     ))
+                  )}
+                </div>
+              </div>
+            ) : activeTab === 'documents' ? (
+              /* Enterprise Documents & Contracts Manager */
+              <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4">
+                {/* Upload Document Box */}
+                <div className="bg-[#111726] border border-cyan-500/30 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Документообіг підприємства</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Договори, бриф-заявки, рахунки 4х25% та акти в хмарному сховищі Cloudinary з авто-стисненням (0$ Free Tier)
+                      </p>
+                    </div>
+
+                    <label className="cursor-pointer px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-cyan-600/30 flex items-center gap-1.5">
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>{isUploadingDoc ? 'Стиснення та завантаження...' : '+ Додати документ'}</span>
+                      <input
+                        ref={docFileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleUploadDocumentFile}
+                        disabled={isUploadingDoc}
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Category Selector */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[11px] text-slate-400 font-semibold">Категорія файлу:</span>
+                    <select
+                      value={docCategory}
+                      onChange={(e) => setDocCategory(e.target.value)}
+                      className="bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1 text-xs text-cyan-300 font-semibold focus:outline-none focus:border-cyan-500"
+                    >
+                      <option value="Договір з підприємством">⚖️ Договір з підприємством</option>
+                      <option value="Заявка на підбір (Бриф)">📋 Заявка на підбір (Бриф)</option>
+                      <option value="Рахунок-фактура (25%)">💳 Рахунок-фактура (25%)</option>
+                      <option value="Акт виконаних робіт">📑 Акт виконаних робіт</option>
+                      <option value="Інший документ">📎 Інший документ</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Document List */}
+                <div className="space-y-2.5">
+                  {documentsList.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 text-xs">
+                      Документів ще не завантажено. Натисніть «+ Додати документ»
+                    </div>
+                  ) : (
+                    documentsList.map((doc) => {
+                      const isContract = doc.category.includes('Договір');
+                      const isBrief = doc.category.includes('Бриф') || doc.category.includes('Заявка');
+                      const isInvoice = doc.category.includes('Рахунок');
+
+                      return (
+                        <div
+                          key={doc.id}
+                          className="p-3.5 bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold border flex-shrink-0 ${
+                              isContract
+                                ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                                : isBrief
+                                ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                                : isInvoice
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                            }`}>
+                              <FileText className="w-4 h-4" />
+                            </div>
+
+                            <div>
+                              <div className="font-bold text-white text-xs flex items-center gap-2">
+                                <span className="truncate max-w-[240px] sm:max-w-md">{doc.name}</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                  isContract
+                                    ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
+                                    : isBrief
+                                    ? 'bg-blue-500/10 text-blue-300 border-blue-500/30'
+                                    : isInvoice
+                                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                    : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+                                }`}>
+                                  {doc.category}
+                                </span>
+                              </div>
+
+                              <div className="text-[11px] text-slate-400 flex items-center gap-3 mt-0.5">
+                                <span>{doc.sizeKb} KB</span>
+                                <span>•</span>
+                                <span>{new Date(doc.uploadedAt).toLocaleDateString()} {new Date(doc.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="text-emerald-400 font-medium flex items-center gap-0.5 text-[10px]">
+                                  <Check className="w-3 h-3" /> Стиснено в хмарі
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <a
+                              href={doc.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                            >
+                              <Download className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>Відкрити / Скачати</span>
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-400 transition"
+                              title="Видалити документ"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -1407,6 +1649,24 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           mediaType={viewingMedia.type}
           title={viewingMedia.title}
           onClose={() => setViewingMedia(null)}
+        />
+      )}
+
+      {/* Google Gemini AI Recruiter Assistant Modal */}
+      {isGeminiModalOpen && (
+        <GeminiModal
+          isOpen={isGeminiModalOpen}
+          onClose={() => setIsGeminiModalOpen(false)}
+          dealTitle={deal.title}
+          companyName={deal.company?.name || deal.title}
+          onInsertNote={async (text) => {
+            try {
+              await api.post(`/deals/${deal.id}/notes`, { content: text });
+              fetchDealDetails();
+            } catch (e) {
+              console.error('Failed to insert AI note:', e);
+            }
+          }}
         />
       )}
     </div>

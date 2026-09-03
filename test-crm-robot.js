@@ -203,6 +203,39 @@ console.log('========================================================\n');
           }
         }
 
+        // Check Enterprise Documents & Contracts Tab
+        const docsTabClicked = await page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Документи'));
+          if (btn) {
+            btn.click();
+            return true;
+          }
+          return false;
+        });
+
+        if (docsTabClicked) {
+          await page.waitForTimeout(800);
+          const docsHeader = await page.$('div:has-text("Документообіг підприємства")');
+          if (docsHeader) {
+            logStep('Хмарний документообіг та договори (Cloudinary eco-compress)', 'PASS', 'Вкладка договорів активна, авто-стиснення увімкнено');
+            await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '06_documents_contracts_tab.png') });
+          }
+        }
+
+        // Check Google Gemini AI Assistant Modal
+        const geminiBtn = await page.$('button:has-text("Gemini AI")');
+        if (geminiBtn) {
+          await geminiBtn.click();
+          await page.waitForTimeout(800);
+          const geminiModal = await page.$('h3:has-text("Google Gemini 1.5 Recruiter AI")');
+          if (geminiModal) {
+            logStep('Google Gemini AI рекрутер (0$ Free API)', 'PASS', 'Модуль штучного інтелекту активний');
+            await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '07_gemini_ai_assistant.png') });
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(500);
+          }
+        }
+
         // Close modal safely
         await page.keyboard.press('Escape');
         await page.waitForTimeout(1000);

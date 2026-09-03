@@ -19,6 +19,7 @@ import { createUsersRouter } from './routes/users.routes';
 import { createAnalyticsRouter } from './routes/analytics.routes';
 import { createAutomationRouter } from './routes/automation.routes';
 import { createWebhookRouter } from './routes/webhook.routes';
+import { createAiRouter } from './routes/ai.routes';
 
 const app = express();
 const server = http.createServer(app);
@@ -62,6 +63,7 @@ app.use('/api/users', createUsersRouter(prisma));
 app.use('/api/analytics', createAnalyticsRouter(prisma));
 app.use('/api/automation', createAutomationRouter(prisma));
 app.use('/api/webhooks', createWebhookRouter(prisma, leadDistributionService, io));
+app.use('/api/ai', createAiRouter(prisma));
 
 // Health check
 app.get('/api/health', (req, res) => {

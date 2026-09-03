@@ -1,4 +1,4 @@
-﻿import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
 
@@ -34,6 +34,8 @@ export class CloudinaryService {
             folder: 'online_crm_media',
             public_id: publicId,
             resource_type: resourceType,
+            quality: 'auto:eco', // Ultra-efficient compression to minimize disk usage without visual loss
+            fetch_format: 'auto',
             format: mimeType.startsWith('audio/') ? 'mp3' : undefined
           },
           (error, result) => {
