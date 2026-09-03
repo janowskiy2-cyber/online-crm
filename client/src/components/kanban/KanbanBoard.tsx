@@ -167,64 +167,65 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#080c14] p-4 select-none font-['Inter',sans-serif]">
       {/* amoCRM Smart Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-1 flex-shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
+      {/* Smart amoCRM & Speed-to-Lead Filter Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5 px-1 flex-shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold p-1 bg-[#090E1A]/80 border border-white/[0.07] rounded-2xl backdrop-blur-md shadow-sm">
           <button
             onClick={() => setActiveFilter('all')}
             className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
               activeFilter === 'all'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
             }`}
           >
             <span>Всі угоди</span>
-            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px]">{deals.length}</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-black/30 text-[10px]">{deals.length}</span>
           </button>
 
           <button
             onClick={() => setActiveFilter('no_tasks')}
             className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
               activeFilter === 'no_tasks'
-                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-rose-400'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/25'
+                : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
             <span>Без задач</span>
-            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px] text-rose-300 font-bold">{noTaskCount}</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-black/30 text-[10px] text-rose-300 font-bold">{noTaskCount}</span>
           </button>
 
           <button
             onClick={() => setActiveFilter('overdue')}
             className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
               activeFilter === 'overdue'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-amber-400'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/25'
+                : 'text-slate-400 hover:text-amber-400 hover:bg-amber-500/10'
             }`}
           >
             <Clock className="w-3.5 h-3.5 text-amber-400" />
             <span>Прострочені</span>
-            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px] text-amber-300 font-bold">{overdueCount}</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-black/30 text-[10px] text-amber-300 font-bold">{overdueCount}</span>
           </button>
 
           <button
             onClick={() => setActiveFilter('my_deals')}
             className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
               activeFilter === 'my_deals'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                : 'bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-purple-300'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25'
+                : 'text-slate-400 hover:text-purple-300 hover:bg-purple-500/10'
             }`}
           >
             <UserIcon className="w-3.5 h-3.5" />
             <span>Мої угоди</span>
-            <span className="px-1.5 py-0.2 rounded-md bg-slate-900/60 text-[10px] text-purple-200">{myDealsCount}</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-black/30 text-[10px] text-purple-200">{myDealsCount}</span>
           </button>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsAnalyticsOpen(true)}
-            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition border border-slate-700/80 shadow-sm"
+            className="px-3.5 py-1.5 bg-[#090E1A]/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border border-white/[0.08] shadow-sm active:scale-[0.98]"
             title="Аналітика та конверсія воронки"
           >
             <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
@@ -234,7 +235,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           {openCreateDeal && (
             <button
               onClick={openCreateDeal}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30"
+              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/25 active:scale-[0.98]"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Нова угода</span>
@@ -245,7 +246,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex gap-3 h-full min-w-max pb-2">
+          <div className="flex gap-3.5 h-full min-w-max pb-2">
             {stagesList.map((stage) => {
               const stageDeals = (filteredDeals || []).filter((d) => d && d.stageId === stage.id);
             const totalStageBudget = stageDeals.reduce((sum, d) => sum + (Number(d.budget) || 0), 0);
@@ -253,24 +254,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             return (
               <div
                 key={stage.id}
-                className="w-72 sm:w-80 flex flex-col bg-[#0e1320] border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl"
+                className="w-72 sm:w-80 flex flex-col bg-[#0A0F1D]/80 border border-white/[0.07] rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-sm"
               >
                 {/* Column Header */}
-                <div className="p-3.5 border-b border-slate-800/80 bg-[#111827] flex items-center justify-between flex-shrink-0">
+                <div className="p-3.5 border-b border-white/[0.06] bg-[#0E1526]/90 flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <span
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
                       style={{ backgroundColor: stage.color || '#3b82f6' }}
                     />
-                    <h3 className="font-bold text-xs text-white truncate max-w-[150px]">
+                    <h3 className="font-semibold text-xs text-slate-100 truncate max-w-[150px]">
                       {stage.name}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[11px] font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-white/[0.06] text-slate-300 text-[10px] font-semibold border border-white/[0.08]">
                       {stageDeals.length}
                     </span>
                   </div>
 
-                  <span className="text-[11px] font-extrabold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                     {formatCurrency(totalStageBudget)}
                   </span>
                 </div>
@@ -301,16 +302,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={() => onOpenDeal(deal.id)}
-                                className={`p-3.5 bg-[#141b2d] border border-slate-800/90 hover:border-blue-500/50 rounded-2xl shadow-md transition cursor-pointer space-y-2.5 ${
+                                className={`p-3.5 bg-[#111728]/90 hover:bg-[#151D33] border border-white/[0.08] hover:border-blue-500/50 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-all duration-200 cursor-pointer space-y-2.5 group ${
                                   snapshot.isDragging ? 'rotate-2 shadow-2xl border-blue-500 bg-[#1c263f]' : ''
                                 }`}
                               >
                                 {/* Title & Budget */}
                                 <div className="flex items-start justify-between gap-2">
-                                  <h4 className="font-bold text-xs text-white line-clamp-2 leading-snug">
+                                  <h4 className="font-semibold text-xs text-slate-100 group-hover:text-blue-300 transition line-clamp-2 leading-snug">
                                     {deal.title}
                                   </h4>
-                                  <span className="text-xs font-black text-emerald-400 whitespace-nowrap">
+                                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
                                     {formatCurrency(deal.budget)}
                                   </span>
                                 </div>
@@ -320,7 +321,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                   {deal.company && (
                                     <div className="flex items-center gap-1.5 truncate">
                                       <Building2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                                      <span className="truncate">{deal.company.name}</span>
+                                      <span className="truncate text-slate-300">{deal.company.name}</span>
                                     </div>
                                   )}
                                   {deal.contact && (
@@ -337,10 +338,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                     {parsedTags.slice(0, 3).map((tag, idx) => (
                                       <span
                                         key={idx}
-                                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                                          tag === 'WhatsApp' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                                          tag === 'Telegram' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' :
-                                          'bg-slate-800 text-slate-300'
+                                        className={`px-1.5 py-0.5 rounded-md text-[9px] font-semibold ${
+                                          tag === 'WhatsApp' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' :
+                                          tag === 'Telegram' ? 'bg-sky-500/15 text-sky-400 border border-sky-500/25' :
+                                          'bg-white/[0.04] text-slate-300 border border-white/[0.06]'
                                         }`}
                                       >
                                         {tag}
@@ -350,23 +351,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                 )}
 
                                 {/* Bottom: Responsible & Date */}
-                                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
+                                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-500">
                                   <div className="flex items-center gap-1.5">
                                     {deal.responsible ? (
                                       <>
                                         <img
                                           src={deal.responsible.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                                           alt={deal.responsible.name}
-                                          className="w-4 h-4 rounded-full object-cover"
+                                          className="w-4 h-4 rounded-full object-cover border border-white/10"
                                         />
-                                        <span className="truncate max-w-[90px]">{deal.responsible.name.split(' ')[0]}</span>
+                                        <span className="truncate max-w-[90px] text-slate-400 font-medium">{deal.responsible.name.split(' ')[0]}</span>
                                       </>
                                     ) : (
-                                      <span>Не призначено</span>
+                                      <span className="text-slate-600">Не призначено</span>
                                     )}
                                   </div>
 
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 text-slate-500 font-medium">
                                     <Calendar className="w-3 h-3" />
                                     <span>{new Date(deal.createdAt).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}</span>
                                   </div>
@@ -383,12 +384,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
                 {/* Quick Add Button */}
                 {openCreateDeal && (
-                  <div className="p-2 border-t border-slate-800/80 bg-[#111827]">
+                  <div className="p-2.5 border-t border-white/[0.06] bg-[#0E1526]/80">
                     <button
                       onClick={openCreateDeal}
-                      className="w-full py-1.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                      className="w-full py-2 text-slate-400 hover:text-white hover:bg-white/[0.04] rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 transition border border-dashed border-white/[0.08] hover:border-blue-500/40 active:scale-[0.99]"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-3.5 h-3.5 text-blue-400" />
                       <span>+ Додати угоду</span>
                     </button>
                   </div>
