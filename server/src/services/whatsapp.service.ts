@@ -5,6 +5,7 @@ import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
 import { LeadDistributionService } from './lead-distribution.service';
+import { CloudinaryService } from './cloudinary.service';
 
 export class WhatsAppService {
   private io: SocketIOServer | null = null;
@@ -306,13 +307,8 @@ export class WhatsAppService {
       }
     }
 
-    // Save file to disk instead of storing base64 in DB
-    const ext = fileName.includes('.') ? fileName.split('.').pop() : (mimeType.startsWith('audio/') ? 'webm' : 'bin');
-    const uniqueName = `wa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
-    const savedMediaUrl = `/api/uploads/${uniqueName}`;
+    // Save file to permanent Cloudinary Cloud Storage
+    const savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, fileName, mimeType);
 
     const fileLabel = mimeType.startsWith('audio/') 
       ? `🎤 Голосове повідомлення (${caption || 'аудіо'})` 

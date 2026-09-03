@@ -6,6 +6,7 @@ import { NewMessage } from 'telegram/events';
 import path from 'path';
 import fs from 'fs';
 import { LeadDistributionService } from './lead-distribution.service';
+import { CloudinaryService } from './cloudinary.service';
 
 const DEFAULT_API_ID = 2040;
 const DEFAULT_API_HASH = 'b18441a1ff607e10a989891a5462e627';
@@ -237,13 +238,8 @@ export class TelegramService {
       }
     }
 
-    // Save file to disk instead of storing base64 in DB
-    const ext = fileName.includes('.') ? fileName.split('.').pop() : (mimeType.startsWith('audio/') ? 'webm' : 'bin');
-    const uniqueName = `tg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
-    const savedMediaUrl = `/api/uploads/${uniqueName}`;
+    // Save file to permanent Cloudinary Cloud Storage
+    const savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, fileName, mimeType);
 
     const isVoice = mimeType.startsWith('audio/') || fileName.includes('Voice_Note');
     const fileLabel = isVoice
