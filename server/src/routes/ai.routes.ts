@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { GeminiService } from '../services/gemini.service';
 import { ModelRouterService } from '../services/model-router.service';
+import { EmbeddingService } from '../services/embedding.service';
 import { CloudinaryService } from '../services/cloudinary.service';
 
 export function createAiRouter(prisma: PrismaClient) {
@@ -46,6 +47,18 @@ export function createAiRouter(prisma: PrismaClient) {
       const { objectionText } = req.body;
       const { text, modelUsed } = await GeminiService.answerObjection(objectionText);
       res.json({ answer: text, modelUsed });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // AI: Semantic Candidate Matchmaking (gemini-embedding-2, 1500 RPM)
+  router.post('/match-candidates', async (req, res) => {
+    try {
+      const { jobRequirements, candidates } = req.body;
+      if (!jobRequirements) return res.status(400).json({ error: 'jobRequirements required' });
+      const matches = await EmbeddingService.matchCandidates(jobRequirements, candidates || []);
+      res.json({ matches, modelUsed: 'gemini-embedding-2' });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

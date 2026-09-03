@@ -28,6 +28,7 @@ import {
   Download,
   UploadCloud,
   Check,
+  RefreshCw,
   Image as ImageIcon
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
@@ -107,6 +108,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [newCandCountry, setNewCandCountry] = useState('Узбекистан');
   const [newCandProfession, setNewCandProfession] = useState('Зварювальник MIG/MAG');
   const [newCandStatus, setNewCandStatus] = useState('Оформлення візи D');
+
+  // AI Candidate Semantic Matchmaking (gemini-embedding-2, 1,500 RPM)
+  const [isMatchingAI, setIsMatchingAI] = useState(false);
+  const [matchJobText, setMatchJobText] = useState('Потрібні досвідчені зварювальники, токарі або оператори верстатів на завод');
+  const [isMatchingLoading, setIsMatchingLoading] = useState(false);
+  const [matchedResults, setMatchedResults] = useState<any[]>([]);
 
   const fetchDealDetails = async () => {
     try {
@@ -453,6 +460,55 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       onDealUpdated(res.data);
     } catch (err) {
       console.error('Failed to delete candidate:', err);
+    }
+  };
+
+  const handleRunAiMatch = async () => {
+    setIsMatchingLoading(true);
+    try {
+      const pool = [
+        ...assignedCandidates,
+        { id: 'cand-pool-1', name: 'Фарход Карімов', country: 'Узбекистан', profession: 'Зварювальник MIG/MAG 135/136', status: 'Віза D готова' },
+        { id: 'cand-pool-2', name: 'Раджеш Кумар', country: 'Індія', profession: 'Оператор CNC / токар', status: 'Оформлення візи D' },
+        { id: 'cand-pool-3', name: 'Азізбек Норматов', country: 'Узбекистан', profession: 'Слюсар-складальник металоконструкцій', status: 'Кваліфіковано' },
+        { id: 'cand-pool-4', name: 'Марк Дела Круз', country: 'Філіппіни', profession: 'Електрик промислового обладнання', status: 'Кваліфіковано' },
+        { id: 'cand-pool-5', name: 'Нурлан Абдуллаєв', country: 'Азербайджан', profession: 'Водій навантажувача / карщик', status: 'Віза D готова' }
+      ];
+      // Filter duplicates by name
+      const uniquePool = pool.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+      const res = await api.post('/ai/match-candidates', {
+        jobRequirements: matchJobText || deal.title || 'Працівники виробництва',
+        candidates: uniquePool
+      });
+      setMatchedResults(res.data.matches || []);
+    } catch (err) {
+      console.error('Match failed:', err);
+    } finally {
+      setIsMatchingLoading(false);
+    }
+  };
+
+  const handleAddMatchedCandidate = async (matchedCand: any) => {
+    if (assignedCandidates.some(c => c.name === matchedCand.name)) {
+      alert('Цей кандидат вже є у замовленні!');
+      return;
+    }
+    const newCand = {
+      id: `cand-${Date.now()}`,
+      name: matchedCand.name,
+      country: matchedCand.country,
+      profession: matchedCand.profession,
+      status: matchedCand.status || 'Кваліфіковано / Резюме',
+      addedAt: new Date().toISOString()
+    };
+    const updated = [...assignedCandidates, newCand];
+    const newCustomFields = { ...customFieldsObj, candidates: updated };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err) {
+      console.error('Failed to add matched candidate:', err);
     }
   };
 
@@ -892,7 +948,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 </div>
 
                 {/* Candidate Pool Header */}
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex flex-wrap items-center justify-between pt-1 gap-2">
                   <div>
                     <h4 className="font-bold text-sm text-white flex items-center gap-2">
                       <span>Пул кандидатів</span>
@@ -903,15 +959,122 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <p className="text-[11px] text-slate-400">Керування працівниками, візами та виїздом на об'єкт</p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingCandidate(!isAddingCandidate)}
-                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-purple-600/30 flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{isAddingCandidate ? 'Скасувати' : '+ Додати кандидата'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !isMatchingAI;
+                        setIsMatchingAI(next);
+                        if (next && matchedResults.length === 0) {
+                          handleRunAiMatch();
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>{isMatchingAI ? 'Сховати смарт-підбір' : '🔍 AI Смарт-підбір (gemini-embedding-2)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCandidate(!isAddingCandidate)}
+                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-purple-600/30 flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{isAddingCandidate ? 'Скасувати' : '+ Додати кандидата'}</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* AI Semantic Candidate Matchmaking Panel */}
+                {isMatchingAI && (
+                  <div className="bg-gradient-to-br from-indigo-950/40 via-purple-950/30 to-slate-900 border border-indigo-500/40 rounded-2xl p-4 space-y-3 animate-in fade-in">
+                    <div className="flex flex-wrap items-center justify-between border-b border-indigo-500/20 pb-2 gap-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span className="text-xs font-bold text-white">Векторний AI-підбір кандидатів (gemini-embedding-2)</span>
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">1,500 RPM • 0$</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">Семантичний аналіз за досвідом та паспортом</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={matchJobText}
+                        onChange={(e) => setMatchJobText(e.target.value)}
+                        placeholder="Опишіть вимоги до людей або спеціальність..."
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRunAiMatch}
+                        disabled={isMatchingLoading}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 flex-shrink-0"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isMatchingLoading ? 'animate-spin' : ''}`} />
+                        <span>{isMatchingLoading ? 'Аналіз...' : 'Знайти кандидатів'}</span>
+                      </button>
+                    </div>
+
+                    {/* Matched Candidates List */}
+                    {matchedResults.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <div className="text-[11px] font-bold text-slate-300">Найбільш відповідні кандидати з бази:</div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {matchedResults.map((m) => {
+                            const isAssigned = assignedCandidates.some(c => c.name === m.name);
+                            return (
+                              <div
+                                key={m.id}
+                                className="p-2.5 bg-slate-900/90 border border-slate-800 hover:border-indigo-500/40 rounded-xl flex items-center justify-between gap-3 transition"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-xs text-white">{m.name}</span>
+                                    <span className="text-[10px] text-slate-400">({m.country})</span>
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold border border-emerald-500/30">
+                                      {m.score}% Збіг
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-indigo-300 font-medium truncate">
+                                    {m.profession}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 mt-0.5">
+                                    {m.matchReason}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddMatchedCandidate(m)}
+                                  disabled={isAssigned}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 flex-shrink-0 ${
+                                    isAssigned
+                                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30'
+                                  }`}
+                                >
+                                  {isAssigned ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>У замовленні</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>+ Прикріпити</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Inline Add Candidate Form */}
                 {isAddingCandidate && (
