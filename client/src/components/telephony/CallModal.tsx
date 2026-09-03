@@ -196,7 +196,7 @@ export const CallModal: React.FC<CallModalProps> = ({
             </a>
 
             <a
-              href={`https://t.me/+${cleanPhone}`}
+              href={`tg://resolve?phone=${cleanPhone}`}
               target="_blank"
               rel="noreferrer"
               className="px-2.5 py-2 bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 rounded-xl font-bold text-center flex flex-col items-center gap-1 transition"

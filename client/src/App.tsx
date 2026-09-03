@@ -229,8 +229,7 @@ export function App() {
       {isCreateDealOpen && (
         <CreateDealModal
           pipelines={pipelines}
-          initialPipelineId={activePipelineId}
-          initialProjectId={currentWorkspace}
+          activePipelineId={activePipelineId}
           onClose={() => setIsCreateDealOpen(false)}
           onDealCreated={(newDeal) => {
             setIsCreateDealOpen(false);

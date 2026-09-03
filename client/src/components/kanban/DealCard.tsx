@@ -17,13 +17,16 @@ interface DealCardProps {
 
 export const DealCard: React.FC<DealCardProps> = ({ deal, onClick }) => {
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val);
+    return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(val) + ' ₴';
   };
 
   const tags: string[] = deal.tags ? (typeof deal.tags === 'string' ? JSON.parse(deal.tags) : deal.tags) : [];
   const activeTask = deal.tasks && deal.tasks.length > 0 ? deal.tasks[0] : null;
 
   const isTaskOverdue = activeTask ? new Date(activeTask.dueDate) < new Date() : false;
+
+  const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
+  const tgUser = deal.contact?.telegram ? deal.contact.telegram.replace('@', '') : '';
 
   return (
     <div
@@ -37,8 +40,41 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick }) => {
         </h4>
       </div>
 
-      <div className="text-sm font-extrabold text-emerald-400 mb-2.5">
-        {formatCurrency(deal.budget || 0)}
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <span className="text-sm font-extrabold text-emerald-400">
+          {formatCurrency(deal.budget || 0)}
+        </span>
+
+        {/* 1-Click Quick Contact Icons */}
+        {primaryPhone && (
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <a
+              href={`https://wa.me/${primaryPhone}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Написати у WhatsApp"
+              className="p-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 transition"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+            </a>
+            <a
+              href={tgUser ? `https://t.me/${tgUser}` : `tg://resolve?phone=${primaryPhone}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Написати у Telegram"
+              className="p-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 transition"
+            >
+              <span className="text-[11px] font-black leading-none px-0.5">TG</span>
+            </a>
+            <a
+              href={`tel:+${primaryPhone}`}
+              title="Зателефонувати"
+              className="p-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 transition"
+            >
+              <Phone className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Client / Company details */}

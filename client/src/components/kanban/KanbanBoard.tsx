@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Deal, Pipeline, Stage } from '../../types';
 import { api, socket } from '../../services/api';
+import { LossReasonModal } from '../modals/LossReasonModal';
 
 interface KanbanBoardProps {
   pipeline: Pipeline;
@@ -31,6 +32,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 }) => {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
 
   const fetchDeals = async () => {
     try {
@@ -80,6 +82,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     if (destination.droppableId === source.droppableId) return;
 
     const newStageId = destination.droppableId;
+    const targetStage = stagesList.find(s => s.id === newStageId);
+    const isLossStage = targetStage && (
+      targetStage.name.toLowerCase().includes('відмов') ||
+      targetStage.name.toLowerCase().includes('програн') ||
+      targetStage.name.toLowerCase().includes('отказ') ||
+      targetStage.name.toLowerCase().includes('нереал') ||
+      (targetStage as any).type === 'lost'
+    );
+
+    if (isLossStage) {
+      const movedDeal = deals.find(d => d.id === draggableId);
+      setPendingLossDeal({
+        id: draggableId,
+        title: movedDeal?.title || 'Угода',
+        targetStageId: newStageId
+      });
+      return;
+    }
 
     // Optimistic UI update
     setDeals((prev) =>
@@ -96,8 +116,27 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
-  const formatEUR = (val: number) => {
-    return `€${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(val || 0)}`;
+  const handleConfirmLoss = async (reason: string) => {
+    if (!pendingLossDeal) return;
+    const { id, targetStageId } = pendingLossDeal;
+    setPendingLossDeal(null);
+
+    setDeals((prev) =>
+      prev.map((deal) =>
+        deal.id === id ? { ...deal, stageId: targetStageId, lossReason: reason } : deal
+      )
+    );
+
+    try {
+      await api.put(`/deals/${id}`, { stageId: targetStageId, lossReason: reason });
+    } catch (e) {
+      console.error('Failed to save loss reason:', e);
+      fetchDeals();
+    }
+  };
+
+  const formatCurrency = (val: number) => {
+    return `${new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(val || 0)} ₴`;
   };
 
   const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
@@ -131,7 +170,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   </div>
 
                   <span className="text-[11px] font-extrabold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-                    {formatEUR(totalStageBudget)}
+                    {formatCurrency(totalStageBudget)}
                   </span>
                 </div>
 
@@ -258,6 +297,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           })}
         </div>
       </DragDropContext>
+
+      {/* Loss Reason Modal */}
+      {pendingLossDeal && (
+        <LossReasonModal
+          dealTitle={pendingLossDeal.title}
+          onClose={() => setPendingLossDeal(null)}
+          onConfirm={handleConfirmLoss}
+        />
+      )}
     </div>
   );
 };

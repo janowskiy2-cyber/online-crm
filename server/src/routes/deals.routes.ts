@@ -191,10 +191,21 @@ export function createDealsRouter(prisma: PrismaClient) {
       const { content, type } = req.body;
       const currentUserId = req.headers['x-user-id'] as string;
 
+      let validUserId = currentUserId;
+      if (validUserId) {
+        const uExists = await prisma.user.findUnique({ where: { id: validUserId } });
+        if (!uExists) validUserId = '';
+      }
+
+      if (!validUserId) {
+        const firstUser = await prisma.user.findFirst();
+        validUserId = firstUser ? firstUser.id : 'usr-admin';
+      }
+
       const note = await prisma.dealNote.create({
         data: {
           dealId: id,
-          userId: currentUserId || 'usr-admin',
+          userId: validUserId,
           content,
           type: type || 'comment'
         },
@@ -202,7 +213,8 @@ export function createDealsRouter(prisma: PrismaClient) {
       });
 
       res.status(201).json(note);
-    } catch (e) {
+    } catch (e: any) {
+      console.error('Error adding note:', e);
       res.status(500).json({ error: 'Failed to add note' });
     }
   });

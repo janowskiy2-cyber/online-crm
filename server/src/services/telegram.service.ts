@@ -3,6 +3,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { NewMessage } from 'telegram/events';
+import path from 'path';
+import fs from 'fs';
 import { LeadDistributionService } from './lead-distribution.service';
 
 const DEFAULT_API_ID = 2040;
@@ -222,9 +224,10 @@ export class TelegramService {
   }
 
   public async sendFile(toTgIdOrUsername: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
+    const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+
     if (this.client && this.status === 'connected') {
       try {
-        const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
         await this.client.sendFile(toTgIdOrUsername, {
           file: buffer,
           caption: caption || fileName
@@ -233,6 +236,14 @@ export class TelegramService {
         console.warn('Error sending MTProto file:', err);
       }
     }
+
+    // Save file to disk instead of storing base64 in DB
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : (mimeType.startsWith('audio/') ? 'webm' : 'bin');
+    const uniqueName = `tg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
+    const savedMediaUrl = `/api/uploads/${uniqueName}`;
 
     const isVoice = mimeType.startsWith('audio/') || fileName.includes('Voice_Note');
     const fileLabel = isVoice
@@ -247,7 +258,7 @@ export class TelegramService {
         contactId,
         senderTgId: toTgIdOrUsername,
         text: fileLabel,
-        mediaUrl: fileBase64,
+        mediaUrl: savedMediaUrl,
         mediaType: isVoice ? 'audio' : (mimeType.startsWith('image/') ? 'image' : 'pdf'),
         status: 'sent'
       }

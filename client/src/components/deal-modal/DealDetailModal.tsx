@@ -436,7 +436,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         </div>
 
         {/* 3-Column Content Layout */}
-        <div className="flex-1 grid grid-cols-12 overflow-hidden">
+        <div className="flex-1 grid grid-cols-12 overflow-y-auto md:overflow-hidden">
           
           {/* Left Column: Client & Project Params (3 Cols) */}
           <div className="col-span-12 md:col-span-3 border-r border-slate-800/80 p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 bg-[#0e1422] text-xs">
@@ -478,13 +478,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         <span className="truncate">{deal.contact.phone}</span>
                       </div>
                       <a
-                        href={`https://t.me/+${deal.contact.phone.replace(/\D/g, '')}`}
+                        href={`tg://resolve?phone=${deal.contact.phone.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
                         className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
                         title="Відкрити чат Telegram за номером"
                       >
-                        <span>t.me/+тел</span>
+                        <span>Telegram</span>
                       </a>
                     </div>
                   )}
@@ -496,13 +496,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         <span className="truncate">{deal.contact.phone2}</span>
                       </div>
                       <a
-                        href={`https://t.me/+${deal.contact.phone2.replace(/\D/g, '')}`}
+                        href={`tg://resolve?phone=${deal.contact.phone2.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
                         className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
                         title="Відкрити чат Telegram за дод. номером"
                       >
-                        <span>t.me/+тел2</span>
+                        <span>Telegram 2</span>
                       </a>
                     </div>
                   )}
@@ -577,7 +577,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Central Column: Live Timeline & Messengers Chat (6 Cols) */}
-          <div className="col-span-12 md:col-span-6 flex flex-col h-full bg-[#080c14] border-r border-slate-800/80">
+          <div className="col-span-12 md:col-span-6 flex flex-col min-h-[500px] md:min-h-0 h-full bg-[#080c14] border-r border-slate-800/80">
             {/* Timeline Filter tabs */}
             <div className="p-3 border-b border-slate-800/80 flex items-center justify-between bg-[#0e1320]">
               <div className="flex items-center gap-2">
@@ -851,6 +851,27 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       <Mic className="w-3 h-3 text-emerald-400" />
                       <span>{isDictating ? 'Запис...' : 'Голосове введення'}</span>
                     </button>
+                  </div>
+
+                  {/* Quick Response Snippets */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold flex-shrink-0">Шаблони:</span>
+                    {[
+                      { label: '📄 КП', text: 'Доброго дня! Підготували офіційну комерційну пропозицію щодо персоналу. Надіслати детальний розрахунок у PDF?' },
+                      { label: '💳 4х25%', text: 'Оплата поетапна: 1) Договір (25%) ➔ 2) Затвердження кандидатів (25%) ➔ 3) Робоча віза (25%) ➔ 4) Вихід на підприємство (25%).' },
+                      { label: '🛡️ Гарантія', text: 'У нас діє 1 місяць повного супроводу координатором та 1 безкоштовна заміна у разі необхідності.' },
+                      { label: '📞 Не взяв', text: 'Доброго дня! Намагався вам зателефонувати щодо заявки на персонал. Підкажіть, будь ласка, коли вам зручно поспілкуватися?' },
+                      { label: '📋 Вимоги', text: "Уточніть, будь ласка: скільки працівників потрібно, який графік роботи та чи надається житло на об'єкті?" }
+                    ].map((snip, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setChatMessageText(snip.text)}
+                        className="px-2 py-0.5 bg-slate-800/90 hover:bg-blue-600/30 text-slate-300 hover:text-blue-300 border border-slate-700/80 hover:border-blue-500/40 rounded-lg transition flex-shrink-0 whitespace-nowrap text-[10px] font-medium"
+                      >
+                        {snip.label}
+                      </button>
+                    ))}
                   </div>
 
                   <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex gap-2">
