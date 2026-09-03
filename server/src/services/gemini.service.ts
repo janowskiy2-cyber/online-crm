@@ -1,20 +1,11 @@
-﻿import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyA_Free_Public_Gemini_Key_Placeholder';
-const genAI = new GoogleGenerativeAI(apiKey);
+﻿import { ModelRouterService } from './model-router.service';
 
 export class GeminiService {
   /**
-   * Analyze employer brief/job order
+   * Analyze employer brief/job order with multi-model failover
    */
-  public static async analyzeEmployerBrief(briefText: string): Promise<string> {
-    try {
-      if (!process.env.GEMINI_API_KEY) {
-        return GeminiService.fallbackBriefAnalysis(briefText);
-      }
-
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const prompt = `Ти — провідний експерт з міжнародного рекрутингу та аутстаффінгу робочої сили в Східну Європу.
+  public static async analyzeEmployerBrief(briefText: string): Promise<{ text: string; modelUsed: string }> {
+    const prompt = `Ти — провідний експерт з міжнародного рекрутингу та аутстаффінгу робочої сили в Східну Європу.
 Проаналізуй заявку від підприємства та склади структурований профіль:
 1. Ключові технічні вимоги до кандидатів.
 2. Рекомендована країна підбору (Узбекистан, Індія, Азербайджан чи Філіппіни) та обґрунтування чому.
@@ -24,25 +15,21 @@ export class GeminiService {
 Текст заявки:
 "${briefText}"`;
 
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    } catch (err: any) {
-      console.warn('Gemini API notice, using smart internal recruiter AI logic:', err.message);
-      return GeminiService.fallbackBriefAnalysis(briefText);
-    }
+    return ModelRouterService.generateContentWithFailover(
+      prompt,
+      () => GeminiService.fallbackBriefAnalysis(briefText)
+    );
   }
 
   /**
-   * Generate high-converting candidate pitch for plant director
+   * Generate high-converting candidate pitch for plant director with multi-model failover
    */
-  public static async generateCandidatePitch(companyName: string, vacancy: string, candidate: any): Promise<string> {
-    try {
-      if (!process.env.GEMINI_API_KEY) {
-        return GeminiService.fallbackCandidatePitch(companyName, vacancy, candidate);
-      }
-
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const prompt = `Склади професійний, переконливий супровідний лист українською мовою для керівництва компанії "${companyName}".
+  public static async generateCandidatePitch(
+    companyName: string,
+    vacancy: string,
+    candidate: any
+  ): Promise<{ text: string; modelUsed: string }> {
+    const prompt = `Склади професійний, переконливий супровідний лист українською мовою для керівництва компанії "${companyName}".
 Ми представляємо кандидата на посаду "${vacancy}".
 Дані кандидата:
 - Ім'я: ${candidate.name}
@@ -53,35 +40,27 @@ export class GeminiService {
 
 Зроби акцент на дисципліні, високій мотивації до заробітку, перевірці службою безпеки та гарантії безкоштовної заміни у разі невідповідності.`;
 
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    } catch (err) {
-      return GeminiService.fallbackCandidatePitch(companyName, vacancy, candidate);
-    }
+    return ModelRouterService.generateContentWithFailover(
+      prompt,
+      () => GeminiService.fallbackCandidatePitch(companyName, vacancy, candidate)
+    );
   }
 
   /**
-   * Smart Objection Answer (Recruitment Specific)
+   * Smart Objection Answer with multi-model failover
    */
-  public static async answerObjection(objectionText: string): Promise<string> {
-    try {
-      if (!process.env.GEMINI_API_KEY) {
-        return GeminiService.fallbackObjectionAnswer(objectionText);
-      }
-
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const prompt = `Ти — топ-менеджер з продажу міжнародного лізингу та рекрутингу персоналу.
+  public static async answerObjection(objectionText: string): Promise<{ text: string; modelUsed: string }> {
+    const prompt = `Ти — топ-менеджер з продажу міжнародного лізингу та рекрутингу персоналу.
 Клієнт (роботодавець/завод) висловлює заперечення: "${objectionText}".
 Дай чітку, психологічно вивірену відповідь за технікою:
 1. Приєднання («Цілком розумію ваше занепокоєння...»).
 2. Аргумент надійності (офіційні візи D, закордонні паспорти, договірна гарантія заміни, оплата 4х25% прив'язана до результату).
 3. Закриваючий заклик до дії («Пропоную узгодити технічне завдання, і ми покажемо перші 3 резюме безкоштовно»).`;
 
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    } catch (err) {
-      return GeminiService.fallbackObjectionAnswer(objectionText);
-    }
+    return ModelRouterService.generateContentWithFailover(
+      prompt,
+      () => GeminiService.fallbackObjectionAnswer(objectionText)
+    );
   }
 
   private static fallbackBriefAnalysis(text: string): string {

@@ -1,5 +1,5 @@
-﻿import React, { useState } from 'react';
-import { X, Sparkles, Copy, Check, Send, FileText, ShieldAlert, Cpu } from 'lucide-react';
+﻿import React, { useState, useEffect } from 'react';
+import { X, Sparkles, Copy, Check, Send, FileText, ShieldAlert, Cpu, ChevronDown, ChevronUp, RefreshCw, Layers } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface GeminiModalProps {
@@ -28,17 +28,34 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
   // Outputs
   const [loading, setLoading] = useState(false);
   const [resultText, setResultText] = useState('');
+  const [modelUsed, setModelUsed] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Router Monitor State
+  const [showMonitor, setShowMonitor] = useState(false);
+  const [modelsStatus, setModelsStatus] = useState<any>(null);
+
+  const fetchStatus = () => {
+    api.get('/ai/models-status').then(res => setModelsStatus(res.data)).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchStatus();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleRunAi = async () => {
     setLoading(true);
     setResultText('');
+    setModelUsed('');
     try {
       if (activeMode === 'brief') {
         const res = await api.post('/ai/analyze-brief', { briefText: briefInput });
         setResultText(res.data.analysis || 'Немає результату');
+        setModelUsed(res.data.modelUsed || 'Gemini 2.5 Flash');
       } else if (activeMode === 'pitch') {
         const res = await api.post('/ai/pitch-candidate', {
           companyName,
@@ -46,10 +63,13 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
           candidate: { name: candidateName, profession: candidateProfession, country: 'Узбекистан' }
         });
         setResultText(res.data.pitch || 'Немає результату');
+        setModelUsed(res.data.modelUsed || 'Gemini 2.5 Flash');
       } else if (activeMode === 'objection') {
         const res = await api.post('/ai/objection', { objectionText });
         setResultText(res.data.answer || 'Немає результату');
+        setModelUsed(res.data.modelUsed || 'Gemini 2.5 Flash');
       }
+      fetchStatus();
     } catch (e: any) {
       setResultText('Помилка генерації AI: ' + (e.message || 'Спробуйте ще раз'));
     } finally {
@@ -66,28 +86,29 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
 
   const handleInsertAsNote = () => {
     if (resultText && onInsertNote) {
-      onInsertNote(`🤖 [Gemini AI Рекомендація]:\n\n${resultText}`);
+      onInsertNote(`🤖 [Gemini AI (${modelUsed || 'Auto'}):\n\n${resultText}`);
       onClose();
     }
   };
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
-      <div className="bg-[#0b101b] border border-indigo-500/40 rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="bg-[#0b101b] border border-indigo-500/40 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-950/60 to-purple-950/60">
+        <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-950/60 to-purple-950/60 flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/30">
               <Cpu className="w-4 h-4 animate-pulse" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                <span>Google Gemini 1.5 Recruiter AI</span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-extrabold border border-indigo-500/30">
-                  FREE 0$
+                <span>Google Gemini Smart Recruiter AI</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold border border-emerald-500/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Auto-Failover Active
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-400">Розумний асистент підбору персоналу для {companyName}</p>
+              <p className="text-[11px] text-slate-400">Розумний роутер моделей зі щоденним скиданням лімітів о 00:00</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -95,10 +116,72 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
           </button>
         </div>
 
-        {/* Mode Selector */}
-        <div className="p-3 border-b border-slate-800/80 bg-[#0e1424] flex items-center gap-2">
+        {/* Live Router Status Toggle Strip */}
+        <div className="bg-[#0e1424] border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-slate-300">
+            <Layers className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="font-semibold">Каскад 6 моделей:</span>
+            <span className="text-[11px] text-emerald-400 font-bold bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-500/30">
+              {modelsStatus?.totalRemainingToday || '7,500+'} безкоштовних запитів/день
+            </span>
+          </div>
+
           <button
-            onClick={() => { setActiveMode('brief'); setResultText(''); }}
+            onClick={() => setShowMonitor(!showMonitor)}
+            className="text-[11px] text-indigo-300 hover:text-white flex items-center gap-1 font-semibold"
+          >
+            <span>{showMonitor ? 'Сховати монітор' : 'Деталі квот моделей'}</span>
+            {showMonitor ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        </div>
+
+        {/* Expandable Model Quotas Monitor */}
+        {showMonitor && (
+          <div className="p-4 bg-slate-950 border-b border-slate-800 space-y-2.5 animate-in slide-in-from-top-2 text-xs">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1 border-b border-slate-800">
+              <span className="font-semibold text-slate-300">Статус пулу моделей (Автоматичний перехід при вичерпанні ліміту):</span>
+              <span className="flex items-center gap-1 text-emerald-400">
+                <RefreshCw className="w-3 h-3" />
+                <span>Скидання квот: щодоби о 00:00 (автоматично)</span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(modelsStatus?.models || [
+                { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
+                { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
+                { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
+                { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
+                { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
+                { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Deep Reasoning)', rpdLimit: 50, currentRpd: 0, rpmLimit: 2 }
+              ]).map((m: any) => {
+                const remaining = Math.max(0, m.rpdLimit - m.currentRpd);
+                return (
+                  <div key={m.id} className="p-2 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-white text-[11px] flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span>{m.name}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {m.rpmLimit} RPM • Ліміт: {m.rpdLimit} RPD
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] font-bold text-emerald-400">{remaining}</span>
+                      <span className="text-[9px] text-slate-500 block">залишилось</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Mode Selector */}
+        <div className="p-3 border-b border-slate-800/80 bg-[#0e1424] flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => { setActiveMode('brief'); setResultText(''); setModelUsed(''); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
               activeMode === 'brief'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
@@ -110,7 +193,7 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
           </button>
 
           <button
-            onClick={() => { setActiveMode('pitch'); setResultText(''); }}
+            onClick={() => { setActiveMode('pitch'); setResultText(''); setModelUsed(''); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
               activeMode === 'pitch'
                 ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
@@ -122,7 +205,7 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
           </button>
 
           <button
-            onClick={() => { setActiveMode('objection'); setResultText(''); }}
+            onClick={() => { setActiveMode('objection'); setResultText(''); setModelUsed(''); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
               activeMode === 'objection'
                 ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
@@ -202,17 +285,26 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
             className="w-full py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:opacity-90 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
-            <span>{loading ? 'AI генерує відповідь...' : '⚡ Запустити аналіз Gemini AI'}</span>
+            <span>{loading ? 'Розумний роутер перебирає моделі...' : '⚡ Запустити аналіз через Google Gemini'}</span>
           </button>
 
           {/* Result Output Area */}
           {resultText && (
             <div className="bg-slate-900/90 border border-indigo-500/30 rounded-2xl p-4 space-y-3 animate-in fade-in">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Відповідь Gemini AI:</span>
-                </span>
+              <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-2 gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Відповідь AI:</span>
+                  </span>
+                  {modelUsed && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      <span>{modelUsed}</span>
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={handleCopy}

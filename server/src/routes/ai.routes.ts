@@ -1,18 +1,29 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { GeminiService } from '../services/gemini.service';
+import { ModelRouterService } from '../services/model-router.service';
 import { CloudinaryService } from '../services/cloudinary.service';
 
 export function createAiRouter(prisma: PrismaClient) {
   const router = Router();
+
+  // Live Model Router Status & Daily Quotas
+  router.get('/models-status', (req, res) => {
+    try {
+      const status = ModelRouterService.getModelsStatus();
+      res.json(status);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   // AI: Analyze employer brief
   router.post('/analyze-brief', async (req, res) => {
     try {
       const { briefText } = req.body;
       if (!briefText) return res.status(400).json({ error: 'briefText required' });
-      const analysis = await GeminiService.analyzeEmployerBrief(briefText);
-      res.json({ analysis });
+      const { text, modelUsed } = await GeminiService.analyzeEmployerBrief(briefText);
+      res.json({ analysis: text, modelUsed });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -22,8 +33,8 @@ export function createAiRouter(prisma: PrismaClient) {
   router.post('/pitch-candidate', async (req, res) => {
     try {
       const { companyName, vacancy, candidate } = req.body;
-      const pitch = await GeminiService.generateCandidatePitch(companyName, vacancy, candidate);
-      res.json({ pitch });
+      const { text, modelUsed } = await GeminiService.generateCandidatePitch(companyName, vacancy, candidate);
+      res.json({ pitch: text, modelUsed });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -33,8 +44,8 @@ export function createAiRouter(prisma: PrismaClient) {
   router.post('/objection', async (req, res) => {
     try {
       const { objectionText } = req.body;
-      const answer = await GeminiService.answerObjection(objectionText);
-      res.json({ answer });
+      const { text, modelUsed } = await GeminiService.answerObjection(objectionText);
+      res.json({ answer: text, modelUsed });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
