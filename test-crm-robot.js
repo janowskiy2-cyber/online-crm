@@ -164,6 +164,11 @@ console.log('========================================================\n');
         const clipBtn = await page.$('button[title*="Прикріпити файл"], svg.lucide-paperclip');
         const micBtn = await page.$('button[title*="Записати голосове"], svg.lucide-mic');
         if (clipBtn && micBtn) {
+          logStep('Кнопки вложения файлов и голосовых сообщений', 'PASS', '📎 Скрепка и 🎙️ Микрофон активны');
+        } else {
+          logStep('Кнопки вложения файлов и голосовых сообщений', 'WARN', 'Проверьте активную вкладку');
+        }
+
         // Check for amoCRM 1-click task presets
         const taskPresetBtn = await page.$('button:has-text("Дзвінок завтра"), button:has-text("Контроль КП")');
         if (taskPresetBtn) {
