@@ -154,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
-            onClick={() => handleNavClick('feed')}
+            onClick={openAdminPanel}
             className="w-full py-2 px-3 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition border border-white/15"
           >
             <span>Пригласить сотрудников</span>

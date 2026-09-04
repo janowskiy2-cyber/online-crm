@@ -35,6 +35,10 @@ api.interceptors.request.use((config) => {
     if (savedId && !config.headers['x-user-id']) {
       config.headers['x-user-id'] = savedId;
     }
+    const adminPin = localStorage.getItem('crm_admin_pin') || '22222222';
+    if (adminPin && !config.headers['x-admin-pin']) {
+      config.headers['x-admin-pin'] = adminPin;
+    }
   }
   return config;
 });

