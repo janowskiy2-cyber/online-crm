@@ -12,6 +12,8 @@ const userSafeSelect = {
   department: true,
   phone: true,
   isActive: true,
+  isDeleted: true,
+  deletedAt: true,
   createdAt: true,
   updatedAt: true,
   canViewAllDeals: true,
@@ -26,16 +28,31 @@ const userSafeSelect = {
 export function createUsersRouter(prisma: PrismaClient) {
   const router = Router();
 
-  // Get all users (Safe select, no password hashes)
+  // Get all active users (Safe select, no password hashes)
   router.get('/', async (req, res) => {
     try {
       const users = await prisma.user.findMany({
+        where: { isDeleted: false },
         select: userSafeSelect,
         orderBy: { createdAt: 'desc' }
       });
       res.json(users);
     } catch (e) {
       res.status(500).json({ error: 'Failed to fetch users' });
+    }
+  });
+
+  // Get all archived users
+  router.get('/archived/list', async (req, res) => {
+    try {
+      const users = await prisma.user.findMany({
+        where: { isDeleted: true },
+        select: userSafeSelect,
+        orderBy: { deletedAt: 'desc' }
+      });
+      res.json(users);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch archived users' });
     }
   });
 
@@ -194,14 +211,48 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Delete User (Admin only)
+  // Soft Delete User / Send to Archive (Admin only)
   router.delete('/:id', adminRequired, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
-      await prisma.user.delete({ where: { id } });
-      res.json({ success: true });
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return res.status(404).json({ error: 'Користувач не знайдений' });
+      }
+
+      const archived = await prisma.user.update({
+        where: { id },
+        data: {
+          isActive: false,
+          isDeleted: true,
+          deletedAt: new Date()
+        },
+        select: userSafeSelect
+      });
+
+      res.json({ success: true, message: 'Співробітника переміщено в архів з можливістю відновлення', user: archived });
     } catch (e) {
-      res.status(500).json({ error: 'Помилка при видаленні користувача' });
+      res.status(500).json({ error: 'Помилка при переміщенні користувача в архів' });
+    }
+  });
+
+  // Restore User from Archive (Admin only)
+  router.post('/:id/restore', adminRequired, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const restored = await prisma.user.update({
+        where: { id },
+        data: {
+          isActive: true,
+          isDeleted: false,
+          deletedAt: null
+        },
+        select: userSafeSelect
+      });
+
+      res.json({ success: true, message: 'Співробітника успішно відновлено', user: restored });
+    } catch (e) {
+      res.status(500).json({ error: 'Помилка при відновленні співробітника' });
     }
   });
 

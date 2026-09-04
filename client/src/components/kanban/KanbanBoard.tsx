@@ -10,12 +10,14 @@ import {
   Flame, 
   Globe2, 
   Calendar,
-  TrendingUp 
+  TrendingUp,
+  Archive
 } from 'lucide-react';
 import { Deal, Pipeline, Stage } from '../../types';
 import { api, socket } from '../../services/api';
 import { LossReasonModal } from '../modals/LossReasonModal';
 import { AnalyticsDashboardModal } from '../analytics/AnalyticsDashboardModal';
+import { ArchivedDealsModal } from '../modals/ArchivedDealsModal';
 import { DealCard } from './DealCard';
 
 interface KanbanBoardProps {
@@ -40,6 +42,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'no_tasks' | 'overdue' | 'my_deals'>('all');
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
 
@@ -259,6 +262,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsArchiveOpen(true)}
+            className="px-3 py-1.5 bg-white dark:bg-[#090e1a]/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-slate-200 dark:border-white/[0.08] shadow-sm active:scale-95"
+            title="Кошик та безпечне відновлення угод (30 днів)"
+          >
+            <Archive className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
+            <span className="hidden sm:inline">Кошик / Архів</span>
+          </button>
+
+          <button
             onClick={() => setIsAnalyticsOpen(true)}
             className="px-3 py-1.5 bg-white dark:bg-[#090e1a]/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-slate-200 dark:border-white/[0.08] shadow-sm active:scale-95"
             title="Аналітика та конверсія воронки"
@@ -379,6 +391,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         deals={deals}
         pipeline={pipeline}
       />
+
+      {/* 30-Day Recovery Archive / Recycle Bin Modal */}
+      {isArchiveOpen && (
+        <ArchivedDealsModal
+          onClose={() => setIsArchiveOpen(false)}
+          onDealRestored={(restoredDeal) => {
+            setDeals((prev) => [restoredDeal, ...prev]);
+            fetchDeals();
+          }}
+        />
+      )}
     </div>
   );
 };

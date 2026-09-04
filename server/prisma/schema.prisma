@@ -17,6 +17,8 @@ model User {
   department  String   // Руководство, B2B Продажи, B2C Продажи, Лидогенерация, Сопровождение (LTV), Поддержка, Маркетинг, Финансы, Аудит
   phone       String?
   isActive    Boolean  @default(true)
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -35,6 +37,9 @@ model User {
   createdTasks Task[]      @relation("CreatedByUser")
   notes       DealNote[]
   auditLogs   AuditLog[]
+
+  @@index([isDeleted])
+  @@index([email])
 }
 
 model Pipeline {
@@ -75,6 +80,8 @@ model Company {
   email       String?
   website     String?
   address     String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -82,6 +89,7 @@ model Company {
   deals       Deal[]
 
   @@index([name])
+  @@index([isDeleted])
 }
 
 model Contact {
@@ -95,6 +103,8 @@ model Contact {
   telegram    String?
   position    String?
   avatar      String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -107,6 +117,7 @@ model Contact {
   @@index([whatsapp])
   @@index([telegram])
   @@index([email])
+  @@index([isDeleted])
 }
 
 model Deal {
@@ -121,6 +132,8 @@ model Deal {
   lossReason    String?
   tags          String?   // JSON array or comma-separated tags
   customFields  String?   // JSON string of custom fields
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   closedAt      DateTime?
@@ -142,6 +155,7 @@ model Deal {
   @@index([companyId])
   @@index([createdAt])
   @@index([updatedAt])
+  @@index([isDeleted])
 }
 
 model Task {
@@ -155,6 +169,8 @@ model Task {
   isCompleted   Boolean   @default(false)
   resultText    String?
   completedAt   DateTime?
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -167,6 +183,7 @@ model Task {
   @@index([createdById])
   @@index([dueDate])
   @@index([isCompleted])
+  @@index([isDeleted])
 }
 
 model DealNote {

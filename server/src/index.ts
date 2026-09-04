@@ -25,6 +25,7 @@ import { createWebhookRouter } from './routes/webhook.routes';
 import { createAiRouter } from './routes/ai.routes';
 import { createUploadRouter } from './routes/upload.routes';
 import { createTelephonyRouter } from './routes/telephony.routes';
+import { ArchiveRetentionService } from './services/archiveRetention';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -105,6 +106,7 @@ const PORT = process.env.PORT || 4000;
 
 server.listen(PORT, async () => {
   console.log(`🚀 Production CRM Server running on port ${PORT}`);
+  ArchiveRetentionService.startSchedule(prisma);
   await waService.initialize();
   await tgService.initialize();
 });

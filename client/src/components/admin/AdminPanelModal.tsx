@@ -18,7 +18,9 @@ import {
   Bot,
   Sliders,
   Sparkles,
-  Users
+  Users,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 import { User } from '../../types';
 import { api } from '../../services/api';
@@ -62,10 +64,22 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     canManageIntegrations: false
   });
 
+  const [activeUserTab, setActiveUserTab] = useState<'active' | 'archived'>('active');
+  const [archivedUsers, setArchivedUsers] = useState<User[]>([]);
+
   const fetchUsers = async () => {
     try {
       const res = await api.get('/users');
       if (res.data) setUserList(res.data);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const fetchArchivedUsers = async () => {
+    try {
+      const res = await api.get('/users/archived/list');
+      if (res.data) setArchivedUsers(res.data);
     } catch (e) {
       console.warn(e);
     }
@@ -81,6 +95,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   useEffect(() => {
     if (isAdminAuthorized) {
       fetchUsers();
+      fetchArchivedUsers();
       fetchSettings();
     }
   }, [isAdminAuthorized]);
@@ -189,15 +204,29 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   };
 
   const handleDeleteUser = async (id: string, name: string) => {
-    if (!window.confirm(`Видалити співробітника ${name}?`)) return;
+    if (!window.confirm(`Перемістити співробітника ${name} до кошика/архіву (безпечне видалення з можливістю відновлення)?`)) return;
     try {
       await api.delete(`/users/${id}`);
       setUserList(prev => prev.filter(u => u.id !== id));
+      fetchArchivedUsers();
       refreshUsers();
-      setSuccessNotice(`🗑️ Співробітника ${name} видалено з бази.`);
-      setTimeout(() => setSuccessNotice(null), 3000);
+      setSuccessNotice(`📦 Співробітника ${name} архівовано (зберігається 30 днів з можливістю відновлення).`);
+      setTimeout(() => setSuccessNotice(null), 4000);
     } catch (e) {
       setUserList(prev => prev.filter(u => u.id !== id));
+    }
+  };
+
+  const handleRestoreUser = async (id: string, name: string) => {
+    try {
+      await api.post(`/users/${id}/restore`);
+      setArchivedUsers(prev => prev.filter(u => u.id !== id));
+      fetchUsers();
+      refreshUsers();
+      setSuccessNotice(`♻️ Співробітника ${name} успішно відновлено з архіву!`);
+      setTimeout(() => setSuccessNotice(null), 3500);
+    } catch (e) {
+      alert('Не вдалося відновити співробітника');
     }
   };
 
@@ -359,24 +388,48 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-white">Список працівників</span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-xs font-bold">
-                      {userList.length}
-                    </span>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setActiveUserTab('active')}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                        activeUserTab === 'active'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Активні ({userList.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveUserTab('archived');
+                        fetchArchivedUsers();
+                      }}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg flex items-center gap-1.5 transition ${
+                        activeUserTab === 'archived'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Archive className="w-3 h-3" />
+                      <span>Архів / Кошик ({archivedUsers.length})</span>
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setEditingUserId(null);
-                      setIsCreating(true);
-                    }}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/20"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Створити працівника</span>
-                  </button>
+                  {activeUserTab === 'active' && (
+                    <button
+                      onClick={() => {
+                        setEditingUserId(null);
+                        setIsCreating(true);
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/20"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>+ Створити працівника</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Search */}
@@ -393,7 +446,52 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
 
                 {/* Scrollable list */}
                 <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                  {filteredUsers.length === 0 ? (
+                  {activeUserTab === 'archived' ? (
+                    archivedUsers.length === 0 ? (
+                      <div className="p-8 text-center text-slate-500 text-xs">
+                        Кошик порожній. Немає архівованих працівників.
+                      </div>
+                    ) : (
+                      archivedUsers.map((u) => (
+                        <div
+                          key={u.id}
+                          className="p-3.5 bg-slate-900/60 border border-dashed border-amber-500/30 rounded-2xl space-y-2.5 transition"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                                alt={u.name}
+                                className="w-10 h-10 rounded-full object-cover border border-amber-500/40 opacity-70 flex-shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="font-bold text-xs text-slate-300 truncate flex items-center gap-1.5">
+                                  <span className="line-through">{u.name}</span>
+                                  <span className="text-[9px] bg-amber-500/20 text-amber-400 font-bold px-1.5 py-0.2 rounded border border-amber-500/30">
+                                    В АРХІВІ (30 днів)
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate">{u.email}</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                  {u.department}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreUser(u.id, u.name)}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-emerald-600/20"
+                              title="Відновити співробітника та повернути йому робочий доступ"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Відновити</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )
+                  ) : filteredUsers.length === 0 ? (
                     <div className="p-8 text-center text-slate-500 text-xs">
                       Немає створених працівників. Натисніть «+ Створити працівника».
                     </div>

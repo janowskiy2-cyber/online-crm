@@ -8,13 +8,18 @@ export function createContactRouter(prisma: PrismaClient) {
   router.get('/', async (req, res) => {
     try {
       const { search } = req.query;
-      let where: any = {};
+      let where: any = { isDeleted: false };
       if (search) {
-        where.OR = [
-          { name: { contains: String(search) } },
-          { phone: { contains: String(search) } },
-          { email: { contains: String(search) } },
-          { telegram: { contains: String(search) } }
+        where.AND = [
+          { isDeleted: false },
+          {
+            OR: [
+              { name: { contains: String(search), mode: 'insensitive' } },
+              { phone: { contains: String(search), mode: 'insensitive' } },
+              { email: { contains: String(search), mode: 'insensitive' } },
+              { telegram: { contains: String(search), mode: 'insensitive' } }
+            ]
+          }
         ];
       }
 
@@ -71,6 +76,54 @@ export function createContactRouter(prisma: PrismaClient) {
       res.json(companies);
     } catch (e) {
       res.status(500).json({ error: 'Failed to fetch companies' });
+    }
+  });
+
+  // Get archived contacts
+  router.get('/archived/list', async (req, res) => {
+    try {
+      const contacts = await prisma.contact.findMany({
+        where: { isDeleted: true },
+        include: { company: true },
+        orderBy: { deletedAt: 'desc' }
+      });
+      res.json(contacts);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch archived contacts' });
+    }
+  });
+
+  // Soft delete contact
+  router.delete('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const archived = await prisma.contact.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date()
+        }
+      });
+      res.json({ success: true, message: 'Контакт переміщено в архів', contact: archived });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to archive contact' });
+    }
+  });
+
+  // Restore contact from archive
+  router.post('/:id/restore', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const restored = await prisma.contact.update({
+        where: { id },
+        data: {
+          isDeleted: false,
+          deletedAt: null
+        }
+      });
+      res.json({ success: true, message: 'Контакт успішно відновлено', contact: restored });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to restore contact' });
     }
   });
 

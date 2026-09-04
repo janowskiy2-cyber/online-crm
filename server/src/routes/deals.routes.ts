@@ -10,7 +10,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
       const { pipelineId, stageId, search, projectId } = req.query;
       const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
 
-      const where: any = {};
+      const where: any = { isDeleted: false };
 
       if (pipelineId) where.pipelineId = String(pipelineId);
       if (stageId) where.stageId = String(stageId);
@@ -342,17 +342,83 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     }
   });
 
-  // Delete Deal
+  // Get Archived Deals
+  router.get('/archived/list', async (req, res) => {
+    try {
+      const deals = await prisma.deal.findMany({
+        where: { isDeleted: true },
+        include: {
+          contact: true,
+          company: true,
+          responsible: {
+            select: { id: true, name: true, avatar: true, department: true, role: true }
+          },
+          stage: true
+        },
+        orderBy: { deletedAt: 'desc' }
+      });
+      res.json(deals);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch archived deals' });
+    }
+  });
+
+  // Soft-Delete Deal (Archive with 30-day recovery window)
   router.delete('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      await prisma.dealNote.deleteMany({ where: { dealId: id } });
-      await prisma.task.deleteMany({ where: { dealId: id } });
-      await prisma.chatMessage.deleteMany({ where: { dealId: id } });
-      await prisma.deal.delete({ where: { id } });
-      res.json({ success: true });
+      const deal = await prisma.deal.findUnique({ where: { id } });
+      if (!deal) {
+        return res.status(404).json({ error: 'Угоду не знайдено' });
+      }
+
+      const archived = await prisma.deal.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date()
+        }
+      });
+
+      if (io) {
+        io.emit('deal_deleted', { id });
+      }
+
+      res.json({ success: true, message: 'Угоду архівовано. Її можна відновити з кошика протягом 30 днів.', deal: archived });
     } catch (e) {
-      res.status(500).json({ error: 'Failed to delete deal' });
+      console.error('Failed to archive deal:', e);
+      res.status(500).json({ error: 'Failed to archive deal' });
+    }
+  });
+
+  // Restore Deal from Archive
+  router.post('/:id/restore', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const restored = await prisma.deal.update({
+        where: { id },
+        data: {
+          isDeleted: false,
+          deletedAt: null
+        },
+        include: {
+          contact: true,
+          company: true,
+          responsible: {
+            select: { id: true, name: true, avatar: true, department: true, role: true }
+          },
+          stage: true
+        }
+      });
+
+      if (io) {
+        io.emit('deal_created', restored);
+      }
+
+      res.json({ success: true, message: 'Угоду успішно відновлено', deal: restored });
+    } catch (e) {
+      console.error('Failed to restore deal:', e);
+      res.status(500).json({ error: 'Failed to restore deal' });
     }
   });
 
