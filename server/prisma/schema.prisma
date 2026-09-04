@@ -100,6 +100,11 @@ model Contact {
   id          String    @id @default(uuid())
   companyId   String?
   name        String
+  type        String    @default("b2b_contact") // "b2b_contact" | "candidate"
+  country     String?
+  profession  String?
+  status      String?   @default("screening")
+  videoUrl    String?
   phone       String?
   phone2      String?
   email       String?
@@ -117,6 +122,7 @@ model Contact {
   messages    ChatMessage[]
 
   @@index([companyId])
+  @@index([type])
   @@index([phone])
   @@index([whatsapp])
   @@index([telegram])
@@ -130,6 +136,7 @@ model Deal {
   budget        Float     @default(0)
   pipelineId    String
   stageId       String
+  projectId     String?   @default("employers") // "employers" | "candidates" | "agencies" | "legal_logistics"
   responsibleId String
   contactId     String?
   companyId     String?
@@ -153,6 +160,7 @@ model Deal {
   messages      ChatMessage[]
 
   @@index([pipelineId])
+  @@index([projectId])
   @@index([stageId])
   @@index([responsibleId])
   @@index([contactId])

@@ -22,6 +22,8 @@ import { DealCard } from './DealCard';
 
 interface KanbanBoardProps {
   pipeline: Pipeline;
+  pipelines?: Pipeline[];
+  onSelectPipeline?: (id: string) => void;
   projectId?: string;
   searchQuery?: string;
   refreshTrigger?: number;
@@ -31,6 +33,8 @@ interface KanbanBoardProps {
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   pipeline,
+  pipelines = [],
+  onSelectPipeline,
   projectId = 'employers',
   searchQuery = '',
   refreshTrigger = 0,
@@ -260,7 +264,25 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </button>
         </div>
 
+        {/* Pipeline Selector & Actions */}
         <div className="flex items-center gap-2">
+          {pipelines && pipelines.length > 1 && onSelectPipeline && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#090e1a]/90 border border-slate-200 dark:border-white/[0.08] rounded-lg shadow-sm">
+              <span className="text-[11px] text-slate-400 font-semibold hidden md:inline">Воронка:</span>
+              <select
+                value={pipeline?.id}
+                onChange={(e) => onSelectPipeline(e.target.value)}
+                className="bg-transparent text-xs font-bold text-blue-600 dark:text-blue-400 focus:outline-none cursor-pointer"
+              >
+                {pipelines.map(p => (
+                  <option key={p.id} value={p.id} className="bg-slate-900 text-white font-medium">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button
             onClick={() => setIsArchiveOpen(true)}
             className="px-3 py-1.5 bg-white dark:bg-[#090e1a]/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-slate-200 dark:border-white/[0.08] shadow-sm active:scale-95"

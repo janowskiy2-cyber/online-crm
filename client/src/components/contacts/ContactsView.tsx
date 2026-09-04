@@ -58,9 +58,24 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
     quota: 15
   });
 
+  const [stats, setStats] = useState({
+    totalCompanies: 0,
+    totalCandidates: 0,
+    assignedCandidates: 0,
+    freeReserveCandidates: 0,
+    totalRepresentatives: 0
+  });
+
+  const fetchStats = async () => {
+    try {
+      const res = await api.get('/contacts/stats/overview');
+      if (res.data) setStats(res.data);
+    } catch (e) {}
+  };
+
   const fetchContacts = async () => {
     try {
-      const res = await api.get('/contacts', { params: { search } });
+      const res = await api.get('/contacts', { params: { search, type: 'b2b_contact' } });
       setContacts(res.data);
     } catch (e) {
       console.error('Failed to load contacts:', e);
@@ -81,6 +96,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
   useEffect(() => {
     fetchContacts();
     fetchCompanies();
+    fetchStats();
   }, [search]);
 
   const handleCreateEmployer = async (e: React.FormEvent) => {
@@ -180,7 +196,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
             </div>
           </div>
 
-          {/* Quick Metrics Bar */}
+          {/* Quick Metrics Bar (Real Data) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-white/10">
             <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
               <div className="text-[11px] text-slate-400 font-medium">Активні підприємства</div>
@@ -188,15 +204,21 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
             </div>
             <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
               <div className="text-[11px] text-slate-400 font-medium">Квота замовлень</div>
-              <div className="text-xl font-black text-emerald-400 mt-0.5">85 чол.</div>
+              <div className="text-xl font-black text-emerald-400 mt-0.5">
+                {companies.reduce((acc, c) => acc + (c.quota || 10), 0)} чол.
+              </div>
             </div>
             <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
               <div className="text-[11px] text-slate-400 font-medium">Закріплено кандидатів</div>
-              <div className="text-xl font-black text-sky-400 mt-0.5">38 в пулі</div>
+              <div className="text-xl font-black text-sky-400 mt-0.5">
+                {stats.assignedCandidates} в пулі
+              </div>
             </div>
             <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5">
               <div className="text-[11px] text-slate-400 font-medium">Країни-локації</div>
-              <div className="text-xl font-black text-amber-400 mt-0.5">Польща, Чехія</div>
+              <div className="text-xl font-black text-amber-400 mt-0.5">
+                {Array.from(new Set(companies.map(c => c.address?.split(',')[0]?.trim()).filter(Boolean))).slice(0, 3).join(', ') || 'Європа, Україна'}
+              </div>
             </div>
           </div>
         </div>

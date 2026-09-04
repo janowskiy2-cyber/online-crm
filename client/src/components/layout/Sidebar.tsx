@@ -54,11 +54,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { id: 'feed', label: 'Живая лента', icon: Rss, badge: null },
-    { id: 'tasks', label: 'Задачи и Проекты', icon: CheckSquare, badge: '16' },
+    { id: 'tasks', label: 'Задачи и Проекты', icon: CheckSquare, badge: null },
     { id: 'inbox', label: 'Чат и звонки', icon: MessageSquare, badge: 'WA / TG' },
     { id: 'contacts', label: 'Работодатели (Клиенты)', icon: Building2, badge: 'B2B' },
     { id: 'candidates', label: 'База кандидатов', icon: Globe2, badge: 'POOL' },
-    { id: 'deals', label: 'CRM (Воронка сделок)', icon: Kanban, badge: '2' },
+    { id: 'deals', label: 'CRM (Воронка сделок)', icon: Kanban, badge: null },
     { id: 'analytics', label: 'Аналитика и отчеты', icon: BarChart3, badge: null },
     { id: 'integrations', label: 'Реклама и вебхуки', icon: Share2, badge: 'ADS' },
     { id: 'automation', label: 'Автоворонка', icon: Zap, badge: 'AUTO' },
@@ -143,19 +143,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Bottom Actions: Настроить меню & Пригласить сотрудников */}
-        <div className="p-3 space-y-2 border-t border-white/10">
-          <button
-            onClick={openCalculator}
-            className="w-full py-1 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-2 px-2 rounded-lg hover:bg-white/5 transition uppercase tracking-wider"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Настроить меню</span>
-          </button>
+        {/* Bottom Actions: Калькулятор, Заперечення, Додаток & Співробітники */}
+        <div className="p-3 space-y-1.5 border-t border-white/10">
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={openCalculator}
+              className="py-1.5 px-2 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition"
+              title="Калькулятор комісій та маржинальності"
+            >
+              <Calculator className="w-3.5 h-3.5 text-blue-400" />
+              <span>Калькулятор</span>
+            </button>
+
+            <button
+              onClick={openObjections}
+              className="py-1.5 px-2 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center justify-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition"
+              title="Скрипти та відпрацювання заперечень B2B"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Скрипти</span>
+            </button>
+          </div>
+
+          <div className="pt-0.5">
+            <PWAInstallButton />
+          </div>
 
           <button
             onClick={openAdminPanel}
-            className="w-full py-2 px-3 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition border border-white/15"
+            className="w-full py-2 px-3 bg-gradient-to-r from-blue-600/80 to-indigo-600/80 hover:from-blue-600 hover:to-indigo-600 text-white rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition border border-white/15 shadow-md shadow-blue-600/20 active:scale-95"
           >
             <span>Пригласить сотрудников</span>
             <span className="text-sm font-black">+</span>

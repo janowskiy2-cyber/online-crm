@@ -141,27 +141,38 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
             </div>
           </div>
 
-          {/* Bitrix24 Task Roles Bar */}
+          {/* Bitrix24 Task Roles Bar (Live Counts) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-6 pt-5 border-t border-white/10">
             <button
               onClick={() => setFilter('active')}
               className="p-3 rounded-xl bg-slate-900/60 hover:bg-slate-900/90 border border-white/5 hover:border-blue-500/30 text-left transition"
             >
-              <div className="text-[11px] text-slate-400 font-medium">Виконую</div>
+              <div className="text-[11px] text-slate-400 font-medium">В роботі (Виконую)</div>
               <div className="text-xl font-black text-blue-400 mt-0.5">{tasks.filter(t => !t.isCompleted).length}</div>
             </button>
-            <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-left">
-              <div className="text-[11px] text-slate-400 font-medium">Допомагаю</div>
-              <div className="text-xl font-black text-purple-400 mt-0.5">1</div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-left">
-              <div className="text-[11px] text-slate-400 font-medium">Доручив</div>
-              <div className="text-xl font-black text-amber-400 mt-0.5">2</div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-left">
-              <div className="text-[11px] text-slate-400 font-medium">Спостерігаю</div>
-              <div className="text-xl font-black text-slate-300 mt-0.5">18</div>
-            </div>
+            <button
+              onClick={() => setFilter('completed')}
+              className="p-3 rounded-xl bg-slate-900/60 hover:bg-slate-900/90 border border-white/5 hover:border-emerald-500/30 text-left transition"
+            >
+              <div className="text-[11px] text-slate-400 font-medium">Виконані</div>
+              <div className="text-xl font-black text-emerald-400 mt-0.5">{tasks.filter(t => t.isCompleted).length}</div>
+            </button>
+            <button
+              onClick={() => setFilter('active')}
+              className="p-3 rounded-xl bg-slate-900/60 hover:bg-slate-900/90 border border-white/5 hover:border-rose-500/30 text-left transition"
+            >
+              <div className="text-[11px] text-slate-400 font-medium">Прострочені</div>
+              <div className="text-xl font-black text-rose-400 mt-0.5">
+                {tasks.filter(t => !t.isCompleted && new Date(t.dueDate) < new Date()).length}
+              </div>
+            </button>
+            <button
+              onClick={() => setFilter('all')}
+              className="p-3 rounded-xl bg-slate-900/60 hover:bg-slate-900/90 border border-white/5 hover:border-purple-500/30 text-left transition"
+            >
+              <div className="text-[11px] text-slate-400 font-medium">Всього завдань</div>
+              <div className="text-xl font-black text-purple-300 mt-0.5">{tasks.length}</div>
+            </button>
           </div>
         </div>
 

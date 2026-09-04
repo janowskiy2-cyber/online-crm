@@ -14,6 +14,9 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
 
       if (pipelineId) where.pipelineId = String(pipelineId);
       if (stageId) where.stageId = String(stageId);
+      if (projectId && projectId !== 'all') {
+        where.projectId = String(projectId);
+      }
 
       // Strict user-level access isolation
       if (currentUserId) {
@@ -183,6 +186,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           budget: budget ? Number(budget) : 0,
           pipelineId,
           stageId,
+          projectId: projectId || 'employers',
           responsibleId: responsibleId || currentUserId || 'usr-admin',
           contactId,
           companyId,

@@ -65,7 +65,7 @@ export const CandidatesView: React.FC = () => {
 
   const fetchCandidates = async () => {
     try {
-      const res = await api.get('/contacts', { params: { search } });
+      const res = await api.get('/contacts', { params: { search, type: 'candidate' } });
       if (res.data && Array.isArray(res.data)) {
         setCandidates(res.data);
       }
@@ -91,7 +91,12 @@ export const CandidatesView: React.FC = () => {
         telegram: formData.telegram,
         email: formData.email || undefined,
         companyId: formData.companyId || null,
-        position: formData.profession
+        type: 'candidate',
+        country: formData.country,
+        profession: formData.profession,
+        position: formData.profession,
+        status: formData.status,
+        videoUrl: formData.videoUrl
       });
       setIsCreateOpen(false);
       setFormData({
@@ -143,6 +148,9 @@ export const CandidatesView: React.FC = () => {
       } else {
         if (cand.companyId !== filterEmployerId) return false;
       }
+    }
+    if (filterCountry !== 'all') {
+      if ((cand as any).country !== filterCountry) return false;
     }
     return true;
   });
@@ -246,6 +254,23 @@ export const CandidatesView: React.FC = () => {
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Country Filter Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          {['all', 'Узбекистан', 'Індія', 'Туреччина', 'Бангладеш', 'Філіппіни', 'Непал'].map(c => (
+            <button
+              key={c}
+              onClick={() => setFilterCountry(c)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition border ${
+                filterCountry === c
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                  : 'bg-slate-900/60 text-slate-300 border-white/10 hover:border-white/20'
+              }`}
+            >
+              {c === 'all' ? 'Всі країни' : c}
+            </button>
+          ))}
         </div>
 
         {/* Candidates Grid */}

@@ -167,6 +167,7 @@ export function App() {
           openCreateDeal={() => setIsCreateDealOpen(true)}
           openQRModal={handleOpenQRModal}
           openAdminPanel={() => setIsAdminPanelOpen(true)}
+          openObjections={() => setIsObjectionsOpen(true)}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
@@ -184,6 +185,8 @@ export function App() {
                 <Route path="/deals" element={
                   <KanbanBoard
                     pipeline={activePipeline}
+                    pipelines={pipelines}
+                    onSelectPipeline={setActivePipelineId}
                     projectId={currentWorkspace}
                     searchQuery={searchQuery}
                     refreshTrigger={refreshTrigger}
@@ -195,6 +198,8 @@ export function App() {
                 <Route path="/deals/:dealId" element={
                   <KanbanBoard
                     pipeline={activePipeline}
+                    pipelines={pipelines}
+                    onSelectPipeline={setActivePipelineId}
                     projectId={currentWorkspace}
                     searchQuery={searchQuery}
                     refreshTrigger={refreshTrigger}

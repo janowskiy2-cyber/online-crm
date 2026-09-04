@@ -4,23 +4,65 @@ import { PrismaClient } from '@prisma/client';
 export function createContactRouter(prisma: PrismaClient) {
   const router = Router();
 
-  // Get contacts
+  // Get aggregated stats overview for employers and candidates
+  router.get('/stats/overview', async (req, res) => {
+    try {
+      const [
+        totalCompanies,
+        totalCandidates,
+        assignedCandidates,
+        freeReserveCandidates,
+        totalRepresentatives
+      ] = await Promise.all([
+        prisma.company.count({ where: { isDeleted: false } }),
+        prisma.contact.count({ where: { isDeleted: false, type: 'candidate' } }),
+        prisma.contact.count({ where: { isDeleted: false, type: 'candidate', companyId: { not: null } } }),
+        prisma.contact.count({ where: { isDeleted: false, type: 'candidate', companyId: null } }),
+        prisma.contact.count({ where: { isDeleted: false, type: 'b2b_contact' } })
+      ]);
+
+      res.json({
+        totalCompanies,
+        totalCandidates,
+        assignedCandidates,
+        freeReserveCandidates,
+        totalRepresentatives
+      });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to calculate stats' });
+    }
+  });
+
+  // Get contacts (supports ?type=candidate or ?type=b2b_contact)
   router.get('/', async (req, res) => {
     try {
-      const { search } = req.query;
+      const { search, type } = req.query;
       let where: any = { isDeleted: false };
+      if (type) {
+        where.type = String(type);
+      }
       if (search) {
-        where.AND = [
-          { isDeleted: false },
-          {
-            OR: [
-              { name: { contains: String(search), mode: 'insensitive' } },
-              { phone: { contains: String(search), mode: 'insensitive' } },
-              { email: { contains: String(search), mode: 'insensitive' } },
-              { telegram: { contains: String(search), mode: 'insensitive' } }
-            ]
-          }
+        const searchConditions = [
+          { name: { contains: String(search), mode: 'insensitive' } },
+          { phone: { contains: String(search), mode: 'insensitive' } },
+          { email: { contains: String(search), mode: 'insensitive' } },
+          { telegram: { contains: String(search), mode: 'insensitive' } },
+          { country: { contains: String(search), mode: 'insensitive' } },
+          { profession: { contains: String(search), mode: 'insensitive' } }
         ];
+        if (where.type) {
+          where.AND = [
+            { isDeleted: false },
+            { type: where.type },
+            { OR: searchConditions }
+          ];
+          delete where.type;
+        } else {
+          where.AND = [
+            { isDeleted: false },
+            { OR: searchConditions }
+          ];
+        }
       }
 
       const contacts = await prisma.contact.findMany({
@@ -40,10 +82,27 @@ export function createContactRouter(prisma: PrismaClient) {
     }
   });
 
-  // Create contact
+  // Create contact (candidate or B2B representative)
   router.post('/', async (req, res) => {
     try {
-      const { name, phone, phone2, email, whatsapp, telegram, position, companyId } = req.body;
+      const { 
+        name, 
+        phone, 
+        phone2, 
+        email, 
+        whatsapp, 
+        telegram, 
+        position, 
+        companyId,
+        type,
+        country,
+        profession,
+        status,
+        videoUrl
+      } = req.body;
+
+      const inferredType = type || (country || profession || position?.toLowerCase().includes('оператор') ? 'candidate' : 'b2b_contact');
+
       const contact = await prisma.contact.create({
         data: {
           name,
@@ -52,8 +111,13 @@ export function createContactRouter(prisma: PrismaClient) {
           email,
           whatsapp: whatsapp || phone,
           telegram,
-          position,
-          companyId: companyId || null
+          position: position || profession,
+          companyId: companyId || null,
+          type: inferredType,
+          country: country || null,
+          profession: profession || position || null,
+          status: status || 'screening',
+          videoUrl: videoUrl || null
         },
         include: { company: true }
       });
@@ -142,7 +206,21 @@ export function createContactRouter(prisma: PrismaClient) {
   router.put('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, phone, phone2, email, whatsapp, telegram, position, companyId } = req.body;
+      const { 
+        name, 
+        phone, 
+        phone2, 
+        email, 
+        whatsapp, 
+        telegram, 
+        position, 
+        companyId,
+        type,
+        country,
+        profession,
+        status,
+        videoUrl
+      } = req.body;
       const updated = await prisma.contact.update({
         where: { id },
         data: {
@@ -153,7 +231,12 @@ export function createContactRouter(prisma: PrismaClient) {
           whatsapp: whatsapp !== undefined ? whatsapp : undefined,
           telegram: telegram !== undefined ? telegram : undefined,
           position: position !== undefined ? position : undefined,
-          companyId: companyId !== undefined ? companyId : undefined
+          companyId: companyId !== undefined ? companyId : undefined,
+          type: type !== undefined ? type : undefined,
+          country: country !== undefined ? country : undefined,
+          profession: profession !== undefined ? profession : undefined,
+          status: status !== undefined ? status : undefined,
+          videoUrl: videoUrl !== undefined ? videoUrl : undefined
         },
         include: { company: true }
       });

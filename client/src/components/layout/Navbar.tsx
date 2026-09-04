@@ -76,6 +76,7 @@ interface NavbarProps {
   openCreateDeal: () => void;
   openQRModal: (channel?: 'whatsapp' | 'telegram') => void;
   openAdminPanel: () => void;
+  openObjections?: () => void;
   onToggleMobileSidebar?: () => void;
 }
 
@@ -90,6 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   openCreateDeal,
   openQRModal,
   openAdminPanel,
+  openObjections,
   onToggleMobileSidebar
 }) => {
   const { currentUser, logout } = useAuth();
@@ -410,12 +412,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* Help Icon: ? 2 */}
+          {/* Help Icon: ? 2 — База знань & Скрипти */}
           <div className="relative">
             <button
-              onClick={() => openQRModal()}
+              onClick={() => openObjections ? openObjections() : openQRModal()}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition text-xs font-bold"
-              title="Довідка та підтримка"
+              title="База знань та регламенти роботи"
             >
               <span>?</span>
             </button>

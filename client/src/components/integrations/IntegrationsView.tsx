@@ -27,7 +27,7 @@ export const IntegrationsView: React.FC = () => {
   const [includeHeadcount, setIncludeHeadcount] = useState(true);
   const [includeCompany, setIncludeCompany] = useState(true);
 
-  const webhookUrl = `${window.location.origin.replace('vercel.app', 'onrender.com')}/api/webhooks/lead`;
+  const webhookUrl = 'https://online-crm.onrender.com/api/webhooks/lead';
 
   const copyToClipboard = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
