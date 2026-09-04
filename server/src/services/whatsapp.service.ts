@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { LeadDistributionService } from './lead-distribution.service';
 import { CloudinaryService } from './cloudinary.service';
+import { AudioConverterService } from './audio-converter.service';
 
 export class WhatsAppService {
   private io: SocketIOServer | null = null;
@@ -807,7 +808,13 @@ export class WhatsAppService {
       finalFileName = `${finalFileName}.pdf`;
     }
 
-    const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+    let buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+    const isVoice = mimeType.startsWith('audio/') || finalFileName.includes('Voice_Note');
+
+    if (isVoice) {
+      buffer = Buffer.from((await AudioConverterService.ensureOggOpus(buffer)) as any);
+      finalFileName = `voice_${Date.now()}.ogg`;
+    }
     
     let targetJid: string;
     if (toPhone.includes('@lid')) {
@@ -839,10 +846,10 @@ export class WhatsAppService {
           image: buffer,
           caption: caption || finalFileName
         });
-      } else if (mimeType.startsWith('audio/')) {
+      } else if (mimeType.startsWith('audio/') || isVoice) {
         await this.sock.sendMessage(targetJid, {
           audio: buffer,
-          mimetype: mimeType.includes('ogg') ? 'audio/ogg; codecs=opus' : (mimeType.includes('webm') ? 'audio/ogg; codecs=opus' : 'audio/mp4'),
+          mimetype: 'audio/ogg; codecs=opus',
           ptt: true
         });
       } else {

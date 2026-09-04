@@ -22,9 +22,12 @@ import {
   ArrowLeft,
   Mic,
   Image as ImageIcon,
-  Play
+  Play,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
+import { soundService } from '../../services/sound.service';
 import { ChatMessage, Deal, Pipeline } from '../../types';
 import { MediaViewerModal } from '../media/MediaViewerModal';
 import { AudioMessagePlayer } from '../media/AudioMessagePlayer';
@@ -60,6 +63,17 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
 
+  // Sound notification state
+  const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
+
+  useEffect(() => {
+    const handleSoundChange = (e: any) => {
+      setSoundEnabled(e.detail?.enabled ?? soundService.isEnabled());
+    };
+    window.addEventListener('crm_sound_changed', handleSoundChange);
+    return () => window.removeEventListener('crm_sound_changed', handleSoundChange);
+  }, []);
+
   const fetchPipelines = async () => {
     try {
       const res = await api.get('/pipelines');
@@ -87,6 +101,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     const handleNewMessage = (msg: ChatMessage) => {
       setMessages(prev => {
         if (prev.some(m => m.id === msg.id)) return prev;
+        if (!msg.isFromUser && msg.type !== 'system') {
+          soundService.playIncoming();
+        }
         return [...prev, msg];
       });
     };
@@ -182,11 +199,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         channel: activeDialog.channel,
         to: activeDialog.phoneOrId,
         fileBase64: audioBase64,
-        fileName: `Voice_Note_${Date.now()}.webm`,
-        mimeType: 'audio/webm',
+        fileName: `voice_${Date.now()}.ogg`,
+        mimeType: 'audio/ogg; codecs=opus',
         caption: `🎤 Голосове повідомлення (${durationSec} сек)`,
-        dealId: activeDialog.dealId
+        dealId: activeDialog.dealId,
+        isVoiceNote: true
       });
+      soundService.playOutgoing();
       fetchMessages();
     } catch (e) {
       alert('Помилка відправки голосового повідомлення');
@@ -212,6 +231,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           caption: replyText || undefined,
           dealId: activeDialog.dealId
         });
+        soundService.playOutgoing();
         setSelectedFile(null);
         setReplyText('');
         fetchMessages();
@@ -233,6 +253,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         text: textToSend,
         dealId: activeDialog.dealId
       });
+      soundService.playOutgoing();
       setReplyText('');
       fetchMessages();
     } catch (e) {
@@ -262,13 +283,28 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               <MessageSquare className="w-4 h-4 text-emerald-400" />
               <span>Месенджери (WA / TG)</span>
             </h2>
-            <button
-              onClick={() => openQRModal()}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1 transition"
-            >
-              <QrCode className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Шлюз</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSoundEnabled(soundService.toggle())}
+                title={soundEnabled ? "Звукові сповіщення увімкнено (натисніть щоб вимкнути)" : "Звукові сповіщення вимкнено (натисніть щоб увімкнути)"}
+                className={`p-1.5 rounded-xl border transition ${
+                  soundEnabled 
+                    ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/40' 
+                    : 'bg-slate-800/80 border-slate-700 text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+              </button>
+
+              <button
+                onClick={() => openQRModal()}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1 transition"
+              >
+                <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Шлюз</span>
+              </button>
+            </div>
           </div>
 
           <div className="relative">
@@ -378,8 +414,21 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   </div>
                 </div>
 
-                {/* Right Action Buttons: Call & Deal Card */}
+                {/* Right Action Buttons: Sound, Call & Deal Card */}
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSoundEnabled(soundService.toggle())}
+                    title={soundEnabled ? "Звукові сповіщення увімкнено (натисніть щоб вимкнути)" : "Звукові сповіщення вимкнено (натисніть щоб увімкнути)"}
+                    className={`p-2 rounded-xl border transition flex items-center gap-1.5 text-xs font-semibold ${
+                      soundEnabled 
+                        ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/40' 
+                        : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+                  </button>
+
                   <button
                     onClick={() => setActiveCall({
                       name: activeDialog.senderName,

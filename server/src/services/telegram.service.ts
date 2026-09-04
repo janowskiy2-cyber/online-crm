@@ -8,6 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import { LeadDistributionService } from './lead-distribution.service';
 import { CloudinaryService } from './cloudinary.service';
+import { AudioConverterService } from './audio-converter.service';
 
 const DEFAULT_API_ID = 2040;
 const DEFAULT_API_HASH = 'b18441a1ff607e10a989891a5462e627';
@@ -381,8 +382,13 @@ export class TelegramService {
       finalFileName = `${finalFileName}.pdf`;
     }
 
-    const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+    let buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
     const isVoice = mimeType.startsWith('audio/') || finalFileName.includes('Voice_Note');
+
+    if (isVoice) {
+      buffer = Buffer.from((await AudioConverterService.ensureOggOpus(buffer)) as any);
+      finalFileName = `voice_${Date.now()}.ogg`;
+    }
 
     if (this.client && this.status === 'connected') {
       try {
