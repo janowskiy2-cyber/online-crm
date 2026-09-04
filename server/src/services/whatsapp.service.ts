@@ -72,6 +72,58 @@ export class WhatsAppService {
     return digits;
   }
 
+  public async resolveLidToPhone(lidUser: string): Promise<string | null> {
+    const cleanLid = String(lidUser || '').replace(/\D/g, '');
+    if (!cleanLid) return null;
+    try {
+      const reverseFilePath = path.join(this.authDir, `lid-mapping-${cleanLid}_reverse.json`);
+      if (fs.existsSync(reverseFilePath)) {
+        const val = fs.readFileSync(reverseFilePath, 'utf8');
+        return val.replace(/"/g, '').trim();
+      }
+
+      const session = await this.prisma.messengerSession.findUnique({ where: { channel: 'whatsapp' } });
+      if (session?.sessionPayload) {
+        const payload = JSON.parse(session.sessionPayload);
+        const files = payload.files || {};
+        const targetKey = `lid-mapping-${cleanLid}_reverse.json`;
+        if (files[targetKey]) {
+          const val = Buffer.from(files[targetKey], 'base64').toString('utf8');
+          return val.replace(/"/g, '').trim();
+        }
+      }
+    } catch (e) {
+      console.warn('resolveLidToPhone error:', e);
+    }
+    return null;
+  }
+
+  public async resolvePhoneToLid(phone: string): Promise<string | null> {
+    const cleanPhone = this.normalizePhone(phone);
+    if (!cleanPhone) return null;
+    try {
+      const forwardFilePath = path.join(this.authDir, `lid-mapping-${cleanPhone}.json`);
+      if (fs.existsSync(forwardFilePath)) {
+        const val = fs.readFileSync(forwardFilePath, 'utf8');
+        return val.replace(/"/g, '').trim();
+      }
+
+      const session = await this.prisma.messengerSession.findUnique({ where: { channel: 'whatsapp' } });
+      if (session?.sessionPayload) {
+        const payload = JSON.parse(session.sessionPayload);
+        const files = payload.files || {};
+        const targetKey = `lid-mapping-${cleanPhone}.json`;
+        if (files[targetKey]) {
+          const val = Buffer.from(files[targetKey], 'base64').toString('utf8');
+          return val.replace(/"/g, '').trim();
+        }
+      }
+    } catch (e) {
+      console.warn('resolvePhoneToLid error:', e);
+    }
+    return null;
+  }
+
   private markMessageAsSentLocally(cleanPhone: string, text: string) {
     const key = `${cleanPhone}:${text.trim()}`;
     this.recentSentMessages.set(key, Date.now());
@@ -272,7 +324,17 @@ export class WhatsAppService {
             const remoteJid = msg.key?.remoteJid || '';
             if (remoteJid === 'status@broadcast') continue;
 
-            const cleanPhone = this.normalizePhone(remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '').split(':')[0]);
+            const isLid = remoteJid.endsWith('@lid');
+            const rawDigits = remoteJid.replace('@s.whatsapp.net', '').replace('@lid', '').replace('@g.us', '').split(':')[0];
+            let cleanPhone = this.normalizePhone(rawDigits);
+
+            if (isLid) {
+              const realPhone = await this.resolveLidToPhone(rawDigits);
+              if (realPhone) {
+                cleanPhone = this.normalizePhone(realPhone);
+              }
+            }
+
             const isFromMe = !!msg.key?.fromMe;
 
             const content = msg.message;
@@ -683,17 +745,22 @@ export class WhatsAppService {
     let targetJid: string;
     if (toPhone.includes('@lid')) {
       targetJid = toPhone;
-    } else if (cleanPhone.length >= 14 && (cleanPhone.startsWith('1') || cleanPhone.startsWith('2'))) {
-      targetJid = `${cleanPhone}@lid`;
     } else {
-      targetJid = `${cleanPhone}@s.whatsapp.net`;
-      try {
-        const results = await this.sock.onWhatsApp(cleanPhone);
-        if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
-          targetJid = results[0].jid;
+      const knownLid = await this.resolvePhoneToLid(cleanPhone);
+      if (knownLid) {
+        targetJid = `${knownLid}@lid`;
+      } else if (cleanPhone.length >= 14 && (cleanPhone.startsWith('1') || cleanPhone.startsWith('2'))) {
+        targetJid = `${cleanPhone}@lid`;
+      } else {
+        targetJid = `${cleanPhone}@s.whatsapp.net`;
+        try {
+          const results = await this.sock.onWhatsApp(cleanPhone);
+          if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
+            targetJid = results[0].jid;
+          }
+        } catch (onErr) {
+          console.warn('onWhatsApp resolution check warning in sendMessage:', onErr);
         }
-      } catch (onErr) {
-        console.warn('onWhatsApp resolution check warning in sendMessage:', onErr);
       }
     }
 
@@ -745,17 +812,22 @@ export class WhatsAppService {
     let targetJid: string;
     if (toPhone.includes('@lid')) {
       targetJid = toPhone;
-    } else if (cleanPhone.length >= 14 && (cleanPhone.startsWith('1') || cleanPhone.startsWith('2'))) {
-      targetJid = `${cleanPhone}@lid`;
     } else {
-      targetJid = `${cleanPhone}@s.whatsapp.net`;
-      try {
-        const results = await this.sock.onWhatsApp(cleanPhone);
-        if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
-          targetJid = results[0].jid;
+      const knownLid = await this.resolvePhoneToLid(cleanPhone);
+      if (knownLid) {
+        targetJid = `${knownLid}@lid`;
+      } else if (cleanPhone.length >= 14 && (cleanPhone.startsWith('1') || cleanPhone.startsWith('2'))) {
+        targetJid = `${cleanPhone}@lid`;
+      } else {
+        targetJid = `${cleanPhone}@s.whatsapp.net`;
+        try {
+          const results = await this.sock.onWhatsApp(cleanPhone);
+          if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
+            targetJid = results[0].jid;
+          }
+        } catch (onErr) {
+          console.warn('onWhatsApp resolution check warning in sendFile:', onErr);
         }
-      } catch (onErr) {
-        console.warn('onWhatsApp resolution check warning in sendFile:', onErr);
       }
     }
 
@@ -770,7 +842,7 @@ export class WhatsAppService {
       } else if (mimeType.startsWith('audio/')) {
         await this.sock.sendMessage(targetJid, {
           audio: buffer,
-          mimetype: 'audio/mp4',
+          mimetype: mimeType.includes('ogg') ? 'audio/ogg; codecs=opus' : (mimeType.includes('webm') ? 'audio/ogg; codecs=opus' : 'audio/mp4'),
           ptt: true
         });
       } else {
