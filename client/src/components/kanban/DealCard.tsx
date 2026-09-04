@@ -13,16 +13,16 @@ import { Deal } from '../../types';
 interface DealCardProps {
   deal: Deal;
   onClick: () => void;
+  stageColor?: string;
 }
 
-export const DealCard: React.FC<DealCardProps> = ({ deal, onClick }) => {
+export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, stageColor = '#3b82f6' }) => {
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(val) + ' ₴';
   };
 
   const tags: string[] = deal.tags ? (typeof deal.tags === 'string' ? JSON.parse(deal.tags) : deal.tags) : [];
   const activeTask = deal.tasks && deal.tasks.length > 0 ? deal.tasks[0] : null;
-
   const isTaskOverdue = activeTask ? new Date(activeTask.dueDate) < new Date() : false;
 
   const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
@@ -31,108 +31,111 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className="bg-[#1e293b] hover:bg-[#283548] border border-slate-700/80 hover:border-blue-500/50 rounded-xl p-3.5 shadow-sm hover:shadow-lg transition-all duration-150 cursor-pointer group select-none relative"
+      style={{ borderLeftColor: stageColor }}
+      className="group relative bg-white dark:bg-[#0f1422] hover:bg-slate-50/90 dark:hover:bg-[#141b2e] border border-slate-200/90 dark:border-white/[0.08] border-l-[3.5px] rounded-xl p-3 shadow-sm hover:shadow-card-hover transition-all duration-150 cursor-pointer select-none"
     >
-      {/* Top Header: Title & Budget */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="text-sm font-semibold text-slate-100 group-hover:text-blue-400 transition leading-snug line-clamp-2">
+      {/* Top Header: Title & Budget Badge */}
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition leading-snug line-clamp-2">
           {deal.title}
         </h4>
       </div>
 
-      <div className="flex items-center justify-between gap-2 mb-2.5">
-        <span className="text-sm font-extrabold text-emerald-400">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
           {formatCurrency(deal.budget || 0)}
         </span>
 
-        {/* 1-Click Quick Contact Icons */}
+        {/* 1-Click Quick Contact Icons (WhatsApp, TG, Phone) */}
         {primaryPhone && (
-          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition" onClick={(e) => e.stopPropagation()}>
             <a
               href={`https://wa.me/${primaryPhone}`}
               target="_blank"
               rel="noreferrer"
-              title="Написати у WhatsApp"
-              className="p-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 transition"
+              title="WhatsApp"
+              className="p-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare className="w-3 h-3" strokeWidth={1.75} />
             </a>
             <a
               href={tgUser ? `https://t.me/${tgUser}` : `tg://resolve?phone=${primaryPhone}`}
               target="_blank"
               rel="noreferrer"
-              title="Написати у Telegram"
-              className="p-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/40 text-sky-400 transition"
+              title="Telegram"
+              className="p-1 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition text-[10px] font-bold leading-none"
             >
-              <span className="text-[11px] font-black leading-none px-0.5">TG</span>
+              TG
             </a>
             <a
               href={`tel:+${primaryPhone}`}
               title="Зателефонувати"
-              className="p-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 transition"
+              className="p-1 rounded-md bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition"
             >
-              <Phone className="w-3.5 h-3.5" />
+              <Phone className="w-3 h-3" strokeWidth={1.75} />
             </a>
           </div>
         )}
       </div>
 
-      {/* Client / Company details */}
-      <div className="space-y-1 text-xs text-slate-400 mb-3">
-        {deal.company && (
-          <div className="flex items-center gap-1.5 truncate">
-            <Building2 className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-            <span className="truncate">{deal.company.name}</span>
-          </div>
-        )}
-        {deal.contact && (
-          <div className="flex items-center gap-1.5 truncate">
-            <UserIcon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-            <span className="truncate">{deal.contact.name}</span>
-          </div>
-        )}
-      </div>
+      {/* Client / Company Details */}
+      {(deal.company || deal.contact) && (
+        <div className="space-y-0.5 text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+          {deal.company && (
+            <div className="flex items-center gap-1.5 truncate">
+              <Building2 className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
+              <span className="truncate">{deal.company.name}</span>
+            </div>
+          )}
+          {deal.contact && (
+            <div className="flex items-center gap-1.5 truncate">
+              <UserIcon className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
+              <span className="truncate">{deal.contact.name}</span>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Tags */}
+      {/* Tags: Linear pastel pills */}
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
+        <div className="flex flex-wrap gap-1 mb-2.5">
           {tags.slice(0, 3).map((tag, idx) => (
             <span
               key={idx}
-              className="text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md"
+              className="text-[10px] font-medium bg-slate-100 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-white/[0.06] px-1.5 py-0.2 rounded"
             >
               {tag}
             </span>
           ))}
           {tags.length > 3 && (
-            <span className="text-[10px] text-slate-500 self-center">+{tags.length - 3}</span>
+            <span className="text-[10px] text-slate-400 self-center">+{tags.length - 3}</span>
           )}
         </div>
       )}
 
-      {/* Bottom Footer: Task status and Responsible User */}
-      <div className="pt-2.5 border-t border-slate-700/60 flex items-center justify-between">
+      {/* Bottom Footer: Next Task & Responsible User */}
+      <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
         {/* Next Task Indicator */}
         <div className="flex items-center gap-1.5 text-[11px]">
           {activeTask ? (
-            <div className={`flex items-center gap-1 font-medium ${isTaskOverdue ? 'text-rose-400' : 'text-amber-400'}`}>
-              <AlertCircle className="w-3.5 h-3.5" />
+            <div className={`flex items-center gap-1 font-medium ${isTaskOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              <AlertCircle className="w-3 h-3 flex-shrink-0" strokeWidth={1.75} />
               <span className="truncate max-w-[120px]">{activeTask.text}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1 text-rose-400/80 font-medium">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-              <span>Без задачи</span>
+            <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500 text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500/80" />
+              <span>Без задачі</span>
             </div>
           )}
         </div>
 
         {/* Responsible Manager Avatar */}
-        <div className="flex items-center" title={`Ответственный: ${deal.responsible?.name}`}>
+        <div className="flex items-center" title={`Відповідальний: ${deal.responsible?.name || 'Менеджер'}`}>
           <img
             src={deal.responsible?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
             alt={deal.responsible?.name}
-            className="w-6 h-6 rounded-full object-cover border border-slate-600 shadow-sm"
+            className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200 dark:ring-white/[0.1] shadow-sm"
           />
         </div>
       </div>
