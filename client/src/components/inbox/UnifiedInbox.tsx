@@ -65,6 +65,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   // Active deal connected to selected chat
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [isInternalNote, setIsInternalNote] = useState(false);
+  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
 
   // Sound notification state
   const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
@@ -267,7 +269,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
     try {
       await api.post('/chat/send', {
-        channel,
+        channel: isInternalNote ? 'internal' : channel,
+        isInternal: isInternalNote,
         to,
         text: textToSend,
         dealId: activeDialog.dealId
@@ -275,8 +278,37 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       soundService.playOutgoing();
       setReplyText('');
       fetchMessages();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(e?.response?.data?.error || 'Помилка надсилання повідомлення');
+    }
+  };
+
+  const handleCreateDealFromChat = async () => {
+    if (!activeDialog) return;
+    setIsCreatingDeal(true);
+    try {
+      const defaultPipeline = pipelines[0];
+      const defaultStage = defaultPipeline?.stages?.[0];
+      const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
+
+      const res = await api.post('/deals', {
+        title: `Угода з чату: ${activeDialog.senderName}`,
+        pipelineId: defaultPipeline?.id,
+        stageId: defaultStage?.id,
+        responsibleId: currentUserId || 'usr-admin',
+        budget: 1000
+      });
+
+      if (res.data?.id) {
+        await fetchMessages();
+        onOpenDeal(res.data.id);
+      }
+    } catch (e) {
+      console.error('Failed to create deal from chat:', e);
+      alert('Помилка створення угоди з чату');
+    } finally {
+      setIsCreatingDeal(false);
     }
   };
 
@@ -461,13 +493,23 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     <span className="hidden sm:inline">Дзвінок</span>
                   </button>
 
-                  {activeDialog.dealId && (
+                  {activeDialog.dealId ? (
                     <button
                       onClick={() => onOpenDeal(activeDialog.dealId!)}
                       className="px-2.5 py-1.5 sm:px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition flex-shrink-0"
                     >
                       <span className="hidden sm:inline">Картка</span>
                       <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleCreateDealFromChat}
+                      disabled={isCreatingDeal}
+                      className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30 flex-shrink-0 active:scale-95"
+                      title="Створити нову угоду з цього діалогу"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{isCreatingDeal ? 'Створення...' : '+ Створити угоду'}</span>
                     </button>
                   )}
                 </div>
@@ -500,6 +542,20 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             {/* Chat History Stream */}
             <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-3.5">
               {activeDialog.messages.map((m) => {
+                if (m.channel === 'internal') {
+                  return (
+                    <div key={m.id} className="w-full flex justify-center my-2">
+                      <div className="max-w-md w-full bg-amber-950/30 border border-amber-500/40 rounded-2xl p-3 text-xs text-amber-200 space-y-1 shadow-md">
+                        <div className="flex items-center justify-between text-[10px] text-amber-400">
+                          <span className="font-bold flex items-center gap-1">🔒 Внутрішня замітка команди ({m.senderName || 'Команда'})</span>
+                          <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p className="whitespace-pre-line text-amber-100 font-medium">{m.text}</p>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const isOut = m.direction === 'outgoing';
                 const isFile = m.text.startsWith('📎 Файл') || m.mediaType === 'pdf' || m.mediaType === 'document';
                 const isVoice = m.text.startsWith('🎤 Голосове') || m.text.includes('[Голосове') || m.mediaType === 'audio';
@@ -611,6 +667,39 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 />
               ) : (
                 <>
+                  {/* Mode Selector: Client Message vs Private Team Note (Chatwoot Standard) */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setIsInternalNote(false)}
+                        className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 ${
+                          !isInternalNote 
+                            ? (activeDialog.channel === 'whatsapp' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-sky-600 text-white shadow-sm')
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>Клієнту ({activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsInternalNote(true)}
+                        className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1.5 ${
+                          isInternalNote 
+                            ? 'bg-amber-600 text-white shadow-sm' 
+                            : 'text-slate-400 hover:text-amber-300'
+                        }`}
+                      >
+                        <span>🔒 Внутрішня замітка</span>
+                      </button>
+                    </div>
+
+                    <span className="text-[10px] text-slate-500 hidden sm:inline">
+                      {isInternalNote ? '⚠️ Клієнт НЕ побачить цей коментар' : 'Повідомлення в месенджер'}
+                    </span>
+                  </div>
+
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
                     {quickSnippets.map((snip, idx) => (
                       <button
@@ -671,18 +760,30 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
                     <input
                       type="text"
-                      placeholder={`Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
+                      placeholder={isInternalNote 
+                        ? "Напишіть службову замітку для команди (клієнт не побачить)..."
+                        : `Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      className="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      className={`flex-1 bg-slate-900 border rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                        isInternalNote 
+                          ? 'border-amber-500/60 focus:border-amber-400 ring-1 ring-amber-500/20' 
+                          : 'border-slate-700 focus:border-blue-500'
+                      }`}
                     />
                     <button
                       type="submit"
                       disabled={isSendingFile}
-                      className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg shadow-blue-600/30 flex-shrink-0"
+                      className={`px-3 sm:px-4 py-2 sm:py-2.5 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg flex-shrink-0 ${
+                        isInternalNote 
+                          ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30' 
+                          : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+                      }`}
                     >
                       <Send className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">{isSendingFile ? '...' : 'Надіслати'}</span>
+                      <span className="hidden sm:inline">
+                        {isSendingFile ? '...' : (isInternalNote ? 'Зберегти' : 'Надіслати')}
+                      </span>
                     </button>
                   </form>
                 </>

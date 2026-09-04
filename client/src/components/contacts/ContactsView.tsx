@@ -18,11 +18,13 @@ import {
   Sparkles,
   ChevronRight,
   UserCheck,
-  Download
+  Download,
+  Upload
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { Contact, Company } from '../../types';
+import { ImportCsvModal } from '../modals/ImportCsvModal';
 
 interface ExtendedCompany extends Company {
   _count?: {
@@ -45,6 +47,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
   const [activeTab, setActiveTab] = useState<'employers' | 'representatives'>('employers');
   const [search, setSearch] = useState('');
   const [isAddEmployerOpen, setIsAddEmployerOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Form state for new employer
@@ -210,6 +213,15 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
               >
                 <Download className="w-4 h-4 text-blue-400" />
                 <span>Експорт в Excel (CSV)</span>
+              </button>
+
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-3.5 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+                title="Імпортувати підприємства з Excel (CSV файлу)"
+              >
+                <Upload className="w-4 h-4 text-indigo-400" />
+                <span>Імпорт підприємств</span>
               </button>
 
               <button
@@ -558,6 +570,13 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
           </div>
         </div>
       )}
+
+      <ImportCsvModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        type="employers"
+        onSuccess={fetchCompanies}
+      />
     </div>
   );
 };

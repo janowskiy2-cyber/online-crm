@@ -22,11 +22,13 @@ import {
   ArrowRight,
   UserCheck,
   ChevronDown,
-  Download
+  Download,
+  Upload
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { Contact, Company } from '../../types';
+import { ImportCsvModal } from '../modals/ImportCsvModal';
 
 export const CandidatesView: React.FC = () => {
   const navigate = useNavigate();
@@ -38,6 +40,7 @@ export const CandidatesView: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeVideoModal, setActiveVideoModal] = useState<string | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -213,6 +216,15 @@ export const CandidatesView: React.FC = () => {
               >
                 <Download className="w-4 h-4 text-emerald-400" />
                 <span>Експорт в Excel (CSV)</span>
+              </button>
+
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-3.5 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+                title="Імпортувати кандидатів з Excel (CSV файлу)"
+              >
+                <Upload className="w-4 h-4 text-blue-400" />
+                <span>Імпорт з Excel</span>
               </button>
 
               <button
@@ -586,6 +598,13 @@ export const CandidatesView: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ImportCsvModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        type="candidates"
+        onSuccess={fetchCandidates}
+      />
     </div>
   );
 };

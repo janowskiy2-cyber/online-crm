@@ -27,6 +27,7 @@ import { createUploadRouter } from './routes/upload.routes';
 import { createTelephonyRouter } from './routes/telephony.routes';
 import { createFeedRouter } from './routes/feed.routes';
 import { createExportRouter } from './routes/export.routes';
+import { createImportRouter } from './routes/import.routes';
 import { ArchiveRetentionService } from './services/archiveRetention';
 
 const app = express();
@@ -96,6 +97,7 @@ app.use('/api/ai', authRequired, createAiRouter(prisma));
 app.use('/api/upload', authRequired, createUploadRouter());
 app.use('/api/feed', authRequired, createFeedRouter(prisma));
 app.use('/api/export', authRequired, createExportRouter(prisma));
+app.use('/api/import', authRequired, createImportRouter(prisma));
 
 // Serve frontend client build directly if available
 const clientDistPath = path.join(__dirname, '../../client/dist');

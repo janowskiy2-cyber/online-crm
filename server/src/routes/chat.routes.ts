@@ -184,6 +184,36 @@ export function createChatRouter(
       const { channel, to, text, dealId, contactId } = req.body;
       if (!text) return res.status(400).json({ error: 'Повідомлення не може бути порожнім' });
 
+      // Internal Team Private Note (Chatwoot standard: visible in conversation thread, not sent to customer)
+      if (channel === 'internal' || req.body.isInternal) {
+        const user = (req as any).user;
+        const internalMsg = await prisma.chatMessage.create({
+          data: {
+            channel: 'internal',
+            direction: 'outgoing',
+            dealId: dealId || null,
+            contactId: contactId || null,
+            senderName: user?.name || 'Менеджер (Внутрішня замітка)',
+            senderPhone: to || '',
+            text: text,
+            status: 'delivered'
+          }
+        });
+
+        if (dealId) {
+          await prisma.dealNote.create({
+            data: {
+              dealId,
+              userId: user?.id || 'usr-admin',
+              type: 'comment',
+              content: `🔒 Внутрішня замітка команди: ${text}`
+            }
+          });
+        }
+
+        return res.json(internalMsg);
+      }
+
       if (channel === 'whatsapp') {
         if (!whatsappService.isConnected()) {
           return res.status(503).json({ error: 'WhatsApp не підключений до CRM. Відскануйте QR-код у розділі "Шлюз"' });

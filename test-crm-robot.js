@@ -448,6 +448,15 @@ const CRM_PROJECT_REGISTRY = {
           await messageBox.fill('Тестове повідомлення клієнту');
           logStep('INBOX', 'Поле введення повідомлення клієнту', 'PASS', 'Поле активне');
         }
+
+        const internalNoteToggle = await page.$('button:has-text("Внутрішня замітка")');
+        if (internalNoteToggle) {
+          await internalNoteToggle.click();
+          await page.waitForTimeout(300);
+          logStep('INBOX', 'Перемикач "🔒 Внутрішня замітка команди"', 'PASS', 'Режим нотаток активний');
+          const clientToggle = await page.$('button:has-text("Клієнту")');
+          if (clientToggle) await clientToggle.click();
+        }
       }
       await scanForDeadButtons('INBOX');
       await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '04_inbox_view.png') });
@@ -480,6 +489,17 @@ const CRM_PROJECT_REGISTRY = {
         await page.waitForTimeout(800);
         logStep('CONTACTS', 'Кнопка "+ Додати роботодавця"', 'PASS', 'Форма створення доступна');
         await closeAnyOpenModal();
+      }
+
+      const importEmployersBtn = await page.$('button:has-text("Імпорт підприємств")');
+      if (importEmployersBtn) {
+        await importEmployersBtn.click();
+        await page.waitForTimeout(600);
+        const importModal = await page.$('h2:has-text("Імпорт підприємств")');
+        if (importModal) {
+          logStep('CONTACTS', 'Кнопка "Імпорт підприємств з Excel (CSV)"', 'PASS', 'Модальне вікно імпорту відкрито');
+          await closeAnyOpenModal();
+        }
       }
 
       const goToCandidatesBtn = await page.$('button:has-text("Перейти до Бази кандидатів")');
@@ -518,6 +538,17 @@ const CRM_PROJECT_REGISTRY = {
         logStep('CANDIDATES', 'Кнопка "+ Додати кандидата" (Нова анкета)', 'PASS', 'Модальне вікно відкрито');
         await closeAnyOpenModal();
       }
+
+      const importCandBtn = await page.$('button:has-text("Імпорт з Excel")');
+      if (importCandBtn) {
+        await importCandBtn.click();
+        await page.waitForTimeout(600);
+        const importModal = await page.$('h2:has-text("Імпорт кандидатів")');
+        if (importModal) {
+          logStep('CANDIDATES', 'Кнопка "Імпорт кандидатів з Excel (CSV)"', 'PASS', 'Модальне вікно імпорту відкрито');
+          await closeAnyOpenModal();
+        }
+      }
       await scanForDeadButtons('CANDIDATES');
       await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '06_candidates_view.png') });
     } catch (e) {
@@ -536,6 +567,11 @@ const CRM_PROJECT_REGISTRY = {
       const pipeSelector = await page.$('select');
       if (pipeSelector) {
         logStep('DEALS', 'Селектор вибору активної воронки', 'PASS', 'Випадаючий список воронок активний');
+      }
+
+      const exportDealsBtn = await page.$('button:has-text("Експорт в Excel")');
+      if (exportDealsBtn) {
+        logStep('DEALS', 'Кнопка "Експорт в Excel" воронки угод', 'PASS', 'Кнопка експорту активна');
       }
 
       const filterAll = await page.$('button:has-text("Всі угоди")');
