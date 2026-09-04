@@ -2,71 +2,130 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
-  api_key: process.env.CLOUDINARY_API_KEY || '',
-  api_secret: process.env.CLOUDINARY_API_SECRET || '',
-  secure: true
-});
+export interface CloudinaryAccount {
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+}
 
 export class CloudinaryService {
+  private static accounts: CloudinaryAccount[] = [];
+  private static activeAccountIndex = 0;
+
+  public static getAccounts(): CloudinaryAccount[] {
+    if (this.accounts.length > 0) return this.accounts;
+
+    const list: CloudinaryAccount[] = [];
+
+    // Account 1 (Primary)
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+      list.push({
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+        apiKey: process.env.CLOUDINARY_API_KEY,
+        apiSecret: process.env.CLOUDINARY_API_SECRET
+      });
+    }
+
+    // Account 2 (Secondary / Backup Pool)
+    if (process.env.CLOUDINARY_CLOUD_NAME_2 && process.env.CLOUDINARY_API_KEY_2 && process.env.CLOUDINARY_API_SECRET_2) {
+      list.push({
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME_2,
+        apiKey: process.env.CLOUDINARY_API_KEY_2,
+        apiSecret: process.env.CLOUDINARY_API_SECRET_2
+      });
+    }
+
+    // Account 3 (Tertiary Pool)
+    if (process.env.CLOUDINARY_CLOUD_NAME_3 && process.env.CLOUDINARY_API_KEY_3 && process.env.CLOUDINARY_API_SECRET_3) {
+      list.push({
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME_3,
+        apiKey: process.env.CLOUDINARY_API_KEY_3,
+        apiSecret: process.env.CLOUDINARY_API_SECRET_3
+      });
+    }
+
+    this.accounts = list;
+    return list;
+  }
+
+  private static configureAccount(account: CloudinaryAccount) {
+    cloudinary.config({
+      cloud_name: account.cloudName,
+      api_key: account.apiKey,
+      api_secret: account.apiSecret,
+      secure: true
+    });
+  }
+
   /**
-   * Upload buffer directly to Cloudinary CDN
-   * Returns permanent HTTPS URL
+   * Upload buffer directly to Cloudinary CDN with multi-account failover
    */
   public static async uploadBuffer(buffer: Buffer, fileName: string, mimeType: string): Promise<string> {
-    try {
-      let resourceType: 'auto' | 'image' | 'video' | 'raw' = 'auto';
-      if (mimeType.startsWith('image/')) {
-        resourceType = 'image';
-      } else if (mimeType.startsWith('audio/') || mimeType.startsWith('video/')) {
-        resourceType = 'video'; // Cloudinary treats audio as video resource type
-      } else {
-        resourceType = 'raw'; // PDF, docx, etc.
-      }
-
-      const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const publicId = `crm_${Date.now()}_${cleanFileName.replace(/\.[^/.]+$/, "")}`;
-
-      return new Promise<string>((resolve, reject) => {
-        const uploadOptions: any = {
-          folder: 'online_crm_media',
-          public_id: publicId,
-          resource_type: resourceType,
-          quality: 'auto:eco', // Ultra-efficient compression to minimize disk usage without visual loss
-          fetch_format: 'auto'
-        };
-
-        if (mimeType.startsWith('audio/')) {
-          uploadOptions.format = 'mp3';
-        } else if (resourceType === 'video') {
-          // Downscale 4K / 1080p phone videos to 720p HD: reduces file size by 75-85% with zero visible loss
-          uploadOptions.width = 1280;
-          uploadOptions.crop = 'limit';
-          uploadOptions.video_codec = 'auto';
-        }
-
-        const uploadStream = cloudinary.uploader.upload_stream(
-          uploadOptions,
-          (error, result) => {
-            if (error || !result) {
-              console.warn('Cloudinary upload stream error:', error);
-              // Fallback to local file
-              const localUrl = CloudinaryService.saveLocalFallback(buffer, fileName, mimeType);
-              resolve(localUrl);
-            } else {
-              console.log('✅ Cloudinary file uploaded successfully:', result.secure_url);
-              resolve(result.secure_url);
-            }
-          }
-        );
-
-        uploadStream.end(buffer);
-      });
-    } catch (err) {
-      console.warn('Cloudinary exception, falling back to local storage:', err);
-      return CloudinaryService.saveLocalFallback(buffer, fileName, mimeType);
+    const accounts = this.getAccounts();
+    if (accounts.length === 0) {
+      return this.saveLocalFallback(buffer, fileName, mimeType);
     }
+
+    let resourceType: 'auto' | 'image' | 'video' | 'raw' = 'auto';
+    if (mimeType.startsWith('image/')) {
+      resourceType = 'image';
+    } else if (mimeType.startsWith('audio/') || mimeType.startsWith('video/')) {
+      resourceType = 'video';
+    } else {
+      resourceType = 'raw';
+    }
+
+    const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const publicId = `crm_${Date.now()}_${cleanFileName.replace(/\.[^/.]+$/, "")}`;
+
+    const uploadOptions: any = {
+      folder: 'online_crm_media',
+      public_id: publicId,
+      resource_type: resourceType,
+      quality: 'auto:eco', // Ultra-efficient compression to minimize disk usage without visual loss
+      fetch_format: 'auto'
+    };
+
+    if (mimeType.startsWith('audio/')) {
+      uploadOptions.format = 'mp3';
+    } else if (resourceType === 'video') {
+      // Downscale 4K / 1080p phone videos to 720p HD: reduces file size by 75-85% with zero visible loss
+      uploadOptions.width = 1280;
+      uploadOptions.crop = 'limit';
+      uploadOptions.video_codec = 'auto';
+    }
+
+    // Try starting from active account, failover if quota reached
+    for (let attempt = 0; attempt < accounts.length; attempt++) {
+      const accIdx = (this.activeAccountIndex + attempt) % accounts.length;
+      const acc = accounts[accIdx];
+      this.configureAccount(acc);
+
+      try {
+        const url = await new Promise<string>((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            uploadOptions,
+            (error, result) => {
+              if (error || !result) {
+                reject(error || new Error('No upload result'));
+              } else {
+                resolve(result.secure_url);
+              }
+            }
+          );
+          uploadStream.end(buffer);
+        });
+
+        this.activeAccountIndex = accIdx;
+        console.log(`✅ [Cloudinary Pool] Uploaded to account "${acc.cloudName}":`, url);
+        return url;
+      } catch (err: any) {
+        console.warn(`⚠️ [Cloudinary Pool] Account "${acc.cloudName}" failed (${err?.message || 'Quota error'}). Trying next account...`);
+      }
+    }
+
+    console.warn('⚠️ All Cloudinary pool accounts exhausted, using local fallback.');
+    return this.saveLocalFallback(buffer, fileName, mimeType);
   }
 
   private static saveLocalFallback(buffer: Buffer, fileName: string, mimeType: string): string {
@@ -83,17 +142,25 @@ export class CloudinaryService {
   }
 
   /**
-   * Delete asset from Cloudinary to free up storage
+   * Delete asset from Cloudinary (matches cloudName in URL to account credentials)
    */
   public static async deleteAsset(url?: string | null): Promise<boolean> {
     if (!url || !url.includes('cloudinary.com')) return false;
     try {
+      const accounts = this.getAccounts();
+      const matchedAccount = accounts.find(a => url.includes(`/${a.cloudName}/`)) || accounts[0];
+      if (matchedAccount) {
+        this.configureAccount(matchedAccount);
+      }
+
       const parts = url.split('/');
       const filenameWithExt = parts[parts.length - 1];
       const filename = filenameWithExt.split('.')[0];
       const publicId = `online_crm_media/${filename}`;
       const resourceType = url.includes('/video/') ? 'video' : (url.includes('/image/') ? 'image' : 'raw');
+
       await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+      console.log(`🗑️ [Cloudinary Pool] Asset deleted from "${matchedAccount?.cloudName || 'default'}": ${publicId}`);
       return true;
     } catch (err) {
       console.warn('Failed to delete asset from Cloudinary:', err);

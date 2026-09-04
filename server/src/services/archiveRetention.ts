@@ -79,10 +79,39 @@ export class ArchiveRetentionService {
       // only deactivated with isDeleted=true.
       let purgedUsers = 0;
 
-      if (purgedDeals > 0 || purgedContacts > 0) {
-        console.log(`[ArchiveRetention] Purged expired items older than 30 days: ${purgedDeals} deals, ${purgedContacts} contacts.`);
+      // 4. Auto-Purge Outgoing Chat Videos older than 30 days
+      // Sent client videos (airport meeting, hostel review, factory tour) expire after 30 days.
+      // Candidate profile cards/resumes are NEVER auto-deleted!
+      const videoCutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const expiredVideos = await prisma.chatMessage.findMany({
+        where: {
+          direction: 'outgoing',
+          mediaType: 'video',
+          mediaUrl: { not: null },
+          createdAt: { lte: videoCutoffDate }
+        },
+        select: { id: true, mediaUrl: true, text: true }
+      });
+
+      let purgedVideos = 0;
+      for (const v of expiredVideos) {
+        if (v.mediaUrl) {
+          await CloudinaryService.deleteAsset(v.mediaUrl);
+        }
+        await prisma.chatMessage.update({
+          where: { id: v.id },
+          data: {
+            mediaUrl: null,
+            text: v.text.includes('(відеоархів очищено)') ? v.text : `${v.text} ⏳ [Відеофайл очищено за строком зберігання 30 днів]`
+          }
+        });
+        purgedVideos++;
+      }
+
+      if (purgedDeals > 0 || purgedContacts > 0 || purgedVideos > 0) {
+        console.log(`[ArchiveRetention] Purged: ${purgedDeals} deals, ${purgedContacts} contacts, ${purgedVideos} expired outgoing chat videos.`);
       } else {
-        console.log('[ArchiveRetention] All archived items are within the 30-day safe retention window.');
+        console.log('[ArchiveRetention] All archived items and videos are within safe retention window.');
       }
 
       return { purgedDeals, purgedUsers, purgedContacts };
