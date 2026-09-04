@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { PWAInstallButton } from '../common/PWAInstallButton';
 
 interface SidebarProps {
   currentTab: string;
@@ -163,6 +164,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Profile, Quick Gateway and Admin */}
         <div className="p-2.5 space-y-2 border-t border-slate-200/80 dark:border-white/[0.06] bg-slate-100/50 dark:bg-white/[0.02]">
+          {/* PWA 1-Click Install Button */}
+          <PWAInstallButton />
+
           {/* Admin Panel Master Trigger */}
           <button
             onClick={() => { openAdminPanel(); if (onCloseMobile) onCloseMobile(); }}

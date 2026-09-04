@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#3b82f6" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <rect width="510" height="510" x="1" y="1" rx="127" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2" />
+  
+  <!-- Ambient Center Glow -->
+  <circle cx="256" cy="256" r="180" fill="url(#glowGrad)" />
+
+  <!-- Stylized CRM Kanban & Connection Node Glyph -->
+  <g filter="url(#shadow)">
+    <!-- Column 1 -->
+    <rect x="130" y="150" width="64" height="212" rx="16" fill="url(#accentGrad)" opacity="0.9" />
+    <!-- Column 2 (Taller) -->
+    <rect x="224" y="120" width="64" height="272" rx="16" fill="url(#accentGrad)" />
+    <!-- Column 3 -->
+    <rect x="318" y="180" width="64" height="182" rx="16" fill="url(#accentGrad)" opacity="0.8" />
+    
+    <!-- Pulse Spark / Node -->
+    <circle cx="256" cy="180" r="14" fill="#ffffff" />
+    <circle cx="350" cy="230" r="10" fill="#ffffff" opacity="0.9" />
+    <circle cx="162" cy="210" r="10" fill="#ffffff" opacity="0.9" />
+  </g>
+</svg>
