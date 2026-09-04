@@ -680,14 +680,21 @@ export class WhatsAppService {
       throw new Error('WhatsApp не підключений до CRM або відновлює з’єднання. Перевірте статус у розділі "Шлюз"');
     }
 
-    let targetJid = `${cleanPhone}@s.whatsapp.net`;
-    try {
-      const results = await this.sock.onWhatsApp(cleanPhone);
-      if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
-        targetJid = results[0].jid;
+    let targetJid: string;
+    if (toPhone.includes('@lid')) {
+      targetJid = toPhone;
+    } else if (cleanPhone.length >= 14 && (cleanPhone.startsWith('1') || cleanPhone.startsWith('2'))) {
+      targetJid = `${cleanPhone}@lid`;
+    } else {
+      targetJid = `${cleanPhone}@s.whatsapp.net`;
+      try {
+        const results = await this.sock.onWhatsApp(cleanPhone);
+        if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
+          targetJid = results[0].jid;
+        }
+      } catch (onErr) {
+        console.warn('onWhatsApp resolution check warning in sendMessage:', onErr);
       }
-    } catch (onErr) {
-      console.warn('onWhatsApp resolution check warning in sendMessage:', onErr);
     }
 
     this.markMessageAsSentLocally(cleanPhone, text);
@@ -735,14 +742,21 @@ export class WhatsAppService {
 
     const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
     
-    let targetJid = `${cleanPhone}@s.whatsapp.net`;
-    try {
-      const results = await this.sock.onWhatsApp(cleanPhone);
-      if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
-        targetJid = results[0].jid;
+    let targetJid: string;
+    if (toPhone.includes('@lid')) {
+      targetJid = toPhone;
+    } else if (cleanPhone.length >= 14 && (cleanPhone.startsWith('1') || cleanPhone.startsWith('2'))) {
+      targetJid = `${cleanPhone}@lid`;
+    } else {
+      targetJid = `${cleanPhone}@s.whatsapp.net`;
+      try {
+        const results = await this.sock.onWhatsApp(cleanPhone);
+        if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
+          targetJid = results[0].jid;
+        }
+      } catch (onErr) {
+        console.warn('onWhatsApp resolution check warning in sendFile:', onErr);
       }
-    } catch (onErr) {
-      console.warn('onWhatsApp resolution check warning in sendFile:', onErr);
     }
 
     this.markMessageAsSentLocally(cleanPhone, caption || finalFileName);
