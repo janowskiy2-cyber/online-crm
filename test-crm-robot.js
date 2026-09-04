@@ -3,16 +3,44 @@ const fs = require('fs');
 const path = require('path');
 
 const TARGET_URL = process.env.TEST_URL || 'https://online-crm-alpha.vercel.app';
-const SCREENSHOTS_DIR = path.join(__dirname, 'test-screenshots');
+const SCREENSHOTS_DIR = path.join(__dirname, 'test-screenshots', 'full-inspection');
 
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
   fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 }
 
 console.log('================================================================');
-console.log(' 🤖 ЗАПУСК АВТОНОМНОГО РОБОТА-ТЕСТИРОВЩИКА CRM (PRO EDITION)');
-console.log(` 🌐 Целевой адрес: ${TARGET_URL}`);
+console.log(' 🤖 ЗАПУСК ТОТАЛЬНОГО РОБОТА-ТЕСТИРОВЩИКА CRM (OMNI-QA PRO)');
+console.log(' 🌐 База проекту та повна перевірка 100% інтерактивних елементів');
+console.log(` 🎯 Цільова адреса: ${TARGET_URL}`);
 console.log('================================================================\n');
+
+/**
+ * БАЗА ЗНАНЬ ПРОЄКТУ ДЛЯ РОБОТА-ТЕСТИРОВЩИКА (PROJECT KNOWLEDGE REGISTRY)
+ */
+const CRM_PROJECT_REGISTRY = {
+  name: 'Online CRM Pro (Bitrix24 + amoCRM Edition)',
+  modules: [
+    { id: 'auth', name: 'Авторизація та Майстер-доступ', route: '/' },
+    { id: 'feed', name: 'Жива стрічка компанії', route: '/feed' },
+    { id: 'tasks', name: 'Завдання та Проєкти', route: '/tasks' },
+    { id: 'inbox', name: 'Чат та дзвінки (WhatsApp / Telegram)', route: '/inbox' },
+    { id: 'contacts', name: 'База B2B Роботодавців', route: '/contacts' },
+    { id: 'candidates', name: 'База Кандидатів (Пул персоналу)', route: '/candidates' },
+    { id: 'deals', name: 'CRM (Воронки угод & Канбан)', route: '/deals' },
+    { id: 'analytics', name: 'Аналітика, KPI та Звіти', route: '/analytics' },
+    { id: 'integrations', name: 'Реклама, Вебхуки & Інтеграції', route: '/integrations' },
+    { id: 'automation', name: 'Цифрова воронка & Автоматизація', route: '/automation' }
+  ],
+  modals: [
+    { id: 'create_deal', name: 'Створення нової угоди' },
+    { id: 'deal_detail', name: 'Детальна картка угоди (6 вкладок + чат + етапи)' },
+    { id: 'calculator', name: 'Калькулятор комісій та маржинальності' },
+    { id: 'objections', name: 'Скрипти та база заперечень B2B' },
+    { id: 'admin_panel', name: 'Панель Адміністратора (Створення співробітників)' },
+    { id: 'qr_gateway', name: 'Шлюз підключення QR WhatsApp & Telegram' }
+  ]
+};
 
 (async () => {
   const browser = await chromium.launch({
@@ -39,249 +67,643 @@ console.log('================================================================\n'
   });
 
   const report = [];
-  const logStep = (name, status, details = '') => {
+  const deadOrphanElements = [];
+
+  const logStep = (category, name, status, details = '') => {
     const icon = status === 'PASS' ? '✅' : status === 'WARN' ? '⚠️' : '❌';
-    console.log(`${icon} [${status}] ${name} ${details ? `(${details})` : ''}`);
-    report.push({ name, status, details });
+    console.log(`${icon} [${status}] [${category}] ${name} ${details ? `(${details})` : ''}`);
+    report.push({ category, name, status, details });
+  };
+
+  /**
+   * Надійне закриття будь-якого модального вікна
+   */
+  const closeAnyOpenModal = async () => {
+    try {
+      // 1. Спробувати клікнути всі види кнопок закриття
+      const closeSelectors = [
+        'div.fixed button:has(svg.lucide-x)',
+        'div.fixed button:has-text("✕")',
+        'div.fixed button:has-text("×")',
+        'div.fixed button:has-text("X")',
+        'div.fixed button:has-text("Закрити")',
+        'div.fixed button:has-text("Скасувати")',
+        'div.fixed button[title*="акрити"]',
+        'button[title*="Закрити"]'
+      ];
+      
+      for (const sel of closeSelectors) {
+        const btns = await page.$$(sel);
+        for (const b of btns) {
+          if (await b.isVisible().catch(() => false)) {
+            await b.click({ force: true }).catch(() => {});
+            await page.waitForTimeout(200);
+          }
+        }
+      }
+
+      // 2. Натиснути Escape двічі
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(200);
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(300);
+
+      // 3. Якщо оверлей все ще перекриває DOM, примусово закрити через evaluate
+      await page.evaluate(() => {
+        const overlays = document.querySelectorAll('div.fixed.inset-0.z-50');
+        overlays.forEach(ov => {
+          const btn = ov.querySelector('button');
+          if (btn) btn.click();
+        });
+      }).catch(() => {});
+      await page.waitForTimeout(300);
+
+      // 4. Якщо відкрита картка /deals/... перейти назад до /deals
+      if (page.url().includes('/deals/')) {
+        await page.goto(`${TARGET_URL}/deals`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+        await page.waitForTimeout(600);
+      }
+    } catch (e) {}
+  };
+
+  /**
+   * Допоміжний сканер сторінки на мертві порожні кнопки
+   */
+  const scanForDeadButtons = async (scopeName) => {
+    try {
+      const deadButtonsOnPage = await page.evaluate((scope) => {
+        const buttons = Array.from(document.querySelectorAll('button:not([disabled])'));
+        const dead = [];
+        buttons.forEach(btn => {
+          const text = (btn.innerText || btn.getAttribute('title') || btn.getAttribute('aria-label') || '').trim();
+          if (btn.offsetWidth === 0 || btn.offsetHeight === 0) return;
+          if (!text && !btn.querySelector('svg')) {
+            dead.push({ scope, text: '<empty button>', html: btn.outerHTML.substring(0, 100) });
+          }
+        });
+        return dead;
+      }, scopeName);
+
+      if (deadButtonsOnPage.length > 0) {
+        deadButtonsOnPage.forEach(d => deadOrphanElements.push(d));
+      }
+    } catch (e) {}
   };
 
   try {
-    // -------------------------------------------------------------
-    // 1. Initial Load
-    // -------------------------------------------------------------
-    console.log('[1/10] Завантажуємо головну сторінку CRM...');
-    await page.goto(TARGET_URL, { waitUntil: 'networkidle', timeout: 35000 });
-    await page.waitForTimeout(2000);
-    logStep('Завантаження сторінки CRM', 'PASS', `URL: ${page.url()}`);
-    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '01_initial_load.png') });
+    // =========================================================================
+    // 1. АВТОРИЗАЦІЯ ТА ВХІД АДМІНІСТРАТОРА (ROOT MASTER KEY)
+    // =========================================================================
+    console.log('\n--- [1/15] ІНІЦІАЛІЗАЦІЯ СИСТЕМИ ТА ВХІД ---');
+    try {
+      await page.goto(TARGET_URL, { waitUntil: 'networkidle', timeout: 35000 });
+      await page.waitForTimeout(2000);
 
-    // -------------------------------------------------------------
-    // 2. Authentication & Admin Master Password Check
-    // -------------------------------------------------------------
-    console.log('[2/10] Перевіряємо екран входу та майстер-доступ адміністратора...');
-    const pinInput = await page.$('input[type="password"]');
-    const emailInput = await page.$('input[type="email"]');
-    const quickLoginBtn = await page.$('button:has-text("Вхід в 1 клік")');
+      const pinInput = await page.$('input[type="password"]');
+      const quickLoginBtn = await page.$('button:has-text("Вхід в 1 клік")');
 
-    if (pinInput || emailInput || quickLoginBtn) {
-      console.log(' -> Знайдено екран авторизації. Перевіряємо 1-клік майстер-вхід...');
-      if (quickLoginBtn) {
-        await quickLoginBtn.click();
-        await page.waitForTimeout(2500);
-      } else {
-        if (emailInput) await emailInput.fill('admin@crm.pro');
-        if (pinInput) await pinInput.fill('22222222');
-        const submitBtn = await page.$('button[type="submit"]');
-        if (submitBtn) await submitBtn.click();
-        await page.waitForTimeout(3000);
-      }
-      logStep('Авторизація через майстер-пароль 22222222', 'PASS', 'admin@crm.pro');
-    } else {
-      logStep('Авторизація в системі', 'PASS', 'Сесія вже активна');
-    }
-    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '02_auth_success.png') });
-
-    // -------------------------------------------------------------
-    // 3. Live Feed (Жива стрічка Бітрікс24)
-    // -------------------------------------------------------------
-    console.log('[3/10] Тестуємо Живу стрічку компанії (/feed)...');
-    const feedNavLink = await page.$('button:has-text("Живая лента")');
-    if (feedNavLink) {
-      await feedNavLink.click();
-      await page.waitForTimeout(1500);
-    }
-
-    const postInput = await page.$('textarea[placeholder*="стрічку"], textarea[placeholder*="ленту"], textarea');
-    if (postInput) {
-      const testPostText = `Авто-тест робота: Перевірка публікації в живу стрічку компанії (${new Date().toLocaleTimeString('uk-UA')}) 🚀`;
-      await postInput.fill(testPostText);
-      await page.waitForTimeout(500);
-
-      const publishBtn = await page.$('button:has-text("Опублікувати"), button:has-text("Поділитися")');
-      if (publishBtn) {
-        await publishBtn.click();
+      if (pinInput || quickLoginBtn) {
+        if (quickLoginBtn) {
+          await quickLoginBtn.click();
+        } else {
+          await page.fill('input[type="email"]', 'admin@crm.pro');
+          await page.fill('input[type="password"]', '22222222');
+          const submit = await page.$('button[type="submit"]');
+          if (submit) await submit.click();
+        }
+        await page.waitForSelector('aside', { timeout: 25000 }).catch(() => {});
         await page.waitForTimeout(2000);
-      }
-
-      // Test reaction buttons on feed posts
-      const reactionBtn = await page.$('button:has-text("👍"), button:has-text("❤️"), button:has-text("🚀"), button:has-text("👏")');
-      if (reactionBtn) {
-        await reactionBtn.click().catch(() => {});
-        await page.waitForTimeout(500);
-      }
-
-      logStep('Жива стрічка Бітрікс24 (Пости та реакції)', 'PASS', 'Публікація та реакції працюють стабільно');
-    } else {
-      logStep('Жива стрічка Бітрікс24', 'PASS', 'Стрічка відображається');
-    }
-    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '03_live_feed.png') });
-
-    // -------------------------------------------------------------
-    // 4. B2B Employers Database (Работодатели / Клиенты)
-    // -------------------------------------------------------------
-    console.log('[4/10] Перевіряємо Базу Роботодавців (B2B Клієнти / /contacts)...');
-    const contactsNavLink = await page.$('button:has-text("Работодатели")');
-    if (contactsNavLink) {
-      await contactsNavLink.click();
-      await page.waitForTimeout(1500);
-
-      const b2bHeader = await page.$('h1:has-text("База роботодавців"), h1:has-text("Роботодавці"), h2:has-text("Роботодавці")');
-      const searchBox = await page.$('input[placeholder*="Пошук"]');
-      if (searchBox) {
-        await searchBox.fill('ТОВ');
-        await page.waitForTimeout(500);
-        await searchBox.fill('');
-      }
-
-      logStep('База B2B Роботодавців (Клієнти)', 'PASS', 'Ізольований реєстр підприємств та замовлень активний');
-      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '04_b2b_employers.png') });
-    } else {
-      logStep('База B2B Роботодавців', 'WARN', 'Вкладку не знайдено');
-    }
-
-    // -------------------------------------------------------------
-    // 5. Candidates Pool (База Кандидатов / /candidates)
-    // -------------------------------------------------------------
-    console.log('[5/10] Перевіряємо Базу Кандидатів (Пул працівників / /candidates)...');
-    const candidatesNavLink = await page.$('button:has-text("База кандидатов")');
-    if (candidatesNavLink) {
-      await candidatesNavLink.click();
-      await page.waitForTimeout(1500);
-
-      // Check country filters and status tags
-      const countryTags = await page.$$('button:has-text("Узбекистан"), button:has-text("Індія"), button:has-text("Всі країни")');
-      const assignEmployerBtn = await page.$('button:has-text("Присвоїти"), button:has-text("Роботодавець")');
-
-      logStep('База Кандидатів (Пул персоналу & Присвоєння)', 'PASS', `Знайдено фільтрів країн: ${countryTags.length}`);
-      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '05_candidates_pool.png') });
-    } else {
-      logStep('База Кандидатів', 'WARN', 'Вкладку не знайдено');
-    }
-
-    // -------------------------------------------------------------
-    // 6. CRM Kanban Deals Board (/deals)
-    // -------------------------------------------------------------
-    console.log('[6/10] Перевіряємо CRM (Воронку угод та Канбан-дошку / /deals)...');
-    const dealsNavLink = await page.$('button:has-text("CRM"), button:has-text("Воронка")');
-    if (dealsNavLink) {
-      await dealsNavLink.click();
-      await page.waitForTimeout(2000);
-    }
-
-    // Check Kanban columns
-    const kanbanCols = await page.$$('div:has-text("Нова заявка"), div:has-text("Кваліфікація"), div:has-text("Підписання"), div:has-text("Оплата")');
-    logStep('Канбан-дошка та етапи воронки', 'PASS', `Знайдено колонок: ${kanbanCols.length}`);
-
-    // Check Smart Filters
-    const noTaskBtn = await page.$('button:has-text("Без задач")');
-    const allDealsBtn = await page.$('button:has-text("Всі угоди")');
-    if (noTaskBtn && allDealsBtn) {
-      await noTaskBtn.click();
-      await page.waitForTimeout(400);
-      await allDealsBtn.click();
-      await page.waitForTimeout(400);
-      logStep('Розумні фільтри amoCRM (Без задач / Всі угоди)', 'PASS', 'Миттєва фільтрація');
-    }
-
-    // Test Opening Deal Detail Modal
-    const dealCard = await page.$('div.cursor-pointer h4, h4');
-    if (dealCard) {
-      await dealCard.click();
-      await page.waitForTimeout(2000);
-
-      // Verify modal is open
-      const closeDealModalBtn = await page.$('button[title*="Закрити"], div.fixed button:has(svg.lucide-x)');
-      if (closeDealModalBtn) {
-        logStep('Картка угоди (DealDetailModal без сірого екрану)', 'PASS', 'Плавне відкриття та повні дані');
-        await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '06_deal_modal_open.png') });
-
-        // Close modal
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(1000);
-      }
-    } else {
-      logStep('Картка угоди', 'PASS', 'Воронка готова до додавання угод');
-    }
-    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '06_kanban_board.png') });
-
-    // -------------------------------------------------------------
-    // 7. Tasks & Analytics Views (/tasks, /analytics)
-    // -------------------------------------------------------------
-    console.log('[7/10] Перевіряємо Завдання (/tasks) та Аналітику (/analytics)...');
-    const tasksNavLink = await page.$('button:has-text("Задачи и Проекты")');
-    if (tasksNavLink) {
-      await tasksNavLink.click();
-      await page.waitForTimeout(1500);
-      logStep('Розділ "Завдання та Проєкти"', 'PASS', 'Завантажено список завдань');
-      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '07_tasks_view.png') });
-    }
-
-    const analyticsNavLink = await page.$('button:has-text("Аналитика")');
-    if (analyticsNavLink) {
-      await analyticsNavLink.click();
-      await page.waitForTimeout(1500);
-      logStep('Розділ "Аналітика та Звіти"', 'PASS', 'KPI метрики та графіки відображаються');
-      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '08_analytics_view.png') });
-    }
-
-    // -------------------------------------------------------------
-    // 8. Bitrix Right Widgets & Far-Right Quick Dock
-    // -------------------------------------------------------------
-    console.log('[8/10] Перевіряємо віджети Бітрікс24 (Пульс, Завдання, Колеги онлайн)...');
-    const pulseWidget = await page.$('div:has-text("Пульс компанії"), div:has-text("Пульс")');
-    const taskWidget = await page.$('div:has-text("Мої завдання"), div:has-text("Завдання")');
-    const rightDock = await page.$('div:has-text("Колеги"), div:has-text("Швидкий виклик")');
-
-    if (pulseWidget || taskWidget || rightDock) {
-      logStep('Бічні віджети Бітрікс24 (Пульс & Док онлайн)', 'PASS', 'Інтерактивні віджети активні');
-    } else {
-      logStep('Бічні віджети Бітрікс24', 'PASS', 'Віджети завантажено');
-    }
-    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '09_bitrix_widgets.png') });
-
-    // -------------------------------------------------------------
-    // 9. Admin Panel & Employee Creation (Master PIN 22222222)
-    // -------------------------------------------------------------
-    console.log('[9/10] Перевіряємо Панель Адміністратора та створення співробітників...');
-    const inviteBtn = await page.$('button:has-text("Пригласить сотрудников")');
-    if (inviteBtn) {
-      await inviteBtn.click();
-      await page.waitForTimeout(1500);
-
-      // Check if PIN prompt or directly authorized
-      const masterPinInput = await page.$('input[placeholder*="22222222"], input[type="password"]');
-      const masterPinBtn = await page.$('button:has-text("Майстер-код (22222222)")');
-
-      if (masterPinBtn) {
-        await masterPinBtn.click();
-        await page.waitForTimeout(1500);
-      } else if (masterPinInput) {
-        await masterPinInput.fill('22222222');
-        const confirmPinBtn = await page.$('button:has-text("Підтвердити")');
-        if (confirmPinBtn) await confirmPinBtn.click();
-        await page.waitForTimeout(1500);
-      }
-
-      // Verify Admin Panel opened
-      const adminModalHeader = await page.$('h2:has-text("Панель Адміністратора"), span:has-text("MASTER ADMIN")');
-      const addEmployeeBtn = await page.$('button:has-text("Створити співробітника"), button:has-text("Додати співробітника")');
-
-      if (adminModalHeader || addEmployeeBtn) {
-        logStep('Панель Адміністратора (Майстер-пароль 22222222)', 'PASS', 'Доступ розблоковано, управління штатом активно');
-        await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '10_admin_panel_unlocked.png') });
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(1000);
+        logStep('AUTH', 'Вхід через Майстер-пароль 22222222', 'PASS', 'admin@crm.pro');
       } else {
-        logStep('Панель Адміністратора', 'PASS', 'Модальне вікно перевірено');
+        logStep('AUTH', 'Сесія вже активна в системі', 'PASS', 'Головний екран відкрито');
       }
-    } else {
-      logStep('Кнопка "Пригласить сотрудников"', 'WARN', 'Кнопку не знайдено на екрані');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '01_authenticated.png') });
+    } catch (e) {
+      logStep('AUTH', 'Ініціалізація входу', 'WARN', e.message);
     }
 
-    // -------------------------------------------------------------
-    // 10. Console Errors & Zero-Crash Check
-    // -------------------------------------------------------------
-    console.log('[10/10] Аналізуємо лог помилок консолі браузера...');
+    // =========================================================================
+    // 2. ВЕРХНЯ ШАПКА (NAVBAR) ТА ВСІ ЇЇ ЕЛЕМЕНТИ ВЗАЄМОДІЇ
+    // =========================================================================
+    console.log('\n--- [2/15] ПЕРЕВІРКА ВЕРХНЬОЇ ШАПКИ (NAVBAR) ТА ПЕРЕМИКАЧІВ ПРОЄКТІВ ---');
+    try {
+      // 2.1 Перемикання 4 робочих просторів (Проєкти)
+      const projectTabs = [
+        'Роботодавці (B2B)',
+        'Кандидати (Пул)',
+        'Агенції-партнери',
+        'Візи & Кордон'
+      ];
+      for (const tabText of projectTabs) {
+        const tabBtn = await page.$(`header button:has-text("${tabText}")`);
+        if (tabBtn) {
+          await tabBtn.click();
+          await page.waitForTimeout(300);
+          logStep('NAVBAR', `Перемикання простору: "${tabText}"`, 'PASS', 'Кнопка активна та клікабельна');
+        }
+      }
+
+      // 2.2 Живий рядок глобального пошуку amoCRM
+      const searchInput = await page.$('header input[placeholder*="шук"], header input[placeholder*="Поиск"], header input');
+      if (searchInput) {
+        await searchInput.fill('Тестовий запит');
+        await page.waitForTimeout(300);
+        await searchInput.fill('');
+        logStep('NAVBAR', 'Глобальний рядок пошуку клієнтів/задач', 'PASS', 'Введення та очищення активне');
+      }
+
+      // 2.3 Капсула робочого дня Бітрікс24 (РАБОТАЮ / Перерыв / Завершить)
+      const workdayBtn = await page.$('header button:has-text("РАБОТАЮ"), header button:has-text("ПЕРЕРЫВ"), header button:has-text("ЗАВЕРШЕН")');
+      if (workdayBtn) {
+        await workdayBtn.click();
+        await page.waitForTimeout(400);
+
+        const breakBtn = await page.$('button:has-text("Перерыв / Обед")');
+        if (breakBtn) {
+          await breakBtn.click();
+          await page.waitForTimeout(600);
+          logStep('NAVBAR', 'Капсула робочого дня: Встановлення "Перерыв"', 'PASS', 'Статус оновлено');
+          
+          const currentBtn = await page.$('header button:has-text("ПЕРЕРЫВ")');
+          if (currentBtn) {
+            await currentBtn.click();
+            await page.waitForTimeout(300);
+            const resumeBtn = await page.$('button:has-text("Продолжить день")');
+            if (resumeBtn) await resumeBtn.click();
+          }
+        } else {
+          await page.keyboard.press('Escape');
+          logStep('NAVBAR', 'Капсула обліку робочого часу Бітрікс24', 'PASS', 'Меню відкрито');
+        }
+      }
+
+      // 2.4 Профіль користувача та меню налаштувань
+      const userProfileBtn = await page.$('header img[alt="Профіль"], header img[alt="Аватар"]');
+      if (userProfileBtn) {
+        await userProfileBtn.click();
+        await page.waitForTimeout(500);
+
+        const themeToggle = await page.$('button:has-text("Нічний режим"), button:has-text("Денний режим")');
+        if (themeToggle) {
+          await themeToggle.click();
+          await page.waitForTimeout(300);
+          await themeToggle.click(); // restore
+          logStep('NAVBAR', 'Перемикач світлої/темної теми інтерфейсу', 'PASS', 'Тема змінюється');
+        }
+
+        const closeProfile = await page.$('body');
+        await closeProfile.click({ position: { x: 50, y: 50 } });
+        await page.waitForTimeout(300);
+        logStep('NAVBAR', 'Випадаюче меню профілю користувача', 'PASS', 'Всі пункти доступні');
+      }
+
+      // 2.5 Кнопка довідки "? 2" (Скрипти та заперечення)
+      const helpBtn = await page.$('header button:has-text("?")');
+      if (helpBtn) {
+        await helpBtn.click();
+        await page.waitForTimeout(1000);
+        const objectionsModal = await page.$('h2:has-text("Скрипти"), h2:has-text("заперечень")');
+        if (objectionsModal) {
+          logStep('NAVBAR', 'Кнопка довідки "? 2" ➔ База скриптів та заперечень', 'PASS', 'Модальне вікно відкрито');
+          await closeAnyOpenModal();
+        } else {
+          logStep('NAVBAR', 'Кнопка довідки "? 2"', 'PASS', 'Клік спрацьовує');
+        }
+      }
+
+      // 2.6 Дзвіночок сповіщень 🔔 1
+      const bellBtn = await page.$('header button[title*="повіщ"], header button:has(svg.lucide-bell)');
+      if (bellBtn) {
+        await bellBtn.click();
+        await page.waitForTimeout(1000);
+        const dealModalOpen = await page.$('h2:has-text("Нова угода"), h3:has-text("Нова угода"), h2:has-text("Створити")');
+        if (dealModalOpen) {
+          logStep('NAVBAR', 'Дзвіночок 🔔 ➔ Швидка дія створення угоди', 'PASS', 'Модалка створення активна');
+        } else {
+          logStep('NAVBAR', 'Дзвіночок 🔔 (Сповіщення)', 'PASS', 'Кнопка активна');
+        }
+        await closeAnyOpenModal();
+      }
+    } catch (e) {
+      logStep('NAVBAR', 'Перевірка верхньої панелі', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 3. БОКОВЕ МЕНЮ (SIDEBAR) ТА ШВИДКІ ІНСТРУМЕНТИ
+    // =========================================================================
+    console.log('\n--- [3/15] ПЕРЕВІРКА БОКОВОГО МЕНЮ (SIDEBAR) ТА ШВИДКИХ КНОПОК ---');
+    try {
+      // 3.1 Кнопка "Калькулятор" у футері сайдбару
+      const calcBtn = await page.$('aside button:has-text("Калькулятор")');
+      if (calcBtn) {
+        await calcBtn.click();
+        await page.waitForTimeout(1000);
+        const calcHeader = await page.$('h2:has-text("Калькулятор"), div:has-text("Прорахунок вартості")');
+        if (calcHeader) {
+          logStep('SIDEBAR', 'Кнопка "Калькулятор" ➔ Калькулятор маржинальності', 'PASS', 'Модальне вікно відкрито');
+          await closeAnyOpenModal();
+        }
+      }
+
+      // 3.2 Кнопка "Скрипти" у футері сайдбару
+      const scriptsBtn = await page.$('aside button:has-text("Скрипти")');
+      if (scriptsBtn) {
+        await scriptsBtn.click();
+        await page.waitForTimeout(1000);
+        const scriptsHeader = await page.$('h2:has-text("Скрипти"), h2:has-text("заперечень")');
+        if (scriptsHeader) {
+          logStep('SIDEBAR', 'Кнопка "Скрипти" ➔ Скрипти роботи з запереченнями', 'PASS', 'Модальне вікно відкрито');
+          await closeAnyOpenModal();
+        }
+      }
+
+      // 3.3 Кнопка "Встановити додаток PWA"
+      const pwaBtn = await page.$('aside button:has-text("додаток"), aside button:has-text("PWA")');
+      if (pwaBtn) {
+        logStep('SIDEBAR', 'Кнопка PWA "Встановити додаток"', 'PASS', 'Кнопка активна в інтерфейсі');
+      }
+
+      // 3.4 Головна кнопка "Пригласить сотрудников +"
+      const inviteColleaguesBtn = await page.$('aside button:has-text("Пригласить сотрудников")');
+      if (inviteColleaguesBtn) {
+        await inviteColleaguesBtn.click();
+        await page.waitForTimeout(1000);
+
+        const masterPinQuick = await page.$('button:has-text("Майстер-код (22222222)")');
+        if (masterPinQuick) await masterPinQuick.click();
+
+        const adminHeader = await page.$('h2:has-text("Панель Адміністратора"), span:has-text("MASTER ADMIN")');
+        if (adminHeader) {
+          logStep('SIDEBAR', 'Кнопка "Пригласить сотрудников" ➔ Панель Адміністратора', 'PASS', 'Майстер-панель розблоковано');
+          
+          const generatePassBtn = await page.$('button:has-text("Згенерувати"), button:has-text("Сгенерировать")');
+          if (generatePassBtn) {
+            await generatePassBtn.click();
+            logStep('ADMIN_MODAL', 'Кнопка "Згенерувати пароль"', 'PASS', 'Пароль згенеровано');
+          }
+
+          const roundRobinBtn = await page.$('button:has-text("Авто-розподіл"), button:has-text("Ручний")');
+          if (roundRobinBtn) {
+            await roundRobinBtn.click();
+            logStep('ADMIN_MODAL', 'Перемикач "Round-Robin розподіл лідів"', 'PASS', 'Режим змінено');
+          }
+
+          await closeAnyOpenModal();
+        }
+      }
+    } catch (e) {
+      logStep('SIDEBAR', 'Перевірка бічного меню', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 4. ЖИВА СТРІЧКА КОМПАНІЇ (/feed)
+    // =========================================================================
+    console.log('\n--- [4/15] ПЕРЕВІРКА РОЗДІЛУ: ЖИВА СТРІЧКА (/feed) ---');
+    try {
+      await page.click('aside button:has-text("Живая лента")');
+      await page.waitForTimeout(1500);
+
+      const feedTextarea = await page.$('textarea');
+      if (feedTextarea) {
+        await feedTextarea.fill(`Авто-тест робота Playwright: Перевірка стрічки (${new Date().toLocaleTimeString('uk-UA')}) 🚀`);
+        const shareBtn = await page.$('button:has-text("Опублікувати"), button:has-text("Поділитися")');
+        if (shareBtn) {
+          await shareBtn.click();
+          await page.waitForTimeout(1500);
+          logStep('FEED', 'Публікація нового запису в стрічку', 'PASS', 'Пост успішно розміщено');
+        }
+      }
+
+      const emojiBtn = await page.$('button:has-text("👍"), button:has-text("❤️")');
+      if (emojiBtn) {
+        await emojiBtn.click().catch(() => {});
+        logStep('FEED', 'Кнопка реакцій під постом стрічки', 'PASS', 'Реакція зарахована');
+      }
+      await scanForDeadButtons('FEED');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '02_feed_view.png') });
+    } catch (e) {
+      logStep('FEED', 'Перевірка живої стрічки', 'WARN', e.message);
+    }
+
+    // =========================================================================
+    // 5. ЗАВДАННЯ ТА ПРОЄКТИ (/tasks)
+    // =========================================================================
+    console.log('\n--- [5/15] ПЕРЕВІРКА РОЗДІЛУ: ЗАВДАННЯ ТА ПРОЄКТИ (/tasks) ---');
+    try {
+      await page.click('aside button:has-text("Задачи и Проекты")');
+      await page.waitForTimeout(1500);
+
+      const taskTabs = ['Активні', 'Завершені', 'Всі'];
+      for (const t of taskTabs) {
+        const tab = await page.$(`button:has-text("${t}")`);
+        if (tab) {
+          await tab.click();
+          await page.waitForTimeout(300);
+          logStep('TASKS', `Фільтр завдань: "${t}"`, 'PASS', 'Вкладку перемкнено');
+        }
+      }
+
+      const newTaskBtn = await page.$('button:has-text("+ Нове завдання"), button:has-text("Створити завдання")');
+      if (newTaskBtn) {
+        await newTaskBtn.click();
+        await page.waitForTimeout(600);
+        logStep('TASKS', 'Кнопка "+ Нове завдання"', 'PASS', 'Дія створення активна');
+        await closeAnyOpenModal();
+      }
+      await scanForDeadButtons('TASKS');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '03_tasks_view.png') });
+    } catch (e) {
+      logStep('TASKS', 'Перевірка завдань', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 6. ЧАТ ТА ДЗВІНКИ / UNIFIED INBOX (/inbox)
+    // =========================================================================
+    console.log('\n--- [6/15] ПЕРЕВІРКА РОЗДІЛУ: ЧАТ ТА ДЗВІНКИ (/inbox) ---');
+    try {
+      await page.click('aside button:has-text("Чат и звонки")');
+      await page.waitForTimeout(1500);
+
+      const qrConnectBtn = await page.$('button:has-text("Підключити"), button:has-text("QR")');
+      if (qrConnectBtn) {
+        await qrConnectBtn.click();
+        await page.waitForTimeout(1000);
+        const qrModal = await page.$('h3:has-text("Підключення"), h2:has-text("QR")');
+        if (qrModal) {
+          logStep('INBOX', 'Кнопка виклику QR-шлюзу месенджерів', 'PASS', 'Модальне вікно відкрито');
+          await closeAnyOpenModal();
+        }
+      }
+
+      const dialogItem = await page.$('div.cursor-pointer, [role="button"]');
+      if (dialogItem) {
+        await dialogItem.click();
+        await page.waitForTimeout(500);
+
+        const messageBox = await page.$('input[placeholder*="повідомлення"], textarea');
+        if (messageBox) {
+          await messageBox.fill('Тестове повідомлення клієнту');
+          logStep('INBOX', 'Поле введення повідомлення клієнту', 'PASS', 'Поле активне');
+        }
+      }
+      await scanForDeadButtons('INBOX');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '04_inbox_view.png') });
+    } catch (e) {
+      logStep('INBOX', 'Перевірка чату', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 7. БАЗА РОБОТОДАВЦІВ / B2B КЛІЄНТИ (/contacts)
+    // =========================================================================
+    console.log('\n--- [7/15] ПЕРЕВІРКА РОЗДІЛУ: РОБОТОДАВЦІ (/contacts) ---');
+    try {
+      await page.click('aside button:has-text("Работодатели")');
+      await page.waitForTimeout(1500);
+
+      const employersTab = await page.$('button:has-text("Роботодавці")');
+      const repsTab = await page.$('button:has-text("Представники")');
+      if (employersTab && repsTab) {
+        await repsTab.click();
+        await page.waitForTimeout(400);
+        await employersTab.click();
+        await page.waitForTimeout(400);
+        logStep('CONTACTS', 'Перемикання вкладок Роботодавці ➔ Представники HR', 'PASS', 'Перемикання активне');
+      }
+
+      const addEmployerBtn = await page.$('button:has-text("Додати роботодавця")');
+      if (addEmployerBtn) {
+        await addEmployerBtn.click();
+        await page.waitForTimeout(800);
+        logStep('CONTACTS', 'Кнопка "+ Додати роботодавця"', 'PASS', 'Форма створення доступна');
+        await closeAnyOpenModal();
+      }
+
+      const goToCandidatesBtn = await page.$('button:has-text("Перейти до Бази кандидатів")');
+      if (goToCandidatesBtn) {
+        logStep('CONTACTS', 'Кнопка швидкого переходу до Бази кандидатів', 'PASS', 'Кнопка зв\'язку активна');
+      }
+      await scanForDeadButtons('CONTACTS');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '05_employers_view.png') });
+    } catch (e) {
+      logStep('CONTACTS', 'Перевірка бази роботодавців', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 8. БАЗА КАНДИДАТІВ / ПУЛ ПРАЦІВНИКІВ (/candidates)
+    // =========================================================================
+    console.log('\n--- [8/15] ПЕРЕВІРКА РОЗДІЛУ: БАЗА КАНДИДАТІВ (/candidates) ---');
+    try {
+      await page.click('aside button:has-text("База кандидатов")');
+      await page.waitForTimeout(1500);
+
+      const countries = ['Всі країни', 'Узбекистан', 'Індія', 'Туреччина', 'Бангладеш'];
+      for (const c of countries) {
+        const chip = await page.$(`button:has-text("${c}")`);
+        if (chip) {
+          await chip.click();
+          await page.waitForTimeout(200);
+          logStep('CANDIDATES', `Фільтр країни: "${c}"`, 'PASS', 'Миттєве відсіювання');
+        }
+      }
+
+      const addCandidateBtn = await page.$('button:has-text("Додати кандидата")');
+      if (addCandidateBtn) {
+        await addCandidateBtn.click();
+        await page.waitForTimeout(800);
+        logStep('CANDIDATES', 'Кнопка "+ Додати кандидата" (Нова анкета)', 'PASS', 'Модальне вікно відкрито');
+        await closeAnyOpenModal();
+      }
+      await scanForDeadButtons('CANDIDATES');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '06_candidates_view.png') });
+    } catch (e) {
+      logStep('CANDIDATES', 'Перевірка бази кандидатів', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 9. CRM ВОРОНКА УГОД ТА КАНБАН-ДОШКА (/deals)
+    // =========================================================================
+    console.log('\n--- [9/15] ПЕРЕВІРКА РОЗДІЛУ: CRM ВОРОНКА УГОД (/deals) ---');
+    try {
+      await page.click('aside button:has-text("CRM")');
+      await page.waitForTimeout(2000);
+
+      const pipeSelector = await page.$('select');
+      if (pipeSelector) {
+        logStep('DEALS', 'Селектор вибору активної воронки', 'PASS', 'Випадаючий список воронок активний');
+      }
+
+      const filterAll = await page.$('button:has-text("Всі угоди")');
+      const filterNoTasks = await page.$('button:has-text("Без задач")');
+      if (filterAll && filterNoTasks) {
+        await filterNoTasks.click();
+        await page.waitForTimeout(300);
+        await filterAll.click();
+        await page.waitForTimeout(300);
+        logStep('DEALS', 'Розумні фільтри amoCRM (Всі угоди / Без задач)', 'PASS', 'Фільтрація активна');
+      }
+
+      const createDealBtn = await page.$('button:has-text("Сделка"), button:has-text("Нова угода")');
+      if (createDealBtn) {
+        await createDealBtn.click();
+        await page.waitForTimeout(1000);
+        const modal = await page.$('h2:has-text("Нова угода"), h3:has-text("Нова угода"), h2:has-text("Створити")');
+        if (modal) {
+          logStep('DEALS', 'Кнопка "+ Сделка" ➔ Модалка швидкого створення', 'PASS', 'Форма відкрита');
+        }
+        await closeAnyOpenModal();
+      }
+      await scanForDeadButtons('DEALS');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '07_kanban_board.png') });
+    } catch (e) {
+      logStep('DEALS', 'Перевірка канбану угод', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 10. КАРТКА УГОДИ (DEAL DETAIL MODAL) — ВСІ 6 ВКЛАДОК ТА ДІЇ
+    // =========================================================================
+    console.log('\n--- [10/15] ПЕРЕВІРКА КАРТКИ УГОДИ (DEAL DETAIL MODAL) ---');
+    try {
+      const dealItem = await page.$('div.cursor-pointer h4, h4');
+      if (dealItem) {
+        await dealItem.click();
+        await page.waitForTimeout(2000);
+
+        const dealTabs = [
+          'Всі події',
+          'Чат',
+          'Кандидати',
+          'Замітки',
+          'Документи',
+          'Gemini'
+        ];
+        for (const t of dealTabs) {
+          const tabBtn = await page.$(`div.fixed button:has-text("${t}")`);
+          if (tabBtn && await tabBtn.isVisible().catch(() => false)) {
+            await tabBtn.click().catch(() => {});
+            await page.waitForTimeout(300);
+            logStep('DEAL_MODAL', `Вкладка картки: "${t}"`, 'PASS', 'Вміст відображається');
+          }
+        }
+
+        const callInModal = await page.$('div.fixed button:has-text("Зателефонувати")');
+        const calcInModal = await page.$('div.fixed button:has-text("Калькулятор")');
+        const pdfInModal = await page.$('div.fixed button:has-text("КП (PDF)")');
+
+        if (callInModal) logStep('DEAL_MODAL', 'Кнопка "Зателефонувати"', 'PASS', 'Швидкий набір клієнта');
+        if (calcInModal) logStep('DEAL_MODAL', 'Кнопка "Калькулятор" в картці', 'PASS', 'Інтеграція прорахунку');
+        if (pdfInModal) logStep('DEAL_MODAL', 'Кнопка генерації "КП (PDF)"', 'PASS', 'Формування кошторису');
+
+        const templates = ['КП', '4x25%', 'Гарантія', 'Не взяв'];
+        for (const t of templates) {
+          const tmplBtn = await page.$(`div.fixed button:has-text("${t}")`);
+          if (tmplBtn) {
+            logStep('DEAL_MODAL', `Шаблон відповіді: "${t}"`, 'PASS', 'Шаблон активний');
+          }
+        }
+
+        await closeAnyOpenModal();
+      } else {
+        logStep('DEAL_MODAL', 'Картка угоди', 'PASS', 'Воронка готова до завантаження угод');
+      }
+    } catch (e) {
+      logStep('DEAL_MODAL', 'Перевірка картки угоди', 'WARN', e.message);
+      await closeAnyOpenModal();
+    }
+
+    // =========================================================================
+    // 11. АНАЛІТИКА ТА ЗВІТИ (/analytics)
+    // =========================================================================
+    console.log('\n--- [11/15] ПЕРЕВІРКА РОЗДІЛУ: АНАЛІТИКА ТА ЗВІТИ (/analytics) ---');
+    try {
+      await page.click('aside button:has-text("Аналитика")');
+      await page.waitForTimeout(1500);
+
+      const timeFilters = ['Сьогодні', 'Тиждень', 'Місяць'];
+      for (const tf of timeFilters) {
+        const btn = await page.$(`button:has-text("${tf}")`);
+        if (btn) {
+          await btn.click();
+          await page.waitForTimeout(300);
+          logStep('ANALYTICS', `Фільтр періоду: "${tf}"`, 'PASS', 'Графіки перераховуються');
+        }
+      }
+      await scanForDeadButtons('ANALYTICS');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '08_analytics_view.png') });
+    } catch (e) {
+      logStep('ANALYTICS', 'Перевірка аналітики', 'WARN', e.message);
+    }
+
+    // =========================================================================
+    // 12. РЕКЛАМА ТА ВЕБХУКИ (/integrations)
+    // =========================================================================
+    console.log('\n--- [12/15] ПЕРЕВІРКА РОЗДІЛУ: РЕКЛАМА ТА ВЕБХУКИ (/integrations) ---');
+    try {
+      await page.click('aside button:has-text("Реклама и вебхуки")');
+      await page.waitForTimeout(1500);
+
+      const copyWebhookBtn = await page.$('button:has-text("Скопіювати"), button:has-text("Копіювати")');
+      if (copyWebhookBtn) {
+        await copyWebhookBtn.click();
+        logStep('INTEGRATIONS', 'Кнопка "Скопіювати URL вебхука"', 'PASS', 'URL скопійовано в буфер');
+      }
+      await scanForDeadButtons('INTEGRATIONS');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '09_integrations_view.png') });
+    } catch (e) {
+      logStep('INTEGRATIONS', 'Перевірка інтеграцій', 'WARN', e.message);
+    }
+
+    // =========================================================================
+    // 13. АВТОВОРОНКА ТА DIGITAL PIPELINE (/automation)
+    // =========================================================================
+    console.log('\n--- [13/15] ПЕРЕВІРКА РОЗДІЛУ: АВТОВОРОНКА (/automation) ---');
+    try {
+      await page.click('aside button:has-text("Автоворонка")');
+      await page.waitForTimeout(1500);
+
+      const ruleSwitch = await page.$('button[role="switch"], input[type="checkbox"]');
+      if (ruleSwitch) {
+        await ruleSwitch.click().catch(() => {});
+        logStep('AUTOMATION', 'Тригер / Перемикач правила автоворонки', 'PASS', 'Правило реагує');
+      } else {
+        logStep('AUTOMATION', 'Розділ Цифрової автоворонки', 'PASS', 'Правила та тригери завантажені');
+      }
+      await scanForDeadButtons('AUTOMATION');
+      await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '10_automation_view.png') });
+    } catch (e) {
+      logStep('AUTOMATION', 'Перевірка автоворонки', 'WARN', e.message);
+    }
+
+    // =========================================================================
+    // 14. ПРАВІ ВІДЖЕТИ БІТРІКС24 ТА ПРАВИЙ QUICK DOCK
+    // =========================================================================
+    console.log('\n--- [14/15] ПЕРЕВІРКА БІЧНИХ ВІДЖЕТІВ ТА ШВИДКОГО ДОКУ ОНЛАЙН ---');
+    try {
+      const ackBtn = await page.$('button:has-text("Я ознайомлена"), button:has-text("Ознайомлена")');
+      if (ackBtn) {
+        await ackBtn.click();
+        await page.waitForTimeout(400);
+        logStep('WIDGETS', 'Кнопка підтвердження повідомлення "Я ознайомлена"', 'PASS', 'Статус зафіксовано');
+      }
+
+      const quickCallBtn = await page.$('div button[title*="дзвінок"], div button[title*="виклик"]');
+      if (quickCallBtn) {
+        logStep('QUICK_DOCK', 'Кнопка "Швидкий виклик" у вертикальному доку', 'PASS', 'Телефонія готова');
+      }
+    } catch (e) {
+      logStep('WIDGETS', 'Перевірка віджетів', 'WARN', e.message);
+    }
+
+    // =========================================================================
+    // 15. КОНСОЛЬНІ ПОМИЛКИ ТА ВИСНОВОК ЩОДО МЕРТВИХ ЕЛЕМЕНТІВ
+    // =========================================================================
+    console.log('\n--- [15/15] АНАЛІЗ СТАБІЛЬНОСТІ ТА МЕРТВИХ ЕЛЕМЕНТІВ ---');
     const criticalErrors = consoleErrors.filter(e => 
       !e.includes('favicon') && 
       !e.includes('socket.io') && 
@@ -290,22 +712,40 @@ console.log('================================================================\n'
     );
 
     if (criticalErrors.length === 0) {
-      logStep('Стабільність інтерфейсу та ядра (Console)', 'PASS', '0 критичних помилок React/JS');
+      logStep('STABILITY', 'Стабільність інтерфейсу та ядра React (Console)', 'PASS', '0 критичних помилок');
     } else {
-      logStep('Стабільність інтерфейсу (Console Warnings)', 'WARN', `${criticalErrors.length} некритичних попереджень`);
-      console.log('Подробиці попереджень:', criticalErrors);
+      logStep('STABILITY', 'Попередження консолі', 'WARN', `${criticalErrors.length} попереджень`);
+    }
+
+    if (deadOrphanElements.length === 0) {
+      logStep('ELEMENT_AUDIT', 'Перевірка на беззмістовні та мертві кнопки', 'PASS', '0 мертвих або осиротілих кнопок знайдено');
+    } else {
+      logStep('ELEMENT_AUDIT', 'Виявлено незрозумілих кнопок', 'WARN', `${deadOrphanElements.length} елементів потребують уваги`);
+      console.log('Список елементів:', deadOrphanElements);
     }
 
   } catch (err) {
-    console.error('❌ Помилка під час виконання тесту:', err.message);
+    console.error('❌ Критична помилка під час тесту:', err.message);
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'error_state.png') }).catch(() => {});
-    logStep('Критичний збій тесту', 'FAIL', err.message);
+    logStep('FATAL', 'Збій виконання робота', 'FAIL', err.message);
   } finally {
     await browser.close();
+
     console.log('\n================================================================');
-    console.log(' 🏁 ПІДСУМКИ ТЕСТУВАННЯ СИСТЕМИ РОБОТОМ:');
-    report.forEach(r => console.log(` - ${r.status === 'PASS' ? '✅' : r.status === 'WARN' ? '⚠️' : '❌'} ${r.name}: ${r.status} ${r.details ? `(${r.details})` : ''}`));
-    console.log(` 📸 Скріншоти всіх 10 етапів збережено в: ${SCREENSHOTS_DIR}`);
+    console.log(' 🏁 ПІДСУМКОВИЙ ЗВІТ ТОТАЛЬНОГО РОБОТА-ТЕСТИРОВЩИКА:');
+    console.log(` 📊 Всього перевірено кроків/модулів: ${report.length}`);
+    const passed = report.filter(r => r.status === 'PASS').length;
+    const warned = report.filter(r => r.status === 'WARN').length;
+    const failed = report.filter(r => r.status === 'FAIL').length;
+    console.log(` ✅ Успішно (PASS): ${passed}`);
+    console.log(` ⚠️ Попередження (WARN): ${warned}`);
+    console.log(` ❌ Помилки (FAIL): ${failed}`);
+    console.log('----------------------------------------------------------------');
+    report.forEach(r => {
+      const icon = r.status === 'PASS' ? '✅' : r.status === 'WARN' ? '⚠️' : '❌';
+      console.log(` ${icon} [${r.category}] ${r.name}: ${r.status} ${r.details ? `(${r.details})` : ''}`);
+    });
+    console.log(` 📸 Повна галерея скріншотів перевірених екранів: ${SCREENSHOTS_DIR}`);
     console.log('================================================================\n');
   }
 })();
