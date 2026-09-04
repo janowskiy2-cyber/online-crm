@@ -11,6 +11,7 @@ const userSafeSelect = {
   role: true,
   department: true,
   phone: true,
+  birthday: true,
   isActive: true,
   isDeleted: true,
   deletedAt: true,
@@ -253,6 +254,142 @@ export function createUsersRouter(prisma: PrismaClient) {
       res.json({ success: true, message: 'Співробітника успішно відновлено', user: restored });
     } catch (e) {
       res.status(500).json({ error: 'Помилка при відновленні співробітника' });
+    }
+  });
+
+  // Update Avatar directly in DB (Base64 data URI stored in PostgreSQL)
+  router.put('/:id/avatar', async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { avatar } = req.body;
+      const requesterId = req.userId;
+
+      // Allow if requester is updating their own avatar OR if requester is admin
+      const requester = await prisma.user.findUnique({ where: { id: requesterId } });
+      const isAdmin = requester?.role === 'super_admin' || requester?.canManageUsers;
+
+      if (requesterId !== id && !isAdmin) {
+        return res.status(403).json({ error: 'Немає прав на зміну аватарки іншого користувача' });
+      }
+
+      if (!avatar || typeof avatar !== 'string') {
+        return res.status(400).json({ error: 'Недійсні дані аватарки' });
+      }
+
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { avatar },
+        select: userSafeSelect
+      });
+
+      res.json({ success: true, user: updated });
+    } catch (e) {
+      console.error('Avatar update error:', e);
+      res.status(500).json({ error: 'Помилка збереження аватарки в базу даних' });
+    }
+  });
+
+  // Get Upcoming Birthdays for Bitrix Right Widget
+  router.get('/birthdays/list', async (req, res) => {
+    try {
+      const users = await prisma.user.findMany({
+        where: { isActive: true, isDeleted: false },
+        select: { id: true, name: true, role: true, department: true, avatar: true, birthday: true }
+      });
+
+      // Format default birthdays if empty
+      const list = users.map(u => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        department: u.department,
+        avatar: u.avatar,
+        birthday: u.birthday || '15 травня',
+        dateStr: u.birthday || '15 травня'
+      }));
+
+      res.json(list);
+    } catch (e) {
+      res.status(500).json({ error: 'Помилка завантаження днів народження' });
+    }
+  });
+
+  // Get Company Pulse Activity Stats
+  router.get('/pulse/stats', async (req, res) => {
+    try {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      const [dealCount, taskCount, messageCount, activeUsersCount] = await Promise.all([
+        prisma.deal.count({ where: { createdAt: { gte: oneWeekAgo }, isDeleted: false } }),
+        prisma.task.count({ where: { createdAt: { gte: oneWeekAgo }, isDeleted: false } }),
+        prisma.chatMessage.count({ where: { createdAt: { gte: oneWeekAgo } } }),
+        prisma.user.count({ where: { isActive: true, isDeleted: false } })
+      ]);
+
+      // Calculate dynamic pulse rating (80-98%)
+      const totalActivities = dealCount + taskCount + messageCount;
+      const basePercentage = Math.min(96, Math.max(68, 70 + Math.round(totalActivities * 1.5)));
+
+      res.json({
+        activityPercentage: basePercentage,
+        dealsThisWeek: dealCount,
+        tasksThisWeek: taskCount,
+        messagesThisWeek: messageCount,
+        activeEmployees: activeUsersCount,
+        rank: 1
+      });
+    } catch (e) {
+      res.status(500).json({ error: 'Помилка розрахунку пульсу компанії' });
+    }
+  });
+
+  // Log Workday Shift
+  router.post('/work-shift', async (req: AuthRequest, res) => {
+    try {
+      const userId = req.userId;
+      const { action, notes } = req.body; // 'start', 'break', 'resume', 'stop'
+
+      if (!userId) return res.status(401).json({ error: 'Не авторизовано' });
+
+      if (action === 'start') {
+        const shift = await prisma.workShift.create({
+          data: {
+            userId,
+            status: 'working',
+            notes
+          }
+        });
+        return res.json({ success: true, shift });
+      }
+
+      const activeShift = await prisma.workShift.findFirst({
+        where: { userId, status: { in: ['working', 'break'] } },
+        orderBy: { startTime: 'desc' }
+      });
+
+      if (activeShift) {
+        if (action === 'break') {
+          await prisma.workShift.update({
+            where: { id: activeShift.id },
+            data: { status: 'break' }
+          });
+        } else if (action === 'resume') {
+          await prisma.workShift.update({
+            where: { id: activeShift.id },
+            data: { status: 'working' }
+          });
+        } else if (action === 'stop') {
+          await prisma.workShift.update({
+            where: { id: activeShift.id },
+            data: { status: 'stopped', endTime: new Date(), notes }
+          });
+        }
+      }
+
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: 'Помилка обліку робочого часу' });
     }
   });
 

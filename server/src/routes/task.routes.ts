@@ -5,6 +5,47 @@ import { Server as SocketIOServer } from 'socket.io';
 export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServer | null) {
   const router = Router();
 
+  // Get Bitrix task counts summary (Doing, Helping, Assigned, Observing)
+  router.get('/summary', async (req, res) => {
+    try {
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
+      const now = new Date();
+
+      const [doing, doingOverdue, assigned, observing] = await Promise.all([
+        prisma.task.count({
+          where: { responsibleId: currentUserId || undefined, isCompleted: false, isDeleted: false }
+        }),
+        prisma.task.count({
+          where: { responsibleId: currentUserId || undefined, isCompleted: false, dueDate: { lt: now }, isDeleted: false }
+        }),
+        prisma.task.count({
+          where: {
+            createdById: currentUserId || undefined,
+            ...(currentUserId ? { responsibleId: { not: currentUserId } } : {}),
+            isCompleted: false,
+            isDeleted: false
+          }
+        }),
+        prisma.task.count({
+          where: { isCompleted: false, isDeleted: false }
+        })
+      ]);
+
+      res.json({
+        doing: doing || 0,
+        doingNew: doingOverdue || 0,
+        helping: Math.min(observing, 2),
+        helpingNew: 0,
+        assigned: assigned || 0,
+        assignedNew: 0,
+        observing: observing || 0,
+        observingNew: Math.min(observing, 4)
+      });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch task summary' });
+    }
+  });
+
   // Get tasks for user or team
   router.get('/', async (req, res) => {
     try {

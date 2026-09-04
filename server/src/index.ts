@@ -25,6 +25,7 @@ import { createWebhookRouter } from './routes/webhook.routes';
 import { createAiRouter } from './routes/ai.routes';
 import { createUploadRouter } from './routes/upload.routes';
 import { createTelephonyRouter } from './routes/telephony.routes';
+import { createFeedRouter } from './routes/feed.routes';
 import { ArchiveRetentionService } from './services/archiveRetention';
 
 const app = express();
@@ -92,6 +93,7 @@ app.use('/api/analytics', authRequired, createAnalyticsRouter(prisma));
 app.use('/api/automation', authRequired, createAutomationRouter(prisma));
 app.use('/api/ai', authRequired, createAiRouter(prisma));
 app.use('/api/upload', authRequired, createUploadRouter());
+app.use('/api/feed', authRequired, createFeedRouter(prisma));
 
 // Serve frontend client build directly if available
 const clientDistPath = path.join(__dirname, '../../client/dist');

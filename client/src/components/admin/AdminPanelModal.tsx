@@ -20,18 +20,22 @@ import {
   Sparkles,
   Users,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Camera,
+  Upload,
+  Loader2
 } from 'lucide-react';
 import { User } from '../../types';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { compressImageToBase64 } from '../../utils/imageUtils';
 
 interface AdminPanelModalProps {
   onClose: () => void;
 }
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => {
-  const { currentUser, refreshUsers } = useAuth();
+  const { currentUser, refreshUsers, updateUserAvatar } = useAuth();
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState('');
@@ -42,6 +46,49 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+
+  // Avatar Upload State (Database persistence)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [targetAvatarUserId, setTargetAvatarUserId] = useState<string | null>(null);
+  const formAvatarFileRef = React.useRef<HTMLInputElement>(null);
+  const quickAvatarFileRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFormAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingAvatar(true);
+      const base64 = await compressImageToBase64(file);
+      setFormData(prev => ({ ...prev, avatar: base64 }));
+      setSuccessNotice('Фото підготовлено для збереження в базі даних');
+      setTimeout(() => setSuccessNotice(null), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Помилка обробки фото');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleQuickAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !targetAvatarUserId) return;
+    try {
+      setIsUploadingAvatar(true);
+      const base64 = await compressImageToBase64(file);
+      const ok = await updateUserAvatar(targetAvatarUserId, base64);
+      if (ok) {
+        setUserList(prev => prev.map(u => u.id === targetAvatarUserId ? { ...u, avatar: base64 } : u));
+        setSuccessNotice('Аватар співробітника успішно оновлено в базі даних!');
+        setTimeout(() => setSuccessNotice(null), 3000);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Помилка оновлення фото');
+    } finally {
+      setIsUploadingAvatar(false);
+      setTargetAvatarUserId(null);
+      if (quickAvatarFileRef.current) quickAvatarFileRef.current.value = '';
+    }
+  };
 
   // Lead Distribution Engine Settings
   const [autoDistribute, setAutoDistribute] = useState(true);
@@ -389,6 +436,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 </div>
 
                 <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <input
+                    ref={quickAvatarFileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleQuickAvatarSelect}
+                    className="hidden"
+                  />
                   <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl">
                     <button
                       type="button"
@@ -503,11 +557,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-                              alt={u.name}
-                              className="w-10 h-10 rounded-full object-cover border border-slate-700 flex-shrink-0"
-                            />
+                            <div
+                              onClick={() => {
+                                setTargetAvatarUserId(u.id);
+                                quickAvatarFileRef.current?.click();
+                              }}
+                              className="relative group/av cursor-pointer flex-shrink-0"
+                              title="Натисніть, щоб змінити фото в базі даних"
+                            >
+                              <img
+                                src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                                alt={u.name}
+                                className="w-10 h-10 rounded-full object-cover border border-slate-700 group-hover/av:border-cyan-400 transition"
+                              />
+                              <div className="absolute inset-0 bg-black/60 rounded-full hidden group-hover/av:flex items-center justify-center text-cyan-400">
+                                <Camera className="w-3.5 h-3.5" />
+                              </div>
+                            </div>
                             <div className="min-w-0">
                               <div className="font-bold text-xs text-white truncate flex items-center gap-1.5">
                                 <span>{u.name}</span>
@@ -607,6 +673,45 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                 </div>
 
                 <form onSubmit={handleSaveUser} className="space-y-3.5 text-xs">
+                  {/* Employee Avatar (Saved directly into PostgreSQL DB as Base64) */}
+                  <div>
+                    <label className="text-slate-400 font-semibold block mb-1">
+                      Аватарка співробітника (Зберігається в базу даних)
+                    </label>
+                    <div className="flex items-center gap-3 p-2.5 bg-slate-900 border border-slate-800 rounded-xl">
+                      <img
+                        src={formData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                        alt="Preview"
+                        className="w-12 h-12 rounded-full object-cover border-2 border-cyan-400 flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <input
+                          ref={formAvatarFileRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFormAvatarSelect}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => formAvatarFileRef.current?.click()}
+                          disabled={isUploadingAvatar}
+                          className="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                        >
+                          {isUploadingAvatar ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Camera className="w-3.5 h-3.5" />
+                          )}
+                          <span>Завантажити фото з комп'ютера</span>
+                        </button>
+                        <span className="text-[10px] text-slate-500 block mt-1">
+                          Стискається в Base64 та зберігається прямо в PostgreSQL
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="text-slate-400 font-semibold block mb-1">ПІБ співробітника</label>
                     <input

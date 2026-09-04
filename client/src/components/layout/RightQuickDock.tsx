@@ -21,14 +21,24 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
   onOpenMessenger,
   onSelectColleague
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, users } = useAuth();
 
-  const colleagues = [
-    { id: 1, name: 'Олег Строкатий', role: 'Керівник', phone: '+380671112233', status: 'online', date: 'Чт, 24 Тра', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face' },
-    { id: 2, name: 'Катерина Шеленкова', role: 'HR Скринінг', phone: '+380682223344', status: 'online', date: 'Ср, 16 Тра', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face' },
-    { id: 3, name: 'Дмитро Філаткін', role: 'Координатор', phone: '+380993334455', status: 'online', date: 'Сьогодні', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face' },
-    { id: 4, name: 'Наталія Грихіна', role: 'Юрист (Візи)', phone: '+380974445566', status: 'busy', date: '10:45', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face' }
-  ];
+  // Load real colleagues from DB users
+  const activeColleagues = users && users.length > 1
+    ? users.filter(u => u.id !== currentUser?.id).slice(0, 6).map(u => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        phone: u.phone || '+380',
+        status: u.isActive ? 'online' : 'busy',
+        avatar: u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'
+      }))
+    : [
+        { id: '1', name: 'Олег Строкатий', role: 'Керівник', phone: '+380671112233', status: 'online', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face' },
+        { id: '2', name: 'Катерина Шеленкова', role: 'HR Скринінг', phone: '+380682223344', status: 'online', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face' },
+        { id: '3', name: 'Дмитро Філаткін', role: 'Координатор', phone: '+380993334455', status: 'online', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face' },
+        { id: '4', name: 'Наталія Грихіна', role: 'Юрист (Візи)', phone: '+380974445566', status: 'busy', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face' }
+      ];
 
   return (
     <aside className="w-14 flex flex-col justify-between items-center py-3 bg-slate-900/40 backdrop-blur-2xl border-l border-white/10 select-none flex-shrink-0 z-30">
@@ -46,7 +56,7 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
 
         {/* Online Colleagues Avatars Stack */}
         <div className="flex flex-col items-center gap-2.5">
-          {colleagues.map((colleague) => (
+          {activeColleagues.map((colleague) => (
             <div
               key={colleague.id}
               onClick={() => onSelectColleague && onSelectColleague(colleague.name, colleague.phone)}

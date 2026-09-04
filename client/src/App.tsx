@@ -237,6 +237,7 @@ export function App() {
             <RightWidgetSidebar
               onOpenTasks={() => navigate('/tasks')}
               onOpenFeed={() => navigate('/feed')}
+              onInviteColleagues={() => setIsAdminOpen(true)}
               onCallUser={(name, phone) => {
                 setActiveCallSession({
                   name,

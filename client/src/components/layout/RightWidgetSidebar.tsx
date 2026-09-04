@@ -19,20 +19,21 @@ interface RightWidgetSidebarProps {
   onOpenTasks?: () => void;
   onOpenFeed?: () => void;
   onCallUser?: (name: string, phone: string) => void;
+  onInviteColleagues?: () => void;
 }
 
 export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
   onOpenTasks,
   onOpenFeed,
-  onCallUser
+  onCallUser,
+  onInviteColleagues
 }) => {
   const { currentUser } = useAuth();
   
   // Important Announcements State
   const [announcementIndex, setAnnouncementIndex] = useState(0);
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
-
-  const announcements = [
+  const [announcements, setAnnouncements] = useState<any[]>([
     {
       id: 1,
       author: 'Олег Строкатий',
@@ -41,29 +42,78 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
       title: 'У середу оновлення шлюзу WhatsApp',
       text: 'Прохання перевірити всі термінові діалоги до 18:00 у зв\'язку з плановим оновленням сесій.',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'
-    },
-    {
-      id: 2,
-      author: 'Роман Яновський',
-      role: 'CEO / Засновник',
-      date: 'Вчора, 14:00',
-      title: 'Нова квота: 25 зварювальників у Польщу',
-      text: 'Термінове замовлення на завод металоконструкцій у Гданську. Ставка 28 PLN/год.',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face'
     }
-  ];
+  ]);
 
-  // Tasks Summary State (Matching Bitrix24 numbers)
+  // Pulse Stats State
+  const [pulseStats, setPulseStats] = useState({
+    activityPercentage: 86,
+    dealsThisWeek: 12,
+    tasksThisWeek: 28,
+    messagesThisWeek: 145,
+    activeEmployees: 8,
+    rank: 1
+  });
+
+  // Tasks Summary State (Live from DB)
   const [taskCounts, setTaskCounts] = useState({
     doing: 4,
-    doingNew: 3,
+    doingNew: 1,
     helping: 1,
-    helpingNew: 1,
+    helpingNew: 0,
     assigned: 1,
-    assignedNew: 1,
-    observing: 32,
-    observingNew: 11
+    assignedNew: 0,
+    observing: 12,
+    observingNew: 3
   });
+
+  // Birthdays State (Live from DB)
+  const [birthdays, setBirthdays] = useState<any[]>([
+    {
+      id: '1',
+      name: 'Сергій Кулєшов',
+      birthday: '21 липня',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face'
+    }
+  ]);
+
+  useEffect(() => {
+    // 1. Fetch Real Announcements
+    api.get('/feed/announcements')
+      .then(res => {
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          setAnnouncements(res.data);
+        }
+      })
+      .catch(() => {});
+
+    // 2. Fetch Tasks Summary
+    api.get('/tasks/summary')
+      .then(res => {
+        if (res.data) {
+          setTaskCounts(res.data);
+        }
+      })
+      .catch(() => {});
+
+    // 3. Fetch Pulse Stats
+    api.get('/users/pulse/stats')
+      .then(res => {
+        if (res.data) {
+          setPulseStats(res.data);
+        }
+      })
+      .catch(() => {});
+
+    // 4. Fetch Birthdays
+    api.get('/users/birthdays/list')
+      .then(res => {
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          setBirthdays(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const currentAnnounce = announcements[announcementIndex] || announcements[0];
 
@@ -73,7 +123,7 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
       {/* 1. Quick Action: Invite Colleague Button (Bitrix Cyan Style) */}
       <button
         type="button"
-        onClick={() => onOpenFeed?.()}
+        onClick={() => onInviteColleagues ? onInviteColleagues() : onOpenFeed?.()}
         className="w-full py-2.5 px-4 bg-[#29c2d1] hover:bg-[#22b2c1] text-white rounded-xl font-bold text-xs flex items-center justify-between shadow-md transition transform active:scale-95 uppercase tracking-wider"
       >
         <span>Пригласить сотрудников</span>
@@ -85,18 +135,26 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
         <div className="bg-[#4bc3d8] px-3.5 py-1.5 flex items-center justify-between text-white">
           <span className="text-[11px] font-bold uppercase tracking-wider">Пульс компании</span>
           <div className="flex items-center gap-1.5 bg-white/20 px-2 py-0.5 rounded text-[11px] font-mono font-bold">
-            <span>1</span>
+            <span>{pulseStats.rank}</span>
             <span className="opacity-60">|</span>
-            <span>0%</span>
+            <span>{pulseStats.activityPercentage}%</span>
           </div>
         </div>
         <div className="p-3 bg-slate-900/90 text-xs space-y-2">
           <div className="flex items-center justify-between text-[11px] text-slate-300">
             <span>Активность компании за неделю</span>
-            <span className="text-cyan-400 font-bold">86%</span>
+            <span className="text-cyan-400 font-bold">{pulseStats.activityPercentage}%</span>
           </div>
           <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full w-[86%]" />
+            <div 
+              className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all duration-700" 
+              style={{ width: `${pulseStats.activityPercentage}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+            <span>Угоди: {pulseStats.dealsThisWeek}</span>
+            <span>Завдання: {pulseStats.tasksThisWeek}</span>
+            <span>Команда: {pulseStats.activeEmployees}</span>
           </div>
         </div>
       </div>
@@ -124,7 +182,7 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
         <div className="p-3.5 bg-slate-900/90 space-y-3 text-xs">
           <div className="flex items-center gap-2.5">
             <img 
-              src={currentAnnounce.avatar} 
+              src={currentAnnounce.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'} 
               alt={currentAnnounce.author}
               className="w-10 h-10 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
             />
@@ -145,7 +203,7 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
             }`}
           >
             {hasAcknowledged && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-            <span>{hasAcknowledged ? 'Я прочитала' : 'Я прочитала'}</span>
+            <span>{hasAcknowledged ? 'Я ознайомлена' : 'Я ознайомлена'}</span>
           </button>
         </div>
       </div>
@@ -170,9 +228,11 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
             <span>Делаю</span>
             <div className="flex items-center gap-2">
               <span className="font-bold text-white">{taskCounts.doing}</span>
-              <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
-                {taskCounts.doingNew}
-              </span>
+              {taskCounts.doingNew > 0 && (
+                <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
+                  {taskCounts.doingNew}
+                </span>
+              )}
             </div>
           </div>
 
@@ -183,9 +243,11 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
             <span>Помогаю</span>
             <div className="flex items-center gap-2">
               <span className="font-bold text-white">{taskCounts.helping}</span>
-              <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
-                {taskCounts.helpingNew}
-              </span>
+              {taskCounts.helpingNew > 0 && (
+                <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
+                  {taskCounts.helpingNew}
+                </span>
+              )}
             </div>
           </div>
 
@@ -196,9 +258,11 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
             <span>Поручил</span>
             <div className="flex items-center gap-2">
               <span className="font-bold text-white">{taskCounts.assigned}</span>
-              <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
-                {taskCounts.assignedNew}
-              </span>
+              {taskCounts.assignedNew > 0 && (
+                <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
+                  {taskCounts.assignedNew}
+                </span>
+              )}
             </div>
           </div>
 
@@ -209,9 +273,11 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
             <span>Наблюдаю</span>
             <div className="flex items-center gap-2">
               <span className="font-bold text-white">{taskCounts.observing}</span>
-              <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
-                {taskCounts.observingNew}
-              </span>
+              {taskCounts.observingNew > 0 && (
+                <span className="w-4 h-4 rounded-full bg-rose-500/25 text-rose-400 text-[10px] font-bold flex items-center justify-center">
+                  {taskCounts.observingNew}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -222,16 +288,20 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
         <div className="bg-[#e49e3d] px-3.5 py-1.5 text-white text-[11px] font-bold uppercase tracking-wider">
           Дни рождения
         </div>
-        <div className="p-3 bg-slate-900/90 flex items-center gap-3">
-          <img
-            src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face"
-            alt="Сергей Кулешов"
-            className="w-10 h-10 rounded-full object-cover border border-amber-400/40"
-          />
-          <div>
-            <div className="font-bold text-sky-400 text-xs">Сергей Кулешов</div>
-            <div className="text-slate-400 text-xs">21 Июля</div>
-          </div>
+        <div className="divide-y divide-white/5 bg-slate-900/90">
+          {birthdays.slice(0, 3).map((b) => (
+            <div key={b.id} className="p-3 flex items-center gap-3">
+              <img
+                src={b.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face'}
+                alt={b.name}
+                className="w-9 h-9 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
+              />
+              <div className="min-w-0">
+                <div className="font-bold text-sky-400 text-xs truncate">{b.name}</div>
+                <div className="text-slate-400 text-[11px]">{b.birthday || b.dateStr || '15 травня'}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

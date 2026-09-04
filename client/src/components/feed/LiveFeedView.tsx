@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MessageSquare, 
   CheckSquare, 
@@ -19,13 +19,17 @@ import {
   Edit3,
   Filter,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Pin,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 
 interface FeedComment {
   id: string;
   author: string;
+  authorId?: string;
   avatar?: string;
   date: string;
   text: string;
@@ -36,12 +40,18 @@ interface FeedComment {
 interface FeedPost {
   id: string;
   author: string;
+  authorId?: string;
+  authorAvatar?: string;
+  authorRole?: string;
   recipient: string;
+  type?: string;
   date: string;
+  createdAt?: string;
   text: string;
   file?: { name: string; size: string; version?: number };
   reactions: { type: string; count: number; users: string[] }[];
   views: number;
+  isPinned?: boolean;
   comments: FeedComment[];
 }
 
@@ -49,136 +59,151 @@ export const LiveFeedView: React.FC = () => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'message' | 'task' | 'event' | 'poll' | 'file'>('message');
   const [postText, setPostText] = useState('');
+  const [isPinnedPost, setIsPinnedPost] = useState(false);
   const [activeReactionPostId, setActiveReactionPostId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPosting, setIsPosting] = useState(false);
 
   // Comments state
   const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
+  const [posts, setPosts] = useState<FeedPost[]>([]);
 
-  const [posts, setPosts] = useState<FeedPost[]>([
-    {
-      id: '1',
-      author: 'Наталія Грихіна',
-      recipient: 'Всім співробітникам',
-      date: 'Сьогодні о 10:35',
-      text: 'Шановні колеги! Оновили шаблон комерційної пропозиції для заводів та додали новий розрахунок траншів 4х25%. Прохання ознайомитися та використовувати в роботі з новими роботодавцями.',
-      file: {
-        name: 'Новий_договір_та_КП_2026.docx',
-        size: '6.43 КБ',
-        version: 4
-      },
-      reactions: [
-        { type: '👍', count: 3, users: ['Катерина Шеленкова', 'Дмитро Філаткін', 'Олег Строкатий'] },
-        { type: '❤️', count: 2, users: ['Оксана Черезова', 'Роман Яновський'] }
-      ],
-      views: 18,
-      comments: [
-        {
-          id: 'c1',
-          author: 'Катерина Шеленкова',
-          date: 'Сьогодні о 10:48',
-          text: 'Завантажила нову редакцію зі змінами юридичного відділу щодо відповідальності за робочу візу D.',
-          file: { name: 'Новий_договір_та_КП_2026_v4.docx', size: '6.43 КБ', version: 4 },
-          likes: 2
-        },
-        {
-          id: 'c2',
-          author: 'Наталія Грихіна',
-          date: 'Сьогодні о 11:05',
-          text: 'Дякую, прийнято в роботу! Відтепер це єдиний затверджений зразок.',
-          likes: 1
-        }
-      ]
-    },
-    {
-      id: '2',
-      author: 'Олег Строкатий',
-      recipient: 'Відділ рекрутингу',
-      date: 'Вчора о 16:20',
-      text: '🎉 Вітаємо команду! Перша група з 12 фахівців з Ташкента успішно перетнула кордон та вже прибула до гуртожитку заводу у Вроцлаві. Координатор зустрів, відео звіт прикріплено в картках угод.',
-      reactions: [
-        { type: '🎉', count: 5, users: ['Роман Яновський', 'Оксана Черезова', 'Сергій Кулєшов'] },
-        { type: '👍', count: 4, users: ['Наталія Грихіна'] }
-      ],
-      views: 34,
-      comments: [
-        {
-          id: 'c3',
-          author: 'Роман Яновський',
-          date: 'Вчора о 16:45',
-          text: 'Чудова злагоджена робота відділу логістики та рекрутерів! Премії за швидкий вихід узгоджено.',
-          likes: 6
-        }
-      ]
+  const fetchPosts = async () => {
+    try {
+      setIsLoading(true);
+      const res = await api.get('/feed');
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setPosts(res.data);
+      } else {
+        // Default seed fallback if DB is initially empty
+        setPosts([
+          {
+            id: '1',
+            author: 'Наталія Грихіна',
+            authorAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face',
+            authorRole: 'Юрист (Візи)',
+            recipient: 'Всім співробітникам',
+            date: 'Сьогодні о 10:35',
+            text: 'Шановні колеги! Оновили шаблон комерційної пропозиції для заводів та додали новий розрахунок траншів 4х25%. Прохання ознайомитися та використовувати в роботі з новими роботодавцями.',
+            file: {
+              name: 'Новий_договір_та_КП_2026.docx',
+              size: '6.43 КБ',
+              version: 4
+            },
+            reactions: [
+              { type: '👍', count: 3, users: ['Катерина Шеленкова', 'Дмитро Філаткін', 'Олег Строкатий'] },
+              { type: '❤️', count: 2, users: ['Оксана Черезова', 'Роман Яновський'] }
+            ],
+            views: 18,
+            isPinned: true,
+            comments: [
+              {
+                id: 'c1',
+                author: 'Катерина Шеленкова',
+                avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face',
+                date: 'Сьогодні о 10:48',
+                text: 'Завантажила нову редакцію зі змінами юридичного відділу щодо відповідальності за робочу візу D.',
+                likes: 2
+              }
+            ]
+          }
+        ]);
+      }
+    } catch (e) {
+      console.warn('Live feed fetch error:', e);
+    } finally {
+      setIsLoading(false);
     }
-  ]);
-
-  const handleCreatePost = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!postText.trim()) return;
-
-    const newPost: FeedPost = {
-      id: String(Date.now()),
-      author: currentUser?.name || 'Менеджер',
-      recipient: 'Всім співробітникам',
-      date: 'Щойно',
-      text: postText,
-      reactions: [],
-      views: 1,
-      comments: []
-    };
-
-    setPosts([newPost, ...posts]);
-    setPostText('');
   };
 
-  const handleAddReaction = (postId: string, emoji: string) => {
-    setPosts(prev => prev.map(p => {
-      if (p.id !== postId) return p;
-      const myName = currentUser?.name || 'Ви';
-      const existing = p.reactions.find(r => r.type === emoji);
-      let updatedReactions = [...p.reactions];
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
-      if (existing) {
-        if (existing.users.includes(myName)) {
-          updatedReactions = updatedReactions.map(r => 
-            r.type === emoji ? { ...r, count: r.count - 1, users: r.users.filter(u => u !== myName) } : r
-          ).filter(r => r.count > 0);
-        } else {
-          updatedReactions = updatedReactions.map(r => 
-            r.type === emoji ? { ...r, count: r.count + 1, users: [...r.users, myName] } : r
-          );
-        }
-      } else {
-        updatedReactions.push({ type: emoji, count: 1, users: [myName] });
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postText.trim() || isPosting) return;
+
+    try {
+      setIsPosting(true);
+      const res = await api.post('/feed', {
+        text: postText.trim(),
+        recipient: 'Всім співробітникам',
+        type: activeTab,
+        isPinned: isPinnedPost
+      });
+
+      if (res.data) {
+        setPosts(prev => [res.data, ...prev]);
+        setPostText('');
+        setIsPinnedPost(false);
       }
+    } catch (e) {
+      alert('Помилка створення публікації в базі даних');
+    } finally {
+      setIsPosting(false);
+    }
+  };
 
-      return { ...p, reactions: updatedReactions };
-    }));
+  const handleAddReaction = async (postId: string, emoji: string) => {
+    try {
+      const res = await api.post(`/feed/${postId}/reactions`, { emoji });
+      if (res.data?.reactions) {
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, reactions: res.data.reactions } : p));
+      }
+    } catch (e) {
+      // optimistic fallback
+      setPosts(prev => prev.map(p => {
+        if (p.id !== postId) return p;
+        const myName = currentUser?.name || 'Ви';
+        const existing = p.reactions.find(r => r.type === emoji);
+        let updatedReactions = [...p.reactions];
+
+        if (existing) {
+          if (existing.users.includes(myName)) {
+            updatedReactions = updatedReactions.map(r => 
+              r.type === emoji ? { ...r, count: r.count - 1, users: r.users.filter(u => u !== myName) } : r
+            ).filter(r => r.count > 0);
+          } else {
+            updatedReactions = updatedReactions.map(r => 
+              r.type === emoji ? { ...r, count: r.count + 1, users: [...r.users, myName] } : r
+            );
+          }
+        } else {
+          updatedReactions.push({ type: emoji, count: 1, users: [myName] });
+        }
+
+        return { ...p, reactions: updatedReactions };
+      }));
+    }
     setActiveReactionPostId(null);
   };
 
-  const handleAddComment = (postId: string) => {
+  const handleAddComment = async (postId: string) => {
     const text = commentInputs[postId];
     if (!text?.trim()) return;
 
-    setPosts(prev => prev.map(p => {
-      if (p.id !== postId) return p;
-      return {
-        ...p,
-        comments: [
-          ...p.comments,
-          {
-            id: String(Date.now()),
-            author: currentUser?.name || 'Менеджер',
-            date: 'Щойно',
-            text: text.trim(),
-            likes: 0
-          }
-        ]
-      };
-    }));
+    try {
+      const res = await api.post(`/feed/${postId}/comments`, { text: text.trim() });
+      if (res.data) {
+        setPosts(prev => prev.map(p => p.id === postId ? {
+          ...p,
+          comments: [...p.comments, res.data]
+        } : p));
+        setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+      }
+    } catch (e) {
+      alert('Помилка надсилання коментаря');
+    }
+  };
 
-    setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+  const handleTogglePin = async (postId: string) => {
+    try {
+      const res = await api.post(`/feed/${postId}/pin`);
+      if (res.data?.success) {
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, isPinned: res.data.isPinned } : p));
+      }
+    } catch (e) {}
   };
 
   const availableEmojis = ['👍', '❤️', '😆', '😮', '😢', '😡', '🎉', '🔥'];
@@ -233,15 +258,28 @@ export const LiveFeedView: React.FC = () => {
               <span className="px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
                 Всім співробітникам
               </span>
+              <button
+                type="button"
+                onClick={() => setIsPinnedPost(!isPinnedPost)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
+                  isPinnedPost
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'text-slate-400 hover:text-slate-200 border-white/10'
+                }`}
+                title="Закріпити як важливе оголошення в правому віджеті"
+              >
+                <Pin className="w-3 h-3" />
+                <span>Важливе оголошення</span>
+              </button>
             </div>
 
             <button
               type="submit"
-              disabled={!postText.trim()}
+              disabled={!postText.trim() || isPosting}
               className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-500/20 flex items-center gap-1.5"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>Опублікувати</span>
+              {isPosting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              <span>{isPosting ? 'Публікація...' : 'Опублікувати'}</span>
             </button>
           </div>
         </form>
@@ -278,21 +316,46 @@ export const LiveFeedView: React.FC = () => {
             {/* Header: Author & Recipient */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center font-bold text-xs text-white shadow-md">
-                  {post.author[0]}
-                </div>
+                {post.authorAvatar ? (
+                  <img
+                    src={post.authorAvatar}
+                    alt={post.author}
+                    className="w-9 h-9 rounded-2xl object-cover border border-white/20 shadow-md flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center font-bold text-xs text-white shadow-md flex-shrink-0">
+                    {post.author?.[0] || 'U'}
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center gap-1.5 text-xs">
                     <span className="font-bold text-white hover:text-blue-400 cursor-pointer">{post.author}</span>
                     <span className="text-slate-500">➔</span>
                     <span className="text-blue-400 font-semibold">{post.recipient}</span>
+                    {post.isPinned && (
+                      <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1">
+                        <Pin className="w-2.5 h-2.5" />
+                        <span>Закріплено</span>
+                      </span>
+                    )}
                   </div>
-                  <div className="text-[10px] text-slate-400">{post.date}</div>
+                  <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                    <span>{post.date}</span>
+                    {post.authorRole && (
+                      <span className="text-slate-500">• {post.authorRole}</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <button className="p-1 text-slate-500 hover:text-white rounded-lg transition">
-                <MoreHorizontal className="w-4 h-4" />
+              <button 
+                onClick={() => handleTogglePin(post.id)}
+                title={post.isPinned ? 'Відкріпити оголошення' : 'Закріпити оголошення'}
+                className={`p-1.5 rounded-lg transition ${
+                  post.isPinned ? 'text-amber-400 bg-amber-500/10' : 'text-slate-500 hover:text-white'
+                }`}
+              >
+                <Pin className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -401,20 +464,33 @@ export const LiveFeedView: React.FC = () => {
             {post.comments.length > 0 && (
               <div className="space-y-2.5 pt-2 pl-3 sm:pl-4 border-l-2 border-white/10">
                 {post.comments.map(comment => (
-                  <div key={comment.id} className="space-y-1 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white">{comment.author}</span>
-                      <span className="text-[10px] text-slate-500">{comment.date}</span>
-                    </div>
-                    <p className="text-slate-300 leading-relaxed bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
-                      {comment.text}
-                    </p>
-                    {comment.file && (
-                      <div className="text-[11px] text-blue-400 flex items-center gap-1 pl-1">
-                        <FileText className="w-3 h-3" />
-                        <span>{comment.file.name}</span>
+                  <div key={comment.id} className="flex gap-2.5 items-start text-xs">
+                    {comment.avatar ? (
+                      <img
+                        src={comment.avatar}
+                        alt={comment.author}
+                        className="w-7 h-7 rounded-xl object-cover border border-white/20 flex-shrink-0 mt-0.5"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-xl bg-slate-800 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5">
+                        {comment.author?.[0] || 'U'}
                       </div>
                     )}
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white truncate">{comment.author}</span>
+                        <span className="text-[10px] text-slate-500">{comment.date}</span>
+                      </div>
+                      <p className="text-slate-300 leading-relaxed bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
+                        {comment.text}
+                      </p>
+                      {comment.file && (
+                        <div className="text-[11px] text-blue-400 flex items-center gap-1 pl-1">
+                          <FileText className="w-3 h-3" />
+                          <span>{comment.file.name}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -20,12 +20,15 @@ import {
   Bell,
   HelpCircle,
   LogOut,
-  UserCheck
+  UserCheck,
+  Camera,
+  Loader2
 } from 'lucide-react';
 import { Pipeline, ProjectCategory, ProjectInfo } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, socket } from '../../services/api';
+import { compressImageToBase64 } from '../../utils/imageUtils';
 
 export const PROJECTS_CONFIG: ProjectInfo[] = [
   {
@@ -94,10 +97,36 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [lineBusy, setLineBusy] = useState(false);
   const [lineDetails, setLineDetails] = useState<any>(null);
 
-  // Bitrix24 Real-time Digital Clock (Large format HH:MM)
   const [currentTime, setCurrentTime] = useState<string>('09:51');
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   
+  // Database Avatar Upload State
+  const { updateUserAvatar } = useAuth();
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarSuccessNotice, setAvatarSuccessNotice] = useState<string | null>(null);
+
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser?.id) return;
+    try {
+      setIsUploadingAvatar(true);
+      const base64 = await compressImageToBase64(file);
+      const ok = await updateUserAvatar(currentUser.id, base64);
+      if (ok) {
+        setAvatarSuccessNotice('Аватар збережено в базі даних!');
+        setTimeout(() => setAvatarSuccessNotice(null), 3000);
+      } else {
+        alert('Помилка збереження аватарки в базу даних');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Помилка обробки фото');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
   // Bitrix24 Workday Shift Tracker
   const [workStatus, setWorkStatus] = useState<'working' | 'break' | 'stopped'>(() => {
     return (localStorage.getItem('crm_work_status') as any) || 'working';
@@ -280,6 +309,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right: User Profile, Help Icon, Notification Bell */}
         <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Hidden File Input for Database Avatar */}
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarFileSelect}
+            className="hidden"
+          />
+
           {/* User Profile Capsule (Bitrix Оксана Черезова Style) */}
           <div className="relative">
             <button
@@ -287,7 +325,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2 py-1 px-2 rounded-xl hover:bg-white/10 transition"
             >
               <img
-                src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face"
+                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face'}
                 alt="Профіль"
                 className="w-8 h-8 rounded-full object-cover border border-white/30"
               />
@@ -299,13 +337,41 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Profile Dropdown Menu */}
             {isProfileMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-2 z-50 animate-in fade-in zoom-in-95">
-                <div className="px-3 py-2 border-b border-white/10">
-                  <div className="font-bold text-xs text-white">{currentUser?.name || 'Оксана Черезова'}</div>
-                  <div className="text-[10px] text-slate-400">{currentUser?.email || 'admin@crm.com'}</div>
+              <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-xs text-white">{currentUser?.name || 'Оксана Черезова'}</div>
+                    <div className="text-[10px] text-slate-400">{currentUser?.email || 'admin@crm.com'}</div>
+                  </div>
+                  <img
+                    src={currentUser?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face'}
+                    alt="Аватар"
+                    className="w-9 h-9 rounded-full object-cover border-2 border-cyan-400"
+                  />
                 </div>
 
+                {avatarSuccessNotice && (
+                  <div className="m-2 p-1.5 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-center text-[11px] font-bold text-emerald-400 animate-in fade-in">
+                    {avatarSuccessNotice}
+                  </div>
+                )}
+
                 <div className="p-1 space-y-1 text-xs">
+                  {/* Avatar Upload Button (Saved directly to DB) */}
+                  <button
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={isUploadingAvatar}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-cyan-400 hover:bg-cyan-500/10 transition font-semibold"
+                    title="Завантажити фото з комп'ютера та зберегти в базу даних"
+                  >
+                    {isUploadingAvatar ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Camera className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isUploadingAvatar ? 'Збереження в БД...' : 'Змінити аватар (в базу даних)'}</span>
+                  </button>
+
                   <button
                     onClick={() => { openAdminPanel(); setIsProfileMenuOpen(false); }}
                     className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-rose-400 hover:bg-rose-500/10 transition font-semibold"

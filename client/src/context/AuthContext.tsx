@@ -27,6 +27,7 @@ interface AuthContextType {
   loginWithCredentials: (email: string, pass: string) => Promise<void>;
   logout: () => void;
   refreshUsers: () => Promise<void>;
+  updateUserAvatar: (userId: string, base64Avatar: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -117,6 +118,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
   };
 
+  const updateUserAvatar = async (userId: string, base64Avatar: string): Promise<boolean> => {
+    try {
+      const res = await api.put(`/users/${userId}/avatar`, { avatar: base64Avatar });
+      if (res.data?.success && res.data?.user) {
+        const updatedUser = res.data.user;
+        if (currentUser && currentUser.id === userId) {
+          const fresh = { ...currentUser, avatar: updatedUser.avatar };
+          setCurrentUser(fresh);
+          localStorage.setItem('crm_active_user', JSON.stringify(fresh));
+        }
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, avatar: updatedUser.avatar } : u));
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('Failed to update avatar in DB:', e);
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       currentUser,
@@ -125,7 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading,
       loginWithCredentials,
       logout,
-      refreshUsers: fetchUsers
+      refreshUsers: fetchUsers,
+      updateUserAvatar
     }}>
       {children}
     </AuthContext.Provider>

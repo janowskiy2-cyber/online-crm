@@ -16,6 +16,7 @@ model User {
   role        String   // super_admin, sales_director, senior_sales_rep, sales_rep, lead_gen_sdr, account_manager, support_agent, etc.
   department  String   // Руководство, B2B Продажи, B2C Продажи, Лидогенерация, Сопровождение (LTV), Поддержка, Маркетинг, Финансы, Аудит
   phone       String?
+  birthday    String?
   isActive    Boolean  @default(true)
   isDeleted   Boolean  @default(false)
   deletedAt   DateTime?
@@ -32,11 +33,14 @@ model User {
   canManageIntegrations Boolean @default(false)
 
   // Relations
-  deals       Deal[]       @relation("ResponsibleUser")
-  tasks       Task[]       @relation("ResponsibleUser")
-  createdTasks Task[]      @relation("CreatedByUser")
-  notes       DealNote[]
-  auditLogs   AuditLog[]
+  deals         Deal[]        @relation("ResponsibleUser")
+  tasks         Task[]        @relation("ResponsibleUser")
+  createdTasks  Task[]        @relation("CreatedByUser")
+  notes         DealNote[]
+  auditLogs     AuditLog[]
+  feedPosts     FeedPost[]    @relation("FeedAuthor")
+  feedComments  FeedComment[] @relation("FeedCommentAuthor")
+  workShifts    WorkShift[]
 
   @@index([isDeleted])
   @@index([email])
@@ -272,3 +276,58 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
 }
+
+model FeedPost {
+  id          String        @id @default(uuid())
+  authorId    String
+  recipient   String        @default("Всім співробітникам")
+  type        String        @default("message") // message, task, event, poll, file
+  text        String
+  fileData    String?       // JSON: { name, size, dataUrl/url }
+  reactions   String?       // JSON array: [{ type, count, users: string[] }]
+  views       Int           @default(1)
+  isPinned    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  author      User          @relation("FeedAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  comments    FeedComment[]
+
+  @@index([createdAt])
+  @@index([isPinned])
+  @@index([authorId])
+}
+
+model FeedComment {
+  id        String   @id @default(uuid())
+  postId    String
+  authorId  String
+  text      String
+  fileData  String?
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User     @relation("FeedCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model WorkShift {
+  id           String    @id @default(uuid())
+  userId       String
+  startTime    DateTime  @default(now())
+  endTime      DateTime?
+  breakMinutes Int       @default(0)
+  status       String    @default("working") // working, break, stopped
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startTime])
+}
+
