@@ -13,7 +13,8 @@ import {
   Lock,
   Share2,
   LogOut,
-  X
+  X,
+  Rss
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -52,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const activeTab = pathTab || currentTab || 'deals';
 
   const navItems = [
+    { id: 'feed', label: 'Жива стрічка', icon: Rss, badge: 'LIVE' },
     { id: 'deals', label: 'Воронка угод', icon: Kanban, badge: null },
     { id: 'inbox', label: 'Месенджери', icon: MessageSquare, badge: 'WA / TG' },
     { id: 'candidates', label: 'База кандидатів', icon: Globe2, badge: 'POOL' },

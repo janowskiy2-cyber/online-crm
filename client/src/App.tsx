@@ -6,6 +6,7 @@ import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { UnifiedInbox } from './components/inbox/UnifiedInbox';
 import { TasksView } from './components/tasks/TasksView';
 import { ContactsView } from './components/contacts/ContactsView';
+import { RightWidgetSidebar } from './components/layout/RightWidgetSidebar';
 import { CreateDealModal } from './components/modals/CreateDealModal';
 import { QRConnectModal } from './components/modals/QRConnectModal';
 import { LoginPage } from './components/auth/LoginPage';
@@ -17,6 +18,7 @@ import { Pipeline, Deal } from './types';
 import { Kanban, MessageSquare, Globe2, CheckSquare, Menu } from 'lucide-react';
 
 // Code-Splitting: Lazy load heavy modules for fast initial paint (<150KB)
+const LiveFeedView = lazy(() => import('./components/feed/LiveFeedView').then(m => ({ default: m.LiveFeedView })));
 const AnalyticsView = lazy(() => import('./components/analytics/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
 const AutomationView = lazy(() => import('./components/automation/AutomationView').then(m => ({ default: m.AutomationView })));
 const CandidatesView = lazy(() => import('./components/recruiting/CandidatesView').then(m => ({ default: m.CandidatesView })));
@@ -138,7 +140,7 @@ export function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#070a12] text-slate-100 font-['Inter',sans-serif]">
+    <div className="flex h-screen w-screen overflow-hidden bitrix-wallpaper bg-[#070a12] text-slate-100 font-['Inter',sans-serif]">
       {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
@@ -169,61 +171,80 @@ export function App() {
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
         />
 
-        {/* Dynamic Views via React Router with Suspense */}
+        {/* Dynamic Views & Bitrix24 Right Utility Widgets */}
         <main className="flex-1 flex overflow-hidden">
-          <Suspense fallback={<ViewLoader />}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/deals" replace />} />
-              
-              <Route path="/deals" element={
-                <KanbanBoard
-                  pipeline={activePipeline}
-                  projectId={currentWorkspace}
-                  searchQuery={searchQuery}
-                  refreshTrigger={refreshTrigger}
-                  onOpenDeal={handleOpenDeal}
-                  openCreateDeal={() => setIsCreateDealOpen(true)}
-                />
-              } />
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <Suspense fallback={<ViewLoader />}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/deals" replace />} />
+                
+                <Route path="/feed" element={<LiveFeedView />} />
 
-              <Route path="/deals/:dealId" element={
-                <KanbanBoard
-                  pipeline={activePipeline}
-                  projectId={currentWorkspace}
-                  searchQuery={searchQuery}
-                  refreshTrigger={refreshTrigger}
-                  onOpenDeal={handleOpenDeal}
-                  openCreateDeal={() => setIsCreateDealOpen(true)}
-                />
-              } />
+                <Route path="/deals" element={
+                  <KanbanBoard
+                    pipeline={activePipeline}
+                    projectId={currentWorkspace}
+                    searchQuery={searchQuery}
+                    refreshTrigger={refreshTrigger}
+                    onOpenDeal={handleOpenDeal}
+                    openCreateDeal={() => setIsCreateDealOpen(true)}
+                  />
+                } />
 
-              <Route path="/inbox" element={
-                <UnifiedInbox
-                  onOpenDeal={handleOpenDeal}
-                  openQRModal={handleOpenQRModal}
-                />
-              } />
+                <Route path="/deals/:dealId" element={
+                  <KanbanBoard
+                    pipeline={activePipeline}
+                    projectId={currentWorkspace}
+                    searchQuery={searchQuery}
+                    refreshTrigger={refreshTrigger}
+                    onOpenDeal={handleOpenDeal}
+                    openCreateDeal={() => setIsCreateDealOpen(true)}
+                  />
+                } />
 
-              <Route path="/candidates" element={<CandidatesView />} />
-              <Route path="/integrations" element={<IntegrationsView />} />
+                <Route path="/inbox" element={
+                  <UnifiedInbox
+                    onOpenDeal={handleOpenDeal}
+                    openQRModal={handleOpenQRModal}
+                  />
+                } />
 
-              <Route path="/tasks" element={
-                <TasksView onOpenDeal={handleOpenDeal} />
-              } />
+                <Route path="/candidates" element={<CandidatesView />} />
+                <Route path="/integrations" element={<IntegrationsView />} />
 
-              <Route path="/contacts" element={
-                <ContactsView onOpenDeal={handleOpenDeal} />
-              } />
+                <Route path="/tasks" element={
+                  <TasksView onOpenDeal={handleOpenDeal} />
+                } />
 
-              <Route path="/analytics" element={<AnalyticsView />} />
-              
-              <Route path="/automation" element={
-                <AutomationView pipelines={pipelines} />
-              } />
+                <Route path="/contacts" element={
+                  <ContactsView onOpenDeal={handleOpenDeal} />
+                } />
 
-              <Route path="*" element={<Navigate to="/deals" replace />} />
-            </Routes>
-          </Suspense>
+                <Route path="/analytics" element={<AnalyticsView />} />
+                
+                <Route path="/automation" element={
+                  <AutomationView pipelines={pipelines} />
+                } />
+
+                <Route path="*" element={<Navigate to="/deals" replace />} />
+              </Routes>
+            </Suspense>
+          </div>
+
+          {/* Bitrix24 Right Utility Sidebar (Live Pulse, Pinned Notice, Tasks Role Breakdown, Birthdays) */}
+          <aside className="hidden xl:block w-72 2xl:w-80 border-l border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#090d16]/70 backdrop-blur-xl flex-shrink-0 overflow-y-auto">
+            <RightWidgetSidebar
+              onOpenTasks={() => navigate('/tasks')}
+              onOpenFeed={() => navigate('/feed')}
+              onCallUser={(name, phone) => {
+                setActiveCallSession({
+                  name,
+                  phone,
+                  type: 'gsm'
+                });
+              }}
+            />
+          </aside>
         </main>
 
         {/* Native Mobile Bottom Navigation Bar (iOS / Android App Style) */}
