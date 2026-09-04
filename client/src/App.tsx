@@ -7,6 +7,7 @@ import { UnifiedInbox } from './components/inbox/UnifiedInbox';
 import { TasksView } from './components/tasks/TasksView';
 import { ContactsView } from './components/contacts/ContactsView';
 import { RightWidgetSidebar } from './components/layout/RightWidgetSidebar';
+import { RightQuickDock } from './components/layout/RightQuickDock';
 import { CreateDealModal } from './components/modals/CreateDealModal';
 import { QRConnectModal } from './components/modals/QRConnectModal';
 import { LoginPage } from './components/auth/LoginPage';
@@ -171,12 +172,12 @@ export function App() {
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
         />
 
-        {/* Dynamic Views & Bitrix24 Right Utility Widgets */}
+        {/* Dynamic Views & Bitrix24 Right Utility Widgets + Right Quick Dock */}
         <main className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <Suspense fallback={<ViewLoader />}>
               <Routes>
-                <Route path="/" element={<Navigate to="/deals" replace />} />
+                <Route path="/" element={<Navigate to="/feed" replace />} />
                 
                 <Route path="/feed" element={<LiveFeedView />} />
 
@@ -226,13 +227,13 @@ export function App() {
                   <AutomationView pipelines={pipelines} />
                 } />
 
-                <Route path="*" element={<Navigate to="/deals" replace />} />
+                <Route path="*" element={<Navigate to="/feed" replace />} />
               </Routes>
             </Suspense>
           </div>
 
           {/* Bitrix24 Right Utility Sidebar (Live Pulse, Pinned Notice, Tasks Role Breakdown, Birthdays) */}
-          <aside className="hidden xl:block w-72 2xl:w-80 border-l border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#090d16]/70 backdrop-blur-xl flex-shrink-0 overflow-y-auto">
+          <aside className="hidden xl:block w-72 2xl:w-80 border-l border-white/10 bg-transparent flex-shrink-0 overflow-y-auto">
             <RightWidgetSidebar
               onOpenTasks={() => navigate('/tasks')}
               onOpenFeed={() => navigate('/feed')}
@@ -245,6 +246,27 @@ export function App() {
               }}
             />
           </aside>
+
+          {/* Bitrix24 Far-Right Vertical Dock (Colleagues Online Stack & 1-Click Call Button) */}
+          <div className="hidden lg:flex">
+            <RightQuickDock
+              onQuickCall={() => {
+                setActiveCallSession({
+                  name: 'Швидкий виклик',
+                  phone: '+380',
+                  type: 'gsm'
+                });
+              }}
+              onOpenMessenger={() => navigate('/inbox')}
+              onSelectColleague={(name, phone) => {
+                setActiveCallSession({
+                  name,
+                  phone,
+                  type: 'gsm'
+                });
+              }}
+            />
+          </div>
         </main>
 
         {/* Native Mobile Bottom Navigation Bar (iOS / Android App Style) */}

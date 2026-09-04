@@ -187,7 +187,7 @@ export const LiveFeedView: React.FC = () => {
     <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-['Inter',sans-serif] select-none text-slate-100">
       
       {/* Top Publisher Canvas (Bitrix24 Live Feed Header) */}
-      <div className="rounded-3xl bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden">
+      <div className="bitrix-widget-card shadow-2xl overflow-hidden">
         {/* Action Tabs */}
         <div className="flex items-center gap-1 sm:gap-2 px-4 pt-3 border-b border-white/10 overflow-x-auto text-xs font-semibold">
           {[
@@ -273,7 +273,7 @@ export const LiveFeedView: React.FC = () => {
         {posts.map(post => (
           <div 
             key={post.id}
-            className="rounded-3xl bg-slate-900/60 backdrop-blur-xl border border-white/10 p-5 shadow-xl space-y-4 transition hover:border-white/20"
+            className="bitrix-widget-card p-5 space-y-4 transition hover:border-white/20"
           >
             {/* Header: Author & Recipient */}
             <div className="flex items-center justify-between">
