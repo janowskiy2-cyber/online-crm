@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Server as SocketIOServer } from 'socket.io';
 import { TelegramClient, Api } from 'telegram';
+import { CustomFile } from 'telegram/client/uploads';
 import { StringSession } from 'telegram/sessions';
 import { NewMessage } from 'telegram/events';
 import path from 'path';
@@ -201,9 +202,71 @@ export class TelegramService {
         const sender: any = await message.getSender();
         const senderName = `${sender?.firstName || ''} ${sender?.lastName || ''}`.trim() || sender?.username || 'Користувач Telegram';
         const senderUsername = sender?.username ? `@${sender.username}` : (sender?.phone ? `+${sender.phone}` : `tg_${sender?.id}`);
-        const text = message.text || '[Медіа / Документ]';
+        let text = message.text || '';
 
-        await this.handleIncomingMessage(senderUsername, senderName, text, String(sender?.id));
+        let mediaUrl: string | undefined;
+        let mediaType: string | undefined;
+
+        if (message.media) {
+          try {
+            const mediaBuffer = await this.client?.downloadMedia(message);
+            if (mediaBuffer && Buffer.isBuffer(mediaBuffer) && mediaBuffer.length > 0) {
+              let fileName = `tg_media_${Date.now()}`;
+              let mimeType = 'application/octet-stream';
+
+              if (message.photo) {
+                fileName = `photo_${Date.now()}.jpg`;
+                mimeType = 'image/jpeg';
+                mediaType = 'image';
+                if (!text) text = '📷 [Зображення]';
+              } else if (message.document) {
+                const doc = message.document;
+                mimeType = doc.mimeType || 'application/octet-stream';
+
+                const fileAttr = (doc.attributes || []).find((a: any) => a instanceof Api.DocumentAttributeFilename);
+                const audioAttr = (doc.attributes || []).find((a: any) => a instanceof Api.DocumentAttributeAudio);
+
+                if (fileAttr && (fileAttr as any).fileName) {
+                  fileName = (fileAttr as any).fileName;
+                }
+
+                if (audioAttr) {
+                  mediaType = 'audio';
+                  if ((audioAttr as any).voice) {
+                    fileName = `voice_${Date.now()}.ogg`;
+                    mimeType = 'audio/ogg';
+                    if (!text) text = '🎤 [Голосове повідомлення]';
+                  } else {
+                    if (!text) text = `🎵 [Аудіозапис] ${fileName}`;
+                  }
+                } else if (fileName.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf') {
+                  mediaType = 'pdf';
+                  if (!text) text = `📄 [Документ PDF] ${fileName}`;
+                } else if (mimeType.startsWith('image/')) {
+                  mediaType = 'image';
+                  if (!text) text = `📷 [Зображення] ${fileName}`;
+                } else {
+                  if (!text) text = `📎 [Файл] ${fileName}`;
+                }
+              }
+
+              let uploaded = await CloudinaryService.uploadBuffer(mediaBuffer, fileName, mimeType);
+              if (uploaded.startsWith('/api/uploads')) {
+                const serverHost = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
+                uploaded = `${serverHost}${uploaded}`;
+              }
+              mediaUrl = uploaded;
+            }
+          } catch (mErr) {
+            console.warn('Error downloading incoming Telegram media:', mErr);
+          }
+        }
+
+        if (!text) {
+          text = '[Повідомлення Telegram]';
+        }
+
+        await this.handleIncomingMessage(senderUsername, senderName, text, String(sender?.id), mediaUrl, mediaType);
       } catch (err) {
         console.error('Error handling incoming MTProto message:', err);
       }
@@ -319,16 +382,55 @@ export class TelegramService {
     }
 
     const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+    const isVoice = mimeType.startsWith('audio/') || finalFileName.includes('Voice_Note');
 
     if (this.client && this.status === 'connected') {
       try {
-        await this.client.sendFile(toTgIdOrUsername, {
-          file: buffer,
-          caption: caption || finalFileName
-        });
-      } catch (err) {
-        console.warn('Error sending MTProto file:', err);
+        let peer: any = toTgIdOrUsername;
+        const cleanDigits = toTgIdOrUsername.replace(/\D/g, '');
+        if (cleanDigits.length >= 9 && (toTgIdOrUsername.startsWith('+') || !toTgIdOrUsername.startsWith('@'))) {
+          try {
+            const res: any = await this.client.invoke(new Api.contacts.ResolvePhone({ phone: `+${cleanDigits}` }));
+            if (res && res.users && res.users.length > 0) {
+              peer = res.users[0];
+            }
+          } catch (rErr) {
+            console.warn('Could not resolve phone entity in Telegram sendFile:', rErr);
+          }
+        }
+
+        const fileObj = new CustomFile(finalFileName, buffer.length, '', buffer);
+        const sendOptions: any = {
+          file: fileObj,
+          caption: caption || (isVoice ? undefined : finalFileName)
+        };
+
+        if (isVoice) {
+          sendOptions.voiceNote = true;
+          sendOptions.attributes = [
+            new Api.DocumentAttributeAudio({
+              voice: true,
+              duration: 0,
+              title: 'Voice Message',
+              performer: 'CRM'
+            })
+          ];
+        } else if (mimeType === 'application/pdf' || finalFileName.toLowerCase().endsWith('.pdf')) {
+          sendOptions.mimeType = 'application/pdf';
+          sendOptions.attributes = [
+            new Api.DocumentAttributeFilename({
+              fileName: finalFileName
+            })
+          ];
+        }
+
+        await this.client.sendFile(peer, sendOptions);
+      } catch (err: any) {
+        console.error('Error sending MTProto file:', err);
+        throw new Error(`Помилка відправки файлу в Telegram: ${err.message || 'Збій передачі'}`);
       }
+    } else {
+      throw new Error('Telegram не підключений до CRM. Авторизуйтесь у розділі "Шлюз"');
     }
 
     // Save file to permanent Cloudinary Cloud Storage or local fallback
@@ -338,7 +440,6 @@ export class TelegramService {
       savedMediaUrl = `${serverHost}${savedMediaUrl}`;
     }
 
-    const isVoice = mimeType.startsWith('audio/') || finalFileName.includes('Voice_Note');
     const fileLabel = isVoice
       ? `🎤 Голосове повідомлення (${caption || 'аудіо'})`
       : `📎 Файл TG: ${finalFileName}${caption ? ` — ${caption}` : ''}`;
@@ -364,7 +465,14 @@ export class TelegramService {
     return savedMsg;
   }
 
-  public async handleIncomingMessage(username: string, fullName: string, text: string, tgId?: string) {
+  public async handleIncomingMessage(
+    username: string,
+    fullName: string,
+    text: string,
+    tgId?: string,
+    mediaUrl?: string,
+    mediaType?: string
+  ) {
     try {
       const cleanPhone = username.replace(/\D/g, '');
       const whereConditions: any[] = [
@@ -432,6 +540,8 @@ export class TelegramService {
           senderName: fullName || username,
           senderTgId: username,
           text,
+          mediaUrl: mediaUrl || null,
+          mediaType: mediaType || null,
           status: 'sent'
         }
       });

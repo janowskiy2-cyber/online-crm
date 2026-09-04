@@ -93,6 +93,31 @@ export function createContactRouter(prisma: PrismaClient) {
     }
   });
 
+  // Update contact
+  router.put('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, phone, phone2, email, whatsapp, telegram, position, companyId } = req.body;
+      const updated = await prisma.contact.update({
+        where: { id },
+        data: {
+          name: name !== undefined ? name : undefined,
+          phone: phone !== undefined ? phone : undefined,
+          phone2: phone2 !== undefined ? phone2 : undefined,
+          email: email !== undefined ? email : undefined,
+          whatsapp: whatsapp !== undefined ? whatsapp : undefined,
+          telegram: telegram !== undefined ? telegram : undefined,
+          position: position !== undefined ? position : undefined,
+          companyId: companyId !== undefined ? companyId : undefined
+        },
+        include: { company: true }
+      });
+      res.json(updated);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to update contact' });
+    }
+  });
+
   // Soft delete contact
   router.delete('/:id', async (req, res) => {
     try {

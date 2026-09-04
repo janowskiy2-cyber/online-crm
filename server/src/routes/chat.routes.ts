@@ -197,8 +197,9 @@ export function createChatRouter(
         const msg = await telegramService.sendMessage(to, text, dealId, contactId);
         return res.json(msg);
       }
-    } catch (e) {
-      res.status(500).json({ error: 'Помилка надсилання повідомлення' });
+    } catch (e: any) {
+      console.error('Error in /chat/send:', e);
+      res.status(500).json({ error: e.message || 'Помилка надсилання повідомлення' });
     }
   });
 
@@ -223,8 +224,9 @@ export function createChatRouter(
         const msg = await telegramService.sendFile(to, fileBase64, fileName, mimeType, caption, dealId, contactId);
         return res.json(msg);
       }
-    } catch (e) {
-      res.status(500).json({ error: 'Помилка надсилання файлу' });
+    } catch (e: any) {
+      console.error('Error in /chat/send-file:', e);
+      res.status(500).json({ error: e.message || 'Помилка надсилання файлу' });
     }
   });
 

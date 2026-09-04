@@ -29,7 +29,8 @@ import {
   UploadCloud,
   Check,
   RefreshCw,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Edit3
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -148,6 +149,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     whatsappConnected: false,
     telegramConnected: false
   });
+
+  // Direct Contact Editing state
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editContactName, setEditContactName] = useState('');
+  const [editContactPhone, setEditContactPhone] = useState('');
+  const [editContactPhone2, setEditContactPhone2] = useState('');
+  const [editContactTg, setEditContactTg] = useState('');
+  const [editContactEmail, setEditContactEmail] = useState('');
+  const [editContactPosition, setEditContactPosition] = useState('');
+  const [isSavingContact, setIsSavingContact] = useState(false);
+
+  // Quick Notes state (right column)
+  const [quickNoteText, setQuickNoteText] = useState('');
+  const [isSavingQuickNote, setIsSavingQuickNote] = useState(false);
 
   const checkMessengers = async (phone: string) => {
     if (!phone) return;
@@ -376,6 +391,81 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     } catch (e: any) {
       console.error('Failed to send message:', e);
       alert(e?.response?.data?.error || 'Помилка надсилання повідомлення');
+    }
+  };
+
+  const handleStartEditContact = () => {
+    setEditContactName(deal?.contact?.name || '');
+    setEditContactPhone(deal?.contact?.phone || '');
+    setEditContactPhone2(deal?.contact?.phone2 || '');
+    setEditContactTg(deal?.contact?.telegram || '');
+    setEditContactEmail(deal?.contact?.email || '');
+    setEditContactPosition(deal?.contact?.position || 'Клієнт');
+    setIsEditingContact(true);
+  };
+
+  const handleSaveContact = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editContactName.trim() && !editContactPhone.trim()) {
+      alert('Вкажіть ім\'я або номер телефону клієнта');
+      return;
+    }
+
+    setIsSavingContact(true);
+    try {
+      if (deal?.contact?.id) {
+        const res = await api.put(`/contacts/${deal.contact.id}`, {
+          name: editContactName.trim() || 'Клієнт',
+          phone: editContactPhone.trim() || undefined,
+          phone2: editContactPhone2.trim() || undefined,
+          telegram: editContactTg.trim() ? (editContactTg.trim().startsWith('@') ? editContactTg.trim() : `@${editContactTg.trim()}`) : undefined,
+          email: editContactEmail.trim() || undefined,
+          position: editContactPosition.trim() || undefined
+        });
+        const updatedDeal = { ...deal, contact: res.data };
+        setDeal(updatedDeal);
+        onDealUpdated(updatedDeal);
+      } else if (deal) {
+        const res = await api.post('/contacts', {
+          name: editContactName.trim() || 'Клієнт',
+          phone: editContactPhone.trim() || undefined,
+          phone2: editContactPhone2.trim() || undefined,
+          telegram: editContactTg.trim() ? (editContactTg.trim().startsWith('@') ? editContactTg.trim() : `@${editContactTg.trim()}`) : undefined,
+          email: editContactEmail.trim() || undefined,
+          position: editContactPosition.trim() || undefined
+        });
+        const dealRes = await api.put(`/deals/${deal.id}`, { contactId: res.data.id });
+        setDeal(dealRes.data);
+        onDealUpdated(dealRes.data);
+      }
+      setIsEditingContact(false);
+      fetchDealDetails();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка збереження даних клієнта');
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
+  const handleAddQuickNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickNoteText.trim() || !deal) return;
+
+    setIsSavingQuickNote(true);
+    try {
+      const res = await api.post(`/deals/${deal.id}/notes`, {
+        content: quickNoteText.trim(),
+        type: 'comment'
+      });
+      const updatedNotes = [res.data, ...(deal.notes || [])];
+      const updatedDeal = { ...deal, notes: updatedNotes };
+      setDeal(updatedDeal);
+      onDealUpdated(updatedDeal);
+      setQuickNoteText('');
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка додавання замітки');
+    } finally {
+      setIsSavingQuickNote(false);
     }
   };
 
@@ -826,14 +916,127 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {/* Contact Details */}
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Контакт клієнта (HR / Директор)
-              </label>
-              {deal.contact ? (
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Контакт клієнта (HR / Директор)
+                </label>
+                {deal.contact ? (
+                  <button
+                    type="button"
+                    onClick={handleStartEditContact}
+                    className="p-1 text-slate-400 hover:text-blue-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
+                    title="Редагувати дані клієнта"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Редагувати</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleStartEditContact}
+                    className="p-1 text-blue-400 hover:text-blue-300 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px] font-bold"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Додати</span>
+                  </button>
+                )}
+              </div>
+
+              {isEditingContact ? (
+                <form onSubmit={handleSaveContact} className="bg-slate-900 border border-blue-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">ПІБ / Назва контакту</label>
+                    <input
+                      type="text"
+                      placeholder="Олександр Директор"
+                      value={editContactName}
+                      onChange={(e) => setEditContactName(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Телефон 1</label>
+                      <input
+                        type="text"
+                        placeholder="+380..."
+                        value={editContactPhone}
+                        onChange={(e) => setEditContactPhone(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Телефон 2</label>
+                      <input
+                        type="text"
+                        placeholder="+380..."
+                        value={editContactPhone2}
+                        onChange={(e) => setEditContactPhone2(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Telegram (@username)</label>
+                      <input
+                        type="text"
+                        placeholder="@username"
+                        value={editContactTg}
+                        onChange={(e) => setEditContactTg(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Посада</label>
+                      <input
+                        type="text"
+                        placeholder="Керівник"
+                        value={editContactPosition}
+                        onChange={(e) => setEditContactPosition(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Email</label>
+                    <input
+                      type="email"
+                      placeholder="client@company.com"
+                      value={editContactEmail}
+                      onChange={(e) => setEditContactEmail(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingContact(false)}
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingContact}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{isSavingContact ? 'Збереження...' : 'Зберегти'}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : deal.contact ? (
                 <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
                   <div className="font-bold text-sm text-white flex items-center gap-2">
                     <UserIcon className="w-4 h-4 text-blue-400" />
                     <span>{deal.contact.name}</span>
+                    {deal.contact.position && (
+                      <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-normal">
+                        {deal.contact.position}
+                      </span>
+                    )}
                   </div>
 
                   {deal.contact.phone && (
@@ -899,7 +1102,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 italic">Контакт не вказано</p>
+                <div className="p-3 bg-slate-900/60 border border-dashed border-slate-700 rounded-2xl text-center space-y-2">
+                  <p className="text-xs text-slate-400 italic">Контакт ще не заповнено</p>
+                  <button
+                    type="button"
+                    onClick={handleStartEditContact}
+                    className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-semibold transition"
+                  >
+                    + Заповнити дані клієнта
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1838,8 +2050,57 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Tasks Checklist (3 Cols) */}
+          {/* Right Column: Tasks Checklist & Quick Notes (3 Cols) */}
           <div className="col-span-12 md:col-span-3 p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#0e1422]">
+            
+            {/* Quick Notes & Customer Insights */}
+            <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  <span>Замітки по клієнту</span>
+                </h3>
+                <span className="text-[10px] text-slate-500">{(deal.notes || []).length} записів</span>
+              </div>
+
+              <form onSubmit={handleAddQuickNote} className="space-y-2">
+                <textarea
+                  rows={2}
+                  placeholder="Запишіть деталі про клієнта під час листування..."
+                  value={quickNoteText}
+                  onChange={(e) => setQuickNoteText(e.target.value)}
+                  className="w-full bg-slate-800/90 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition resize-none"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSavingQuickNote || !quickNoteText.trim()}
+                    className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isSavingQuickNote ? '...' : 'Зберегти замітку'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Recent Notes Stream */}
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                {(deal.notes || []).length === 0 ? (
+                  <p className="text-[11px] text-slate-500 italic">Поки немає заміток</p>
+                ) : (
+                  (deal.notes || []).map((n: any) => (
+                    <div key={n.id} className="p-2 bg-slate-800/80 border border-slate-700/60 rounded-xl text-xs space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span className="font-bold text-amber-300">{n.user?.name || 'Менеджер'}</span>
+                        <span>{new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-slate-200 leading-snug whitespace-pre-line text-[11px]">{n.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-amber-400" />

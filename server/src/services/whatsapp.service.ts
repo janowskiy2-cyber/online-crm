@@ -191,7 +191,7 @@ export class WhatsAppService {
 
       const baileys = await import('@whiskeysockets/baileys');
       const makeWASocket = baileys.default || baileys.makeWASocket;
-      const { useMultiFileAuthState, DisconnectReason } = baileys;
+      const { useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = baileys;
 
       const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
 
@@ -277,6 +277,9 @@ export class WhatsAppService {
 
             const content = msg.message;
             let text = '';
+            let mediaUrl: string | undefined;
+            let mediaType: string | undefined;
+
             if (content) {
               text = content.conversation ||
                 content.extendedTextMessage?.text ||
@@ -286,6 +289,57 @@ export class WhatsAppService {
                 content.ephemeralMessage?.message?.conversation ||
                 content.ephemeralMessage?.message?.extendedTextMessage?.text ||
                 '';
+
+              // Download media if message has photo/video/audio/document
+              if (content.imageMessage || content.audioMessage || content.documentMessage || content.videoMessage) {
+                try {
+                  const mediaBuffer = await downloadMediaMessage(
+                    msg,
+                    'buffer',
+                    {},
+                    {
+                      logger: pino({ level: 'silent' }),
+                      reuploadRequest: this.sock?.updateMediaMessage
+                    }
+                  );
+
+                  if (mediaBuffer && Buffer.isBuffer(mediaBuffer) && mediaBuffer.length > 0) {
+                    let fileName = `wa_media_${Date.now()}`;
+                    let mimeType = 'application/octet-stream';
+
+                    if (content.imageMessage) {
+                      fileName = `photo_${Date.now()}.jpg`;
+                      mimeType = content.imageMessage.mimetype || 'image/jpeg';
+                      mediaType = 'image';
+                      if (!text) text = '📷 [Зображення]';
+                    } else if (content.audioMessage) {
+                      fileName = `voice_${Date.now()}.ogg`;
+                      mimeType = content.audioMessage.mimetype || 'audio/ogg';
+                      mediaType = 'audio';
+                      if (!text) text = '🎤 [Голосове повідомлення]';
+                    } else if (content.documentMessage) {
+                      fileName = content.documentMessage.fileName || `document_${Date.now()}.pdf`;
+                      mimeType = content.documentMessage.mimetype || 'application/pdf';
+                      mediaType = fileName.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf' ? 'pdf' : 'other';
+                      if (!text) text = `📄 [Документ] ${fileName}`;
+                    } else if (content.videoMessage) {
+                      fileName = `video_${Date.now()}.mp4`;
+                      mimeType = content.videoMessage.mimetype || 'video/mp4';
+                      mediaType = 'video';
+                      if (!text) text = '🎥 [Відео]';
+                    }
+
+                    let uploaded = await CloudinaryService.uploadBuffer(mediaBuffer, fileName, mimeType);
+                    if (uploaded.startsWith('/api/uploads')) {
+                      const serverHost = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
+                      uploaded = `${serverHost}${uploaded}`;
+                    }
+                    mediaUrl = uploaded;
+                  }
+                } catch (dlErr) {
+                  console.warn('Error downloading WhatsApp media:', dlErr);
+                }
+              }
             }
 
             if (!text && content) {
@@ -295,7 +349,7 @@ export class WhatsAppService {
               else if (content.videoMessage) text = '🎥 [Відеовізитка]';
             }
 
-            if (!text) continue;
+            if (!text && !mediaUrl) continue;
 
             // Anti-Duplication: If this was sent by CRM recently, do not duplicate in ChatMessage!
             if (isFromMe) {
@@ -309,7 +363,7 @@ export class WhatsAppService {
             }
 
             const pushName = msg.pushName || (isFromMe ? 'Менеджер' : `Клієнт (+${cleanPhone})`);
-            await this.processIncomingOrOutgoingMessage(cleanPhone, pushName, text, isFromMe);
+            await this.processIncomingOrOutgoingMessage(cleanPhone, pushName, text, isFromMe, mediaUrl, mediaType);
           }
         } catch (err) {
           console.error('Error handling WhatsApp message upsert:', err);
@@ -443,7 +497,14 @@ export class WhatsAppService {
     }
   }
 
-  public async processIncomingOrOutgoingMessage(cleanPhone: string, pushName: string, text: string, isFromMe: boolean) {
+  public async processIncomingOrOutgoingMessage(
+    cleanPhone: string,
+    pushName: string,
+    text: string,
+    isFromMe: boolean,
+    mediaUrl?: string,
+    mediaType?: string
+  ) {
     try {
       if (!cleanPhone) return;
       const formattedPhone = `+${cleanPhone}`;
@@ -496,6 +557,8 @@ export class WhatsAppService {
           senderName: pushName,
           senderPhone: cleanPhone,
           text,
+          mediaUrl: mediaUrl || null,
+          mediaType: mediaType || null,
           status: 'sent'
         }
       });
@@ -617,11 +680,20 @@ export class WhatsAppService {
       throw new Error('WhatsApp не підключений до CRM або відновлює з’єднання. Перевірте статус у розділі "Шлюз"');
     }
 
-    const jid = `${cleanPhone}@s.whatsapp.net`;
+    let targetJid = `${cleanPhone}@s.whatsapp.net`;
+    try {
+      const results = await this.sock.onWhatsApp(cleanPhone);
+      if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
+        targetJid = results[0].jid;
+      }
+    } catch (onErr) {
+      console.warn('onWhatsApp resolution check warning in sendMessage:', onErr);
+    }
+
     this.markMessageAsSentLocally(cleanPhone, text);
 
     try {
-      await this.sock.sendMessage(jid, { text });
+      await this.sock.sendMessage(targetJid, { text });
     } catch (err: any) {
       console.error('Error sending text via WhatsApp socket:', err);
       throw new Error(`Помилка надсилання в WhatsApp: ${err.message || 'Збій передачі'}`);
@@ -662,23 +734,33 @@ export class WhatsAppService {
     }
 
     const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
-    const jid = `${cleanPhone}@s.whatsapp.net`;
+    
+    let targetJid = `${cleanPhone}@s.whatsapp.net`;
+    try {
+      const results = await this.sock.onWhatsApp(cleanPhone);
+      if (Array.isArray(results) && results.length > 0 && results[0]?.jid) {
+        targetJid = results[0].jid;
+      }
+    } catch (onErr) {
+      console.warn('onWhatsApp resolution check warning in sendFile:', onErr);
+    }
+
     this.markMessageAsSentLocally(cleanPhone, caption || finalFileName);
 
     try {
       if (mimeType.startsWith('image/')) {
-        await this.sock.sendMessage(jid, {
+        await this.sock.sendMessage(targetJid, {
           image: buffer,
           caption: caption || finalFileName
         });
       } else if (mimeType.startsWith('audio/')) {
-        await this.sock.sendMessage(jid, {
+        await this.sock.sendMessage(targetJid, {
           audio: buffer,
           mimetype: 'audio/mp4',
           ptt: true
         });
       } else {
-        await this.sock.sendMessage(jid, {
+        await this.sock.sendMessage(targetJid, {
           document: buffer,
           mimetype: mimeType || 'application/pdf',
           fileName: finalFileName,
