@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { X, Plus, AlertCircle } from 'lucide-react';
+import { 
+  X, 
+  Plus, 
+  AlertCircle, 
+  Building2, 
+  User, 
+  Euro, 
+  FolderKanban,
+  Sparkles,
+  ChevronDown,
+  Tag
+} from 'lucide-react';
 import { Pipeline } from '../../types';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -98,97 +109,145 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-['Inter',sans-serif]">
-      <div className="bg-[#111827] border border-slate-700/80 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between bg-[#141b2d]">
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <Plus className="w-5 h-5 text-blue-400" />
-            <span>Нова угода</span>
-          </h2>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-xl">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 font-['Inter',sans-serif] animate-in fade-in duration-200">
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/50 dark:border-slate-800/50 rounded-3xl w-full max-w-lg shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)] overflow-hidden transition-all duration-300">
+        
+        {/* Modal Header */}
+        <div className="h-16 px-6 border-b border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between bg-white/40 dark:bg-slate-900/40 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shadow-sm">
+              <Plus className="w-5 h-5" strokeWidth={2.2} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-slate-800 dark:text-white">
+                Нова угода
+              </h2>
+              <p className="text-[11px] text-slate-400 font-normal">
+                Створення картки клієнта та замовлення
+              </p>
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 rounded-2xl transition-all duration-200"
+            title="Закрити"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mx-6 mt-4 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-xs flex items-center gap-2">
+          <div className="mx-6 mt-4 p-3.5 bg-rose-50/80 dark:bg-rose-500/10 border border-rose-200/50 dark:border-rose-500/20 rounded-2xl text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2.5 shadow-sm animate-in fade-in duration-200">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
+            <span className="font-medium">{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-          <div>
-            <label className="text-slate-300 block mb-1.5 font-semibold">Назва угоди *</label>
-            <input
-              type="text"
-              placeholder="Наприклад: Підбір 15 зварювальників для ТОВ Агропром"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[calc(88vh-8rem)] overflow-y-auto">
+          
+          {/* Main Deal Info Card */}
+          <div className="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-800/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-300 space-y-3.5">
             <div>
-              <label className="text-slate-300 block mb-1.5 font-semibold">Бюджет (€)</label>
+              <label className="text-slate-800 dark:text-slate-200 block mb-1.5 font-semibold text-xs tracking-tight">
+                Назва угоди <span className="text-rose-500">*</span>
+              </label>
               <input
-                type="number"
-                placeholder="6500"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                type="text"
+                placeholder="Наприклад: Підбір 15 зварювальників для ТОВ Агропром"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
               />
             </div>
-            <div>
-              <label className="text-slate-300 block mb-1.5 font-semibold">Відповідальний менеджер</label>
-              <select
-                value={responsibleId}
-                onChange={(e) => setResponsibleId(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
-              >
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-slate-800 dark:text-slate-200 block mb-1.5 font-semibold text-xs tracking-tight flex items-center gap-1.5">
+                  <Euro className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Бюджет (€)</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="6500"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-slate-800 dark:text-slate-200 block mb-1.5 font-semibold text-xs tracking-tight flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Відповідальний менеджер</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={responsibleId}
+                    onChange={(e) => setResponsibleId(e.target.value)}
+                    className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none pr-9 cursor-pointer"
+                  >
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-slate-800 dark:text-slate-200 block mb-1.5 font-semibold text-xs tracking-tight flex items-center gap-1.5">
+                  <FolderKanban className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Воронка</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={pipelineId}
+                    onChange={(e) => {
+                       setPipelineId(e.target.value);
+                       const p = pipelines.find(pl => pl.id === e.target.value);
+                       if (p && p.stages && p.stages.length > 0) setStageId(p.stages[0].id);
+                    }}
+                    className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none pr-9 cursor-pointer"
+                  >
+                    {pipelines.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-slate-800 dark:text-slate-200 block mb-1.5 font-semibold text-xs tracking-tight">Етап</label>
+                <div className="relative">
+                  <select
+                    value={stageId}
+                    onChange={(e) => setStageId(e.target.value)}
+                    className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none pr-9 cursor-pointer"
+                  >
+                    {(selectedPipeline?.stages || []).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-slate-300 block mb-1.5 font-semibold">Воронка</label>
-              <select
-                value={pipelineId}
-                onChange={(e) => {
-                   setPipelineId(e.target.value);
-                   const p = pipelines.find(pl => pl.id === e.target.value);
-                   if (p && p.stages && p.stages.length > 0) setStageId(p.stages[0].id);
-                }}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
-              >
-                {pipelines.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+          {/* Client Details Floating Card */}
+          <div className="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-800/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-300 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-blue-500" />
+                <span>Контактні дані клієнта та підприємства</span>
+              </h3>
+              <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                Автостворення
+              </span>
             </div>
-            <div>
-              <label className="text-slate-300 block mb-1.5 font-semibold">Етап</label>
-              <select
-                value={stageId}
-                onChange={(e) => setStageId(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500"
-              >
-                {(selectedPipeline?.stages || []).map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Client Details */}
-          <div className="pt-3 border-t border-slate-800/80 space-y-3">
-            <h3 className="font-bold text-slate-200">Контактні дані клієнта та підприємства</h3>
             
             <div>
               <input
@@ -196,69 +255,78 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                 placeholder="Підприємство / Завод / Роботодавець"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                placeholder="Контактна особа (ПІБ)"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Основний телефон (+380...)"
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Контактна особа (ПІБ)"
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                />
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Основний телефон (+380...)"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono"
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
                 type="text"
                 placeholder="Додатковий номер"
                 value={contactPhone2}
                 onChange={(e) => setContactPhone2(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono"
               />
               <input
                 type="text"
                 placeholder="Telegram (@username)"
                 value={contactTelegram}
                 onChange={(e) => setContactTelegram(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono"
               />
             </div>
 
             <div>
-              <input
-                type="text"
-                placeholder="Теги (через кому, наприклад: Лід, WhatsApp, Терміново)"
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Теги (через кому, наприклад: Лід, WhatsApp, Терміново)"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+                />
+                <Tag className="w-3.5 h-3.5 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/80">
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/50 dark:border-slate-800/50">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-slate-400 hover:text-white rounded-xl transition"
+              className="px-5 py-2.5 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium tracking-tight rounded-2xl hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-all duration-200"
             >
               Скасувати
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition disabled:opacity-50"
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold tracking-tight rounded-2xl shadow-lg shadow-blue-500/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/40 active:translate-y-0 active:scale-[0.98] transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
             >
-              {isSubmitting ? 'Створення...' : 'Створити угоду'}
+              <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+              <span>{isSubmitting ? 'Створення...' : 'Створити угоду'}</span>
             </button>
           </div>
         </form>
