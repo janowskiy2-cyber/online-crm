@@ -48,6 +48,11 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
+  // Derived connection statuses (declared early to prevent TDZ ReferenceErrors)
+  const isWaConnected = waStatus?.status === 'connected';
+  const isTgConnected = tgStatus?.status === 'connected';
+  const isCurrentConnected = activeChannel === 'whatsapp' ? isWaConnected : isTgConnected;
+
   // Telegram Real Human User Account State
   const [tgPhone, setTgPhone] = useState('+380734277174');
   const [tgCode, setTgCode] = useState('');
@@ -85,13 +90,16 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     }
   };
 
+  // 1. Initial status fetch & QR fetch on channel change
   useEffect(() => {
     fetchStatus();
-
     if (activeChannel === 'whatsapp') {
       fetchWhatsAppQR(false);
     }
+  }, [activeChannel]);
 
+  // 2. Real-time socket events
+  useEffect(() => {
     const handleStatusUpdate = (data: any) => {
       if (data.channel === 'whatsapp') {
         setWaStatus((prev: any) => ({ ...prev, ...data }));
@@ -102,22 +110,21 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     };
 
     socket.on('messenger_status', handleStatusUpdate);
-
-    // Auto-poll if WhatsApp is waiting for QR and not connected yet
-    let pollInterval: any = null;
-    if (activeChannel === 'whatsapp' && !isWaConnected) {
-      pollInterval = setInterval(() => {
-        if (!waQrImage) {
-          fetchWhatsAppQR(false);
-        }
-      }, 3000);
-    }
-
     return () => {
       socket.off('messenger_status', handleStatusUpdate);
-      if (pollInterval) clearInterval(pollInterval);
     };
-  }, [activeChannel, isWaConnected, waQrImage]);
+  }, []);
+
+  // 3. Auto-poll if WhatsApp is waiting for QR
+  useEffect(() => {
+    if (activeChannel !== 'whatsapp' || isWaConnected || waQrImage) return;
+
+    const pollInterval = setInterval(() => {
+      fetchWhatsAppQR(false);
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeChannel, isWaConnected, !waQrImage]);
 
   // Telegram Step 1: Send real official MTProto code to phone
   const handleTgSendCode = async (e: React.FormEvent) => {
@@ -189,10 +196,6 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
       }
     } catch (e) {}
   };
-
-  const isWaConnected = waStatus.status === 'connected';
-  const isTgConnected = tgStatus.status === 'connected';
-  const isCurrentConnected = activeChannel === 'whatsapp' ? isWaConnected : isTgConnected;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif]">
