@@ -17,7 +17,8 @@ import {
   Filter,
   Sparkles,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Download
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -135,6 +136,22 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
     (c.address && c.address.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const handleExportCsv = async () => {
+    try {
+      const res = await api.get('/export/employers', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `employers_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error(err);
+      alert('Помилка завантаження експорту роботодавців');
+    }
+  };
+
   return (
     <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bitrix-wallpaper font-['Inter',sans-serif]">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -185,6 +202,15 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
                   <span>Представники / HR ({contacts.length})</span>
                 </button>
               </div>
+
+              <button
+                onClick={handleExportCsv}
+                className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+                title="Завантажити базу роботодавців у форматі Excel (CSV)"
+              >
+                <Download className="w-4 h-4 text-blue-400" />
+                <span>Експорт в Excel (CSV)</span>
+              </button>
 
               <button
                 onClick={() => setIsAddEmployerOpen(true)}

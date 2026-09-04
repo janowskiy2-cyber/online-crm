@@ -149,6 +149,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   // Anti-Duplicate Guard state
   const [duplicateAlert, setDuplicateAlert] = useState<any | null>(null);
 
+  // Dynamic Custom Fields state (Twenty CRM benchmark)
+  const [isAddingField, setIsAddingField] = useState(false);
+  const [newFieldKey, setNewFieldKey] = useState('');
+  const [newFieldValue, setNewFieldValue] = useState('');
+
   // Live WhatsApp & Telegram presence & detection state
   const [messengerStatus, setMessengerStatus] = useState<{
     loading: boolean;
@@ -595,6 +600,42 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   } catch (e) {
     customFieldsObj = {};
   }
+
+  const visibleCustomFields = Object.entries(customFieldsObj).filter(
+    ([k]) => k !== 'candidates' && k !== 'paidMilestones'
+  );
+
+  const handleSaveCustomField = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFieldKey.trim() || !newFieldValue.trim() || !deal) return;
+    const updatedFields = {
+      ...customFieldsObj,
+      [newFieldKey.trim()]: newFieldValue.trim()
+    };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: JSON.stringify(updatedFields) });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+      setNewFieldKey('');
+      setNewFieldValue('');
+      setIsAddingField(false);
+    } catch (err) {
+      console.error('Failed to save custom field:', err);
+    }
+  };
+
+  const handleDeleteCustomField = async (keyToDelete: string) => {
+    if (!deal) return;
+    const updatedFields = { ...customFieldsObj };
+    delete updatedFields[keyToDelete];
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: JSON.stringify(updatedFields) });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err) {
+      console.error('Failed to delete custom field:', err);
+    }
+  };
 
   let tagsList: string[] = [];
   try {
@@ -1875,20 +1916,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       );
                     }
 
+                    const isAudit = item.type === 'status_change' || item.type === 'system';
+
                     return (
                       <div
                         key={item.id}
-                        className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 text-xs space-y-1.5"
+                        className={`rounded-2xl p-3 text-xs space-y-1.5 transition ${
+                          isAudit
+                            ? 'bg-indigo-950/30 border border-indigo-500/30'
+                            : 'bg-slate-900/80 border border-slate-800'
+                        }`}
                       >
                         <div className="flex items-center justify-between text-slate-400">
-                          <span className="font-semibold text-slate-200">
-                            {item.user?.name || 'Система'}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {isAudit ? (
+                              <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-bold text-[10px] flex items-center gap-1 border border-indigo-500/30">
+                                <span>🔄</span>
+                                <span>Аудит / Історія змін</span>
+                              </span>
+                            ) : (
+                              <span className="font-semibold text-slate-200">
+                                {item.user?.name || 'Система'}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-slate-500">
                             {new Date(item.createdAt).toLocaleString('uk-UA')}
                           </span>
                         </div>
-                        <p className="text-slate-300 leading-relaxed whitespace-pre-line">{item.content}</p>
+                        <p className={`leading-relaxed whitespace-pre-line ${isAudit ? 'text-indigo-200 font-medium' : 'text-slate-300'}`}>
+                          {item.content}
+                        </p>
                       </div>
                     );
                   })
@@ -2200,6 +2258,83 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   ))
                 )}
               </div>
+            </div>
+
+            {/* Custom Fields / Metadata Card (Twenty CRM benchmark) */}
+            <div className="bg-slate-900/90 border border-blue-500/30 rounded-2xl p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-blue-400" />
+                  <span>Кастомні поля угоди</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingField(!isAddingField)}
+                  className="p-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-xl text-xs font-bold transition flex items-center gap-1 px-2"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAddingField ? 'Скасувати' : 'Додати'}</span>
+                </button>
+              </div>
+
+              {isAddingField && (
+                <form onSubmit={handleSaveCustomField} className="space-y-2 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
+                  <input
+                    type="text"
+                    placeholder="Назва поля (напр: Термін виходу)"
+                    value={newFieldKey}
+                    onChange={(e) => setNewFieldKey(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    placeholder="Значення (напр: 15 жовтня)"
+                    value={newFieldValue}
+                    onChange={(e) => setNewFieldValue(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <div className="flex justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingField(false)}
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!newFieldKey.trim() || !newFieldValue.trim()}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition"
+                    >
+                      Зберегти
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {visibleCustomFields.length === 0 ? (
+                <p className="text-[11px] text-slate-500 italic">Немає додаткових полів</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {visibleCustomFields.map(([k, v]) => (
+                    <div key={k} className="p-2 bg-slate-800/70 border border-slate-700/60 rounded-xl text-xs flex items-center justify-between group">
+                      <div className="min-w-0 pr-2">
+                        <span className="text-[10px] text-slate-400 font-medium block uppercase tracking-wider">{k}</span>
+                        <span className="text-white font-semibold truncate block">{String(v)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomField(k)}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 transition"
+                        title="Видалити поле"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between">

@@ -247,6 +247,22 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
       // Digital Pipeline: Automatic follow-up tasks upon stage transition
       if (isStageChanged) {
         const targetStage = await prisma.stage.findUnique({ where: { id: data.stageId } });
+        
+        // Log explicit stage change audit event
+        const oldStageName = existingDeal?.stage?.name || 'Попередній етап';
+        const newStageName = targetStage?.name || 'Новий етап';
+        const noteUserId = (req as any).userId || existingDeal?.responsibleId || 'usr-admin';
+
+        await prisma.dealNote.create({
+          data: {
+            dealId: id,
+            userId: noteUserId,
+            content: `🔄 Зміна етапу воронки: "${oldStageName}" ➔ "${newStageName}"`,
+            type: 'status_change',
+            metadata: JSON.stringify({ oldStageName, newStageName })
+          }
+        }).catch(() => {});
+
         if (targetStage && !targetStage.isLost && !targetStage.isWon) {
           const stageNameLower = targetStage.name.toLowerCase();
           let taskText = `Контроль переходу на етап: ${targetStage.name}`;
@@ -298,6 +314,18 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
             io.emit('task_created', autoTask);
           }
         }
+      }
+
+      if (data.budget !== undefined && existingDeal && existingDeal.budget !== Number(data.budget)) {
+        const noteUserId = (req as any).userId || existingDeal?.responsibleId || 'usr-admin';
+        await prisma.dealNote.create({
+          data: {
+            dealId: id,
+            userId: noteUserId,
+            content: `💰 Оновлено бюджет угоди: з €${existingDeal.budget} на €${data.budget}`,
+            type: 'system'
+          }
+        }).catch(() => {});
       }
 
       if (io) {

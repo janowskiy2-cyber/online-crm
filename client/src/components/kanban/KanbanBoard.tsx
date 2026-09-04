@@ -11,7 +11,8 @@ import {
   Globe2, 
   Calendar,
   TrendingUp,
-  Archive
+  Archive,
+  Download
 } from 'lucide-react';
 import { Deal, Pipeline, Stage } from '../../types';
 import { api, socket } from '../../services/api';
@@ -185,6 +186,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
+  const handleExportDeals = async () => {
+    try {
+      const pId = pipeline?.id || '';
+      const res = await api.get(`/export/deals?pipelineId=${pId}&projectId=${projectId}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `deals_export_${pipeline?.name || 'pipeline'}_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Export deals error:', err);
+      alert('Помилка завантаження експорту угод');
+    }
+  };
+
   const formatCurrency = (val: number) => {
     return `${new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(val || 0)} ₴`;
   };
@@ -299,6 +317,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           >
             <TrendingUp className="w-3.5 h-3.5 text-blue-500" strokeWidth={1.75} />
             <span className="hidden sm:inline">Аналітика воронки</span>
+          </button>
+
+          <button
+            onClick={handleExportDeals}
+            className="px-3 py-1.5 bg-emerald-600/10 dark:bg-emerald-500/15 hover:bg-emerald-600/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-emerald-500/20 shadow-sm active:scale-95"
+            title="Експорт поточних угод у форматі CSV (Excel)"
+          >
+            <Download className="w-3.5 h-3.5" strokeWidth={2} />
+            <span className="hidden sm:inline">Експорт в Excel</span>
           </button>
 
           {openCreateDeal && (

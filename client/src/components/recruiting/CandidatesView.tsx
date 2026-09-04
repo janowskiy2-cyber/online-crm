@@ -21,7 +21,8 @@ import {
   Play,
   ArrowRight,
   UserCheck,
-  ChevronDown
+  ChevronDown,
+  Download
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -140,6 +141,22 @@ export const CandidatesView: React.FC = () => {
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      const res = await api.get(`/export/candidates?country=${filterCountry}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `candidates_${filterCountry}_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error(err);
+      alert('Помилка завантаження експорту');
+    }
+  };
+
   // Filter candidates
   const filteredCandidates = candidates.filter(cand => {
     if (filterEmployerId !== 'all') {
@@ -187,6 +204,15 @@ export const CandidatesView: React.FC = () => {
               >
                 <Building2 className="w-4 h-4 text-blue-400" />
                 <span>База роботодавців ({companies.length})</span>
+              </button>
+
+              <button
+                onClick={handleExportCsv}
+                className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+                title="Завантажити список кандидатів у форматі Excel (CSV)"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Експорт в Excel (CSV)</span>
               </button>
 
               <button
