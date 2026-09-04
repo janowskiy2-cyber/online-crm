@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
 import { authRequired } from './middleware/auth.middleware';
+import { authLimiter, apiLimiter } from './middleware/rate-limit.middleware';
 import { LeadDistributionService } from './services/lead-distribution.service';
 import { WhatsAppService } from './services/whatsapp.service';
 import { TelegramService } from './services/telegram.service';
@@ -22,12 +23,15 @@ import { createAnalyticsRouter } from './routes/analytics.routes';
 import { createAutomationRouter } from './routes/automation.routes';
 import { createWebhookRouter } from './routes/webhook.routes';
 import { createAiRouter } from './routes/ai.routes';
+import { createUploadRouter } from './routes/upload.routes';
+import { createTelephonyRouter } from './routes/telephony.routes';
 
 const app = express();
 const server = http.createServer(app);
 
 const ALLOWED_ORIGINS = [
   'https://online-crm-alpha.vercel.app',
+  'https://online-crm.onrender.com',
   'https://online-crm-frontend.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000'
@@ -52,8 +56,9 @@ tgService.setSocketIO(io);
 automationService.setSocketIO(io);
 
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Safe memory limits: 5mb max JSON payload prevents OOM crashes
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 // Uploads directory for media files (voice, images, PDF)
 const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -62,9 +67,15 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/api/uploads', express.static(uploadsDir));
 
+// ── Rate Limiting ──
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/users/verify-admin-pin', authLimiter);
+
 // ── Public routes (no auth required) ──
 app.use('/api/auth', createAuthRouter(prisma));
 app.use('/api/webhooks', createWebhookRouter(prisma, leadDistributionService, io));
+app.use('/api/telephony', createTelephonyRouter(prisma, () => io));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -81,6 +92,7 @@ app.use('/api/users', authRequired, createUsersRouter(prisma));
 app.use('/api/analytics', authRequired, createAnalyticsRouter(prisma));
 app.use('/api/automation', authRequired, createAutomationRouter(prisma));
 app.use('/api/ai', authRequired, createAiRouter(prisma));
+app.use('/api/upload', authRequired, createUploadRouter());
 
 // Serve frontend client build directly if available
 const clientDistPath = path.join(__dirname, '../../client/dist');

@@ -582,25 +582,30 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
     setIsUploadingDoc(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        const res = await api.post(`/ai/deal-document/${deal.id}`, {
-          fileName: file.name,
-          fileBase64: base64,
-          mimeType: file.type || 'application/pdf',
-          category: docCategory
-        });
-        const newDoc = res.data;
-        const updatedDocs = [newDoc, ...documentsList];
-        const newCustomFields = { ...customFieldsObj, documents: updatedDocs };
-        setDeal(prev => prev ? ({ ...prev, customFields: JSON.stringify(newCustomFields) }) : null);
-        fetchDealDetails();
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadRes = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const newDoc: DocumentItem = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        url: uploadRes.data.url,
+        category: docCategory,
+        mimeType: file.type || 'application/pdf',
+        sizeKb: uploadRes.data.sizeKb || Math.round(file.size / 1024),
+        uploadedAt: uploadRes.data.uploadedAt || new Date().toISOString()
       };
-      reader.readAsDataURL(file);
-    } catch (err) {
+
+      const updatedDocs = [newDoc, ...documentsList];
+      const newCustomFields = { ...customFieldsObj, documents: updatedDocs };
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err: any) {
       console.error('Failed to upload document:', err);
-      alert('Помилка при завантаженні файлу');
+      alert(err?.response?.data?.error || 'Помилка при завантаженні файлу');
     } finally {
       setIsUploadingDoc(false);
       if (docFileInputRef.current) docFileInputRef.current.value = '';

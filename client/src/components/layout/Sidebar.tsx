@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
   currentTab: string;
@@ -42,6 +43,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile
 }) => {
   const { currentUser, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const pathTab = location.pathname.split('/')[1];
+  const activeTab = pathTab || currentTab || 'deals';
 
   const navItems = [
     { id: 'deals', label: 'Воронка угод', icon: Kanban, badge: null },
@@ -56,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleNavClick = (tabId: string) => {
     setCurrentTab(tabId);
+    navigate(`/${tabId}`);
     if (onCloseMobile) onCloseMobile();
   };
 
@@ -126,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <nav className="p-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentTab === item.id;
+              const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}

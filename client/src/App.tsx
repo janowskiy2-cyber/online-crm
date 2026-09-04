@@ -1,20 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
 import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { UnifiedInbox } from './components/inbox/UnifiedInbox';
 import { TasksView } from './components/tasks/TasksView';
 import { ContactsView } from './components/contacts/ContactsView';
-import { AnalyticsView } from './components/analytics/AnalyticsView';
-import { AutomationView } from './components/automation/AutomationView';
-import { CandidatesView } from './components/recruiting/CandidatesView';
-import { IntegrationsView } from './components/integrations/IntegrationsView';
-import { DealDetailModal } from './components/deal-modal/DealDetailModal';
 import { CreateDealModal } from './components/modals/CreateDealModal';
 import { QRConnectModal } from './components/modals/QRConnectModal';
-import { AdminPanelModal } from './components/admin/AdminPanelModal';
-import { RecruitingCalculatorModal } from './components/recruiting/RecruitingCalculatorModal';
-import { ObjectionsCheatSheetModal } from './components/recruiting/ObjectionsCheatSheetModal';
 import { LoginPage } from './components/auth/LoginPage';
 import { IncomingCallModal, IncomingCallData } from './components/telephony/IncomingCallModal';
 import { CallModal } from './components/telephony/CallModal';
@@ -23,8 +16,26 @@ import { api, socket } from './services/api';
 import { Pipeline, Deal } from './types';
 import { Kanban, MessageSquare, Globe2, CheckSquare, Menu } from 'lucide-react';
 
+// Code-Splitting: Lazy load heavy modules for fast initial paint (<150KB)
+const AnalyticsView = lazy(() => import('./components/analytics/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
+const AutomationView = lazy(() => import('./components/automation/AutomationView').then(m => ({ default: m.AutomationView })));
+const CandidatesView = lazy(() => import('./components/recruiting/CandidatesView').then(m => ({ default: m.CandidatesView })));
+const IntegrationsView = lazy(() => import('./components/integrations/IntegrationsView').then(m => ({ default: m.IntegrationsView })));
+const DealDetailModal = lazy(() => import('./components/deal-modal/DealDetailModal').then(m => ({ default: m.DealDetailModal })));
+const AdminPanelModal = lazy(() => import('./components/admin/AdminPanelModal').then(m => ({ default: m.AdminPanelModal })));
+const RecruitingCalculatorModal = lazy(() => import('./components/recruiting/RecruitingCalculatorModal').then(m => ({ default: m.RecruitingCalculatorModal })));
+const ObjectionsCheatSheetModal = lazy(() => import('./components/recruiting/ObjectionsCheatSheetModal').then(m => ({ default: m.ObjectionsCheatSheetModal })));
+
+const ViewLoader = () => (
+  <div className="flex-1 flex items-center justify-center bg-[#080c14]">
+    <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+  </div>
+);
+
 export function App() {
   const { isAuthenticated, currentUser } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [currentTab, setCurrentTab] = useState('deals');
   const [currentWorkspace, setCurrentWorkspace] = useState<'employers' | 'candidates' | 'agencies' | 'logistics'>('employers');
@@ -56,6 +67,22 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Deep linking: URL match for /deals/:dealId
+  const dealMatch = useMatch('/deals/:dealId');
+  const activeDealId = dealMatch?.params.dealId || selectedDealId;
+
+  const handleOpenDeal = (id: string) => {
+    setSelectedDealId(id);
+    navigate(`/deals/${id}`);
+  };
+
+  const handleCloseDeal = () => {
+    setSelectedDealId(null);
+    if (dealMatch) {
+      navigate('/deals');
+    }
+  };
+
   // Fetch Pipelines
   const fetchPipelines = async () => {
     try {
@@ -78,52 +105,20 @@ export function App() {
     }
   }, [isAuthenticated]);
 
-  // Live Incoming Calls Listener (Isolated to responsible manager)
+  // Telephony & Socket listeners
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const handleIncomingCall = (callData: IncomingCallData) => {
-      const myId = currentUser?.id || localStorage.getItem('crm_user_id') || 'usr-admin';
-      const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.canViewAllDeals;
-
-      if (isSuperAdmin || !callData.responsibleId || callData.responsibleId === myId) {
-        setIncomingCall(callData);
-      }
+    const handleIncomingCall = (data: IncomingCallData) => {
+      setIncomingCall(data);
     };
 
     socket.on('incoming_call', handleIncomingCall);
+
     return () => {
       socket.off('incoming_call', handleIncomingCall);
     };
-  }, [isAuthenticated, currentUser]);
-
-  const handleAcceptCall = (call: IncomingCallData) => {
-    setIncomingCall(null);
-    setActiveCallSession({
-      name: call.callerName,
-      phone: call.callerPhone,
-      type: call.channel,
-      dealId: call.dealId
-    });
-  };
-
-  const handleRejectCall = (call: IncomingCallData) => {
-    setIncomingCall(null);
-  };
-
-  const handleQuickReply = async (call: IncomingCallData, text: string) => {
-    setIncomingCall(null);
-    try {
-      const cleanPhone = call.callerPhone.replace(/\D/g, '');
-      if (call.channel === 'whatsapp') {
-        await api.post('/chat/whatsapp/send', { phone: cleanPhone, text, dealId: call.dealId });
-      } else {
-        await api.post('/chat/telegram/send', { peer: cleanPhone, text, dealId: call.dealId });
-      }
-    } catch (e) {
-      console.warn('Quick reply failed:', e);
-    }
-  };
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -131,18 +126,20 @@ export function App() {
 
   const activePipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0] || {
     id: 'default',
-    name: '🏢 Роботодавці: B2B Продажі',
+    name: 'Воронка роботодавців',
+    isDefault: true,
+    sortOrder: 0,
     stages: []
   };
 
   const handleOpenQRModal = (channel?: 'whatsapp' | 'telegram') => {
-    if (channel) setQrChannel(channel);
+    setQrChannel(channel || 'whatsapp');
     setIsQROpen(true);
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#080c14] text-slate-100 font-['Inter',sans-serif]">
-      {/* Left Sidebar (Desktop Fixed + Mobile Slide-over Drawer) */}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#070a12] text-slate-100 font-['Inter',sans-serif]">
+      {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
@@ -155,8 +152,9 @@ export function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#080c14] pb-14 md:pb-0">
+      {/* Main Workspace Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Top Navbar */}
         <Navbar
           currentWorkspace={currentWorkspace}
           setCurrentWorkspace={setCurrentWorkspace}
@@ -171,63 +169,69 @@ export function App() {
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
         />
 
-        {/* Dynamic Views */}
+        {/* Dynamic Views via React Router with Suspense */}
         <main className="flex-1 flex overflow-hidden">
-          {currentTab === 'deals' && (
-            <KanbanBoard
-              pipeline={activePipeline}
-              projectId={currentWorkspace}
-              searchQuery={searchQuery}
-              refreshTrigger={refreshTrigger}
-              onOpenDeal={(dealId) => setSelectedDealId(dealId)}
-              openCreateDeal={() => setIsCreateDealOpen(true)}
-            />
-          )}
+          <Suspense fallback={<ViewLoader />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/deals" replace />} />
+              
+              <Route path="/deals" element={
+                <KanbanBoard
+                  pipeline={activePipeline}
+                  projectId={currentWorkspace}
+                  searchQuery={searchQuery}
+                  refreshTrigger={refreshTrigger}
+                  onOpenDeal={handleOpenDeal}
+                  openCreateDeal={() => setIsCreateDealOpen(true)}
+                />
+              } />
 
-          {currentTab === 'inbox' && (
-            <UnifiedInbox
-              onOpenDeal={(dealId) => setSelectedDealId(dealId)}
-              openQRModal={handleOpenQRModal}
-            />
-          )}
+              <Route path="/deals/:dealId" element={
+                <KanbanBoard
+                  pipeline={activePipeline}
+                  projectId={currentWorkspace}
+                  searchQuery={searchQuery}
+                  refreshTrigger={refreshTrigger}
+                  onOpenDeal={handleOpenDeal}
+                  openCreateDeal={() => setIsCreateDealOpen(true)}
+                />
+              } />
 
-          {currentTab === 'candidates' && (
-            <CandidatesView />
-          )}
+              <Route path="/inbox" element={
+                <UnifiedInbox
+                  onOpenDeal={handleOpenDeal}
+                  openQRModal={handleOpenQRModal}
+                />
+              } />
 
-          {currentTab === 'integrations' && (
-            <IntegrationsView />
-          )}
+              <Route path="/candidates" element={<CandidatesView />} />
+              <Route path="/integrations" element={<IntegrationsView />} />
 
-          {currentTab === 'tasks' && (
-            <TasksView
-              onOpenDeal={(dealId) => setSelectedDealId(dealId)}
-            />
-          )}
+              <Route path="/tasks" element={
+                <TasksView onOpenDeal={handleOpenDeal} />
+              } />
 
-          {currentTab === 'contacts' && (
-            <ContactsView
-              onOpenDeal={(dealId) => setSelectedDealId(dealId)}
-            />
-          )}
+              <Route path="/contacts" element={
+                <ContactsView onOpenDeal={handleOpenDeal} />
+              } />
 
-          {currentTab === 'analytics' && (
-            <AnalyticsView />
-          )}
+              <Route path="/analytics" element={<AnalyticsView />} />
+              
+              <Route path="/automation" element={
+                <AutomationView pipelines={pipelines} />
+              } />
 
-          {currentTab === 'automation' && (
-            <AutomationView
-              pipelines={pipelines}
-            />
-          )}
+              <Route path="*" element={<Navigate to="/deals" replace />} />
+            </Routes>
+          </Suspense>
         </main>
 
         {/* Native Mobile Bottom Navigation Bar (iOS / Android App Style) */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[#0e1320] border-t border-slate-800 z-30 flex items-center justify-around px-2 select-none">
           <button
-            onClick={() => setCurrentTab('deals')}
+            onClick={() => { setCurrentTab('deals'); navigate('/deals'); }}
             className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              currentTab === 'deals' ? 'text-blue-400 font-bold' : 'text-slate-400'
+              location.pathname.startsWith('/deals') ? 'text-blue-400 font-bold' : 'text-slate-400'
             }`}
           >
             <Kanban className="w-4 h-4" />
@@ -235,29 +239,19 @@ export function App() {
           </button>
 
           <button
-            onClick={() => setCurrentTab('inbox')}
+            onClick={() => { setCurrentTab('inbox'); navigate('/inbox'); }}
             className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              currentTab === 'inbox' ? 'text-emerald-400 font-bold' : 'text-slate-400'
+              location.pathname.startsWith('/inbox') ? 'text-emerald-400 font-bold' : 'text-slate-400'
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span className="text-[10px]">Месенджери</span>
+            <span className="text-[10px]">Чати</span>
           </button>
 
           <button
-            onClick={() => setCurrentTab('candidates')}
+            onClick={() => { setCurrentTab('tasks'); navigate('/tasks'); }}
             className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              currentTab === 'candidates' ? 'text-purple-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            <Globe2 className="w-4 h-4" />
-            <span className="text-[10px]">Кандидати</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab('tasks')}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              currentTab === 'tasks' ? 'text-amber-400 font-bold' : 'text-slate-400'
+              location.pathname.startsWith('/tasks') ? 'text-amber-400 font-bold' : 'text-slate-400'
             }`}
           >
             <CheckSquare className="w-4 h-4" />
@@ -274,18 +268,20 @@ export function App() {
         </div>
       </div>
 
-      {/* Deal Detail Modal */}
-      {selectedDealId && (
-        <DealDetailModal
-          dealId={selectedDealId}
-          pipeline={activePipeline}
-          onClose={() => setSelectedDealId(null)}
-          onDealUpdated={() => setRefreshTrigger(prev => prev + 1)}
-          onDealDeleted={() => {
-            setSelectedDealId(null);
-            setRefreshTrigger(prev => prev + 1);
-          }}
-        />
+      {/* Deal Detail Modal — Deep Linking & Direct URL Support */}
+      {activeDealId && (
+        <Suspense fallback={null}>
+          <DealDetailModal
+            dealId={activeDealId}
+            pipeline={activePipeline}
+            onClose={handleCloseDeal}
+            onDealUpdated={() => setRefreshTrigger(prev => prev + 1)}
+            onDealDeleted={() => {
+              handleCloseDeal();
+              setRefreshTrigger(prev => prev + 1);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Create Deal Modal */}
@@ -297,6 +293,9 @@ export function App() {
           onDealCreated={(newDeal) => {
             setIsCreateDealOpen(false);
             setRefreshTrigger(prev => prev + 1);
+            if (newDeal?.id) {
+              handleOpenDeal(newDeal.id);
+            }
           }}
         />
       )}
@@ -311,43 +310,54 @@ export function App() {
 
       {/* Admin Panel Modal */}
       {isAdminPanelOpen && (
-        <AdminPanelModal
-          onClose={() => setIsAdminPanelOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <AdminPanelModal
+            onClose={() => setIsAdminPanelOpen(false)}
+          />
+        </Suspense>
       )}
 
-      {/* Objections Scripts Library Modal */}
-      {isObjectionsOpen && (
-        <ObjectionsCheatSheetModal
-          onClose={() => setIsObjectionsOpen(false)}
-          onSendToChat={(text) => {
-            setCurrentTab('inbox');
-            setIsObjectionsOpen(false);
-          }}
-        />
-      )}
-
-      {/* Calculator Modal */}
+      {/* Recruiting Commission Calculator Modal */}
       {isCalcOpen && (
-        <RecruitingCalculatorModal
-          onClose={() => setIsCalcOpen(false)}
+        <Suspense fallback={null}>
+          <RecruitingCalculatorModal
+            onClose={() => setIsCalcOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Objections & Scripting Cheat-Sheet Modal */}
+      {isObjectionsOpen && (
+        <Suspense fallback={null}>
+          <ObjectionsCheatSheetModal
+            onClose={() => setIsObjectionsOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Incoming Call Overlay Alert Modal */}
+      {incomingCall && (
+        <IncomingCallModal
+          data={incomingCall}
+          onAnswer={(callData) => {
+            setIncomingCall(null);
+            setActiveCallSession({
+              name: callData.contactName || 'Вхідний дзвінок',
+              phone: callData.phone,
+              type: 'gsm',
+              dealId: callData.dealId
+            });
+          }}
+          onDecline={() => setIncomingCall(null)}
         />
       )}
 
-      {/* Live Incoming Call Ringing Alert (Isolated per responsible manager) */}
-      <IncomingCallModal
-        call={incomingCall}
-        onAccept={handleAcceptCall}
-        onReject={handleRejectCall}
-        onQuickReply={handleQuickReply}
-      />
-
-      {/* Active In-Call Softphone Modal with Microphone & Audio */}
+      {/* Outgoing or Answered Active Call Screen */}
       {activeCallSession && (
         <CallModal
           contactName={activeCallSession.name}
           phoneNumber={activeCallSession.phone}
-          callType={activeCallSession.type}
+          channel={activeCallSession.type}
           dealId={activeCallSession.dealId}
           onClose={() => setActiveCallSession(null)}
         />
