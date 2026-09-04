@@ -174,6 +174,16 @@ export class WhatsAppService {
 
   public async startBaileysSocket() {
     try {
+      if (this.sock) {
+        try {
+          this.sock.ev.removeAllListeners('connection.update');
+          this.sock.ev.removeAllListeners('creds.update');
+          this.sock.ev.removeAllListeners('messages.upsert');
+          this.sock.end(undefined);
+        } catch (e) {}
+        this.sock = null;
+      }
+
       // Check if session directory has creds.json; if not, attempt DB restore
       if (!fs.existsSync(path.join(this.authDir, 'creds.json'))) {
         await this.restoreSessionFromDatabase();
@@ -217,11 +227,29 @@ export class WhatsAppService {
 
         if (connection === 'close') {
           const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
-          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+          const isLoggedOut = statusCode === DisconnectReason.loggedOut;
           this.status = 'disconnected';
           this.broadcastStatus();
-          if (shouldReconnect) {
-            setTimeout(() => this.startBaileysSocket(), 4000);
+
+          if (isLoggedOut) {
+            console.log('🚪 [WhatsApp] Сесія завершена або відкликана пристроєм. Очищення ключів авторизації...');
+            this.qrCode = null;
+            if (fs.existsSync(this.authDir)) {
+              fs.rmSync(this.authDir, { recursive: true, force: true });
+            }
+            await this.prisma.messengerSession.update({
+              where: { channel: 'whatsapp' },
+              data: {
+                status: 'disconnected',
+                sessionPayload: null,
+                qrCodeData: null,
+                phone: null
+              }
+            }).catch(() => {});
+            setTimeout(() => this.startBaileysSocket(), 1500);
+          } else {
+            console.log(`🔄 [WhatsApp] З'єднання розірвано (код: ${statusCode}). Перепідключення через 3с...`);
+            setTimeout(() => this.startBaileysSocket(), 3000);
           }
         } else if (connection === 'open') {
           this.status = 'connected';
@@ -521,10 +549,33 @@ export class WhatsAppService {
     };
   }
 
-  public async generateQR() {
-    if (!this.sock) {
+  public async generateQR(forceRefresh: boolean = false): Promise<string | null> {
+    if (this.status === 'connected') return null;
+
+    if (forceRefresh) {
+      console.log('🔄 [WhatsApp] Примусове перезавантаження сесії та генерація нового QR...');
+      this.qrCode = null;
+      if (fs.existsSync(this.authDir)) {
+        fs.rmSync(this.authDir, { recursive: true, force: true });
+      }
+      await this.prisma.messengerSession.update({
+        where: { channel: 'whatsapp' },
+        data: { status: 'disconnected', sessionPayload: null, qrCodeData: null, phone: null }
+      }).catch(() => {});
+      await this.startBaileysSocket();
+    } else if (!this.sock || (this.status === 'disconnected' && !this.qrCode)) {
       await this.startBaileysSocket();
     }
+
+    if (this.qrCode) return this.qrCode;
+
+    // Wait up to 6 seconds for Baileys to emit fresh QR code
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      if (this.qrCode) return this.qrCode;
+      if ((this.status as string) === 'connected') return null;
+    }
+
     return this.qrCode;
   }
 

@@ -126,7 +126,8 @@ export function createChatRouter(
   // 3. WhatsApp: Get real dynamic Meta QR Code
   router.get('/whatsapp/qr', async (req, res) => {
     try {
-      const qrCodeData = await whatsappService.generateQR();
+      const force = req.query.force === 'true';
+      const qrCodeData = await whatsappService.generateQR(force);
       res.json({ qrCodeData });
     } catch (e) {
       res.status(500).json({ error: 'Failed to generate WhatsApp QR' });

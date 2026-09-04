@@ -115,7 +115,7 @@ async function main() {
   });
   console.log(`   - Проверка активной выборки после восстановления: найдено ${restoredCheck.length} (Ожидалось 1: ✅ ВОССТАНОВЛЕНА В РАБОЧИЙ СПИСОК)\n`);
 
-  // 7. Проверка персистентности сессий WhatsApp и Telegram в базе данных
+  // 7. Проверка персистентности сессий мессенджеров в базе данных (изолированный тест)
   console.log('📱 [7/7] Проверка персистентности сессий мессенджеров (Neon PostgreSQL):');
   const dummyPayload = {
     files: {
@@ -125,13 +125,13 @@ async function main() {
   };
 
   await prisma.messengerSession.upsert({
-    where: { channel: 'whatsapp' },
+    where: { channel: 'test_backup_channel' },
     create: {
-      channel: 'whatsapp',
+      channel: 'test_backup_channel',
       status: 'connected',
       sessionPayload: JSON.stringify(dummyPayload),
       phone: '+380977510772',
-      accountName: 'Корпоративний WhatsApp Business'
+      accountName: 'Корпоративний WhatsApp Business (Тест)'
     },
     update: {
       status: 'connected',
@@ -140,14 +140,18 @@ async function main() {
     }
   });
 
-  const checkWhatsAppSession = await prisma.messengerSession.findUnique({ where: { channel: 'whatsapp' } });
+  const checkWhatsAppSession = await prisma.messengerSession.findUnique({ where: { channel: 'test_backup_channel' } });
   const parsedFiles = JSON.parse(checkWhatsAppSession?.sessionPayload || '{}').files || {};
   const fileKeys = Object.keys(parsedFiles);
 
-  console.log(`   - Сессия WhatsApp в PostgreSQL: ${checkWhatsAppSession ? '✅ НАЙДЕНА' : '❌ НЕ НАЙДЕНА'}`);
+  console.log(`   - Тестовая сессия в PostgreSQL: ${checkWhatsAppSession ? '✅ НАЙДЕНА' : '❌ НЕ НАЙДЕНА'}`);
   console.log(`   - Статус: ${checkWhatsAppSession?.status}, Номер: ${checkWhatsAppSession?.phone}`);
   console.log(`   - Сохранено файлов авторизации Baileys в БД: ${fileKeys.length} (${fileKeys.join(', ')})`);
-  console.log(`   - Проверка целостности creds.json: ${parsedFiles['creds.json'] ? '✅ ЦЕЛЫЙ' : '❌ ПОВРЕЖДЕН'}\n`);
+  console.log(`   - Проверка целостности creds.json: ${parsedFiles['creds.json'] ? '✅ ЦЕЛЫЙ' : '❌ ПОВРЕЖДЕН'}`);
+
+  // Очистка тестовой записи
+  await prisma.messengerSession.deleteMany({ where: { channel: 'test_backup_channel' } });
+  console.log('   - Очистка тестовой записи: ✅ ЗАВЕРШЕНО\n');
 
   console.log('================================================================');
   console.log('🎉 ВСЕ ПРОВЕРКИ УСПЕШНО ПРОЙДЕНЫ! СЕССИИ И ДАННЫЕ ЗАЩИЩЕНЫ В NEON DB.');

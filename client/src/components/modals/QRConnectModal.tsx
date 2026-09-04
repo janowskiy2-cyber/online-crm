@@ -71,10 +71,10 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     }
   };
 
-  const fetchWhatsAppQR = async () => {
+  const fetchWhatsAppQR = async (force: boolean = false) => {
     setLoading(true);
     try {
-      const res = await api.get('/chat/whatsapp/qr');
+      const res = await api.get(`/chat/whatsapp/qr${force ? '?force=true' : ''}`);
       if (res.data?.qrCodeData) {
         setWaQrImage(res.data.qrCodeData);
       }
@@ -89,7 +89,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     fetchStatus();
 
     if (activeChannel === 'whatsapp') {
-      fetchWhatsAppQR();
+      fetchWhatsAppQR(false);
     }
 
     const handleStatusUpdate = (data: any) => {
@@ -102,10 +102,22 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
     };
 
     socket.on('messenger_status', handleStatusUpdate);
+
+    // Auto-poll if WhatsApp is waiting for QR and not connected yet
+    let pollInterval: any = null;
+    if (activeChannel === 'whatsapp' && !isWaConnected) {
+      pollInterval = setInterval(() => {
+        if (!waQrImage) {
+          fetchWhatsAppQR(false);
+        }
+      }, 3000);
+    }
+
     return () => {
       socket.off('messenger_status', handleStatusUpdate);
+      if (pollInterval) clearInterval(pollInterval);
     };
-  }, [activeChannel]);
+  }, [activeChannel, isWaConnected, waQrImage]);
 
   // Telegram Step 1: Send real official MTProto code to phone
   const handleTgSendCode = async (e: React.FormEvent) => {
@@ -317,7 +329,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
 
               <div className="flex justify-center gap-2">
                 <button
-                  onClick={fetchWhatsAppQR}
+                  onClick={() => fetchWhatsAppQR(true)}
                   disabled={loading}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
                 >
