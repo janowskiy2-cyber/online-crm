@@ -27,19 +27,12 @@ import { createUploadRouter } from './routes/upload.routes';
 import { createTelephonyRouter } from './routes/telephony.routes';
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
-
-const ALLOWED_ORIGINS = [
-  'https://online-crm-alpha.vercel.app',
-  'https://online-crm.onrender.com',
-  'https://online-crm-frontend.onrender.com',
-  'http://localhost:5173',
-  'http://localhost:3000'
-];
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: ALLOWED_ORIGINS,
+    origin: '*',
     methods: ['GET', 'POST']
   }
 });
@@ -55,7 +48,12 @@ waService.setSocketIO(io);
 tgService.setSocketIO(io);
 automationService.setSocketIO(io);
 
-app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+// Dynamic CORS to ensure Vercel preview URLs, production URLs, and local dev never trigger Network Error
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+
 // Safe memory limits: 5mb max JSON payload prevents OOM crashes
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ limit: '5mb', extended: true }));
