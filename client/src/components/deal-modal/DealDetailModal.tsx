@@ -45,6 +45,15 @@ import { GeminiModal } from '../recruiting/GeminiModal';
 import { startSpeechToText } from '../../utils/speechRecognition';
 import { openPrintableInvoice } from '../../utils/invoiceGenerator';
 
+const resolveMediaUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'https://online-crm.onrender.com';
+  return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 interface DealDetailModalProps {
   dealId: string;
   pipeline: Pipeline;
@@ -63,6 +72,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const { currentUser, users } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'candidates' | 'documents' | 'notes' | 'tasks'>('all');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Modals state
   const [isKPModalOpen, setIsKPModalOpen] = useState(false);
@@ -236,6 +246,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [deal?.messages?.length, activeTab]);
 
   if (!deal) return null;
 
@@ -462,7 +479,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const timelineItems = [
     ...(deal.notes || []).map((n: any) => ({ ...n, itemType: 'note', timestamp: new Date(n.createdAt).getTime() })),
     ...(deal.messages || []).map((m: any) => ({ ...m, itemType: 'message', timestamp: new Date(m.createdAt).getTime() }))
-  ].sort((a, b) => b.timestamp - a.timestamp);
+  ].sort((a, b) => a.timestamp - b.timestamp);
 
   interface CandidateItem {
     id: string;
@@ -1547,7 +1564,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                           {isVoice ? (
                             <div className="max-w-[85%] sm:max-w-md w-full">
                               <AudioMessagePlayer
-                                audioUrl={item.mediaUrl || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'}
+                                audioUrl={resolveMediaUrl(item.mediaUrl) || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'}
                                 duration={12}
                                 transcription={item.text.replace('🎤 Голосове повідомлення', '').replace('🎤', '').trim()}
                                 isOutgoing={isOutgoing}
@@ -1555,17 +1572,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             </div>
                           ) : isImage && item.mediaUrl ? (
                             <div
-                              onClick={() => setViewingMedia({ url: item.mediaUrl, type: 'image', title: 'Фото від клієнта' })}
+                              onClick={() => setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'image', title: 'Фото від клієнта' })}
                               className="cursor-pointer max-w-xs rounded-2xl overflow-hidden border border-slate-700 shadow-md hover:opacity-90 transition"
                             >
-                              <img src={item.mediaUrl} alt="Зображення" className="w-full object-cover max-h-48" />
+                              <img src={resolveMediaUrl(item.mediaUrl)} alt="Зображення" className="w-full object-cover max-h-48" />
                             </div>
                           ) : (
                             <div
                               onClick={() => {
                                 if (isFile) {
                                   setViewingMedia({
-                                    url: item.mediaUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                                    url: resolveMediaUrl(item.mediaUrl) || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
                                     type: 'pdf',
                                     title: item.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
                                   });
@@ -1603,6 +1620,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     );
                   })
                 )}
+                {/* Scroll Anchor for instant scroll to newest message */}
+                <div ref={messagesEndRef} />
               </div>
             )}
 

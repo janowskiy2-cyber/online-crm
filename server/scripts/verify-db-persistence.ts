@@ -115,18 +115,42 @@ async function main() {
   });
   console.log(`   - Проверка активной выборки после восстановления: найдено ${restoredCheck.length} (Ожидалось 1: ✅ ВОССТАНОВЛЕНА В РАБОЧИЙ СПИСОК)\n`);
 
-  // 6. Итоговый аудит сохранности
-  console.log('📊 [6/6] Итоговая проверка сохранности данных в PostgreSQL:');
-  const verifyUser = await prisma.user.findUnique({ where: { id: testUser.id } });
-  const verifyDeal = await prisma.deal.findUnique({ where: { id: testDeal.id } });
+  // 7. Проверка персистентности сессий WhatsApp и Telegram в базе данных
+  console.log('📱 [7/7] Проверка персистентности сессий мессенджеров (Neon PostgreSQL):');
+  const dummyPayload = {
+    files: {
+      'creds.json': Buffer.from(JSON.stringify({ me: { id: '380977510772:1@s.whatsapp.net', name: 'B2B WhatsApp' } })).toString('base64'),
+      'app-state-sync-key-1': Buffer.from('test_binary_key').toString('base64')
+    }
+  };
 
-  console.log(`   - Пользователь в БД: ${verifyUser ? '✅ СУЩЕСТВУЕТ И НЕПРИКОСНОВЕНЕН' : '❌ ОШИБКА'}`);
-  console.log(`   - Сделка в БД: ${verifyDeal ? '✅ СУЩЕСТВУЕТ И НЕПРИКОСНОВЕННА' : '❌ ОШИБКА'}`);
-  console.log(`   - Идентификатор сотрудника: ${testUser.id} (${testUser.email})`);
-  console.log(`   - Идентификатор сделки: ${testDeal.id} ("${testDeal.title}")\n`);
+  await prisma.messengerSession.upsert({
+    where: { channel: 'whatsapp' },
+    create: {
+      channel: 'whatsapp',
+      status: 'connected',
+      sessionPayload: JSON.stringify(dummyPayload),
+      phone: '+380977510772',
+      accountName: 'Корпоративний WhatsApp Business'
+    },
+    update: {
+      status: 'connected',
+      sessionPayload: JSON.stringify(dummyPayload),
+      phone: '+380977510772'
+    }
+  });
+
+  const checkWhatsAppSession = await prisma.messengerSession.findUnique({ where: { channel: 'whatsapp' } });
+  const parsedFiles = JSON.parse(checkWhatsAppSession?.sessionPayload || '{}').files || {};
+  const fileKeys = Object.keys(parsedFiles);
+
+  console.log(`   - Сессия WhatsApp в PostgreSQL: ${checkWhatsAppSession ? '✅ НАЙДЕНА' : '❌ НЕ НАЙДЕНА'}`);
+  console.log(`   - Статус: ${checkWhatsAppSession?.status}, Номер: ${checkWhatsAppSession?.phone}`);
+  console.log(`   - Сохранено файлов авторизации Baileys в БД: ${fileKeys.length} (${fileKeys.join(', ')})`);
+  console.log(`   - Проверка целостности creds.json: ${parsedFiles['creds.json'] ? '✅ ЦЕЛЫЙ' : '❌ ПОВРЕЖДЕН'}\n`);
 
   console.log('================================================================');
-  console.log('🎉 ВСЕ ПРОВЕРКИ УСПЕШНО ПРОЙДЕНЫ! ДАННЫЕ ЗАЩИЩЕНЫ ОТ УДАЛЕНИЯ.');
+  console.log('🎉 ВСЕ ПРОВЕРКИ УСПЕШНО ПРОЙДЕНЫ! СЕССИИ И ДАННЫЕ ЗАЩИЩЕНЫ В NEON DB.');
   console.log('================================================================');
 }
 

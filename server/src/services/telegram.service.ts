@@ -21,6 +21,7 @@ export class TelegramService {
   private pendingPhone: string | null = null;
   private phoneCodeHash: string | null = null;
   private accountInfo: { name?: string; phone?: string; username?: string } = {};
+  private heartbeatInterval: NodeJS.Timeout | null = null;
 
   constructor(prisma: PrismaClient, distributionService: LeadDistributionService) {
     this.prisma = prisma;
@@ -34,13 +35,27 @@ export class TelegramService {
   public async initialize() {
     try {
       const session = await this.prisma.messengerSession.findUnique({ where: { channel: 'telegram' } });
-      if (session && session.qrCodeData && session.status === 'connected') {
-        this.sessionString = session.qrCodeData;
+      const savedStr = session?.sessionPayload || session?.qrCodeData;
+      if (savedStr && (session?.status === 'connected' || session?.status === 'awaiting_code')) {
+        this.sessionString = savedStr;
         await this.connectWithSessionString(this.sessionString);
       }
     } catch (e) {
       console.warn('Telegram initial MTProto session restore:', e);
     }
+  }
+
+  private startHeartbeat() {
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+    this.heartbeatInterval = setInterval(async () => {
+      if (this.client && this.status === 'connected') {
+        try {
+          await this.client.invoke(new Api.help.GetNearestDc());
+        } catch (err) {
+          console.warn('⚠️ [Telegram] Heartbeat ping failed:', err);
+        }
+      }
+    }, 45000);
   }
 
   public isConnected(): boolean {
@@ -142,26 +157,36 @@ export class TelegramService {
     }
   }
 
-  private async connectWithSessionString(sessionStr: string) {
-    try {
-      this.client = new TelegramClient(new StringSession(sessionStr), DEFAULT_API_ID, DEFAULT_API_HASH, {
-        connectionRetries: 5
-      });
-      await this.client.connect();
-      const me: any = await this.client.getMe();
-      if (me) {
-        this.status = 'connected';
-        this.accountInfo = {
-          name: `${me.firstName || ''} ${me.lastName || ''}`.trim() || me.username,
-          username: me.username ? `@${me.username}` : undefined,
-          phone: me.phone ? `+${me.phone}` : undefined
-        };
-        this.setupMessageListener();
-        this.broadcastStatus();
+  private async connectWithSessionString(sessionStr: string, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        this.client = new TelegramClient(new StringSession(sessionStr), DEFAULT_API_ID, DEFAULT_API_HASH, {
+          connectionRetries: 5
+        });
+        await this.client.connect();
+        const me: any = await this.client.getMe();
+        if (me) {
+          this.status = 'connected';
+          this.accountInfo = {
+            name: `${me.firstName || ''} ${me.lastName || ''}`.trim() || me.username,
+            username: me.username ? `@${me.username}` : undefined,
+            phone: me.phone ? `+${me.phone}` : undefined
+          };
+          this.setupMessageListener();
+          this.startHeartbeat();
+          this.broadcastStatus();
+          console.log(`✅ [Telegram] MTProto сесію успішно відновлено для: ${this.accountInfo.name || this.accountInfo.phone}`);
+          return;
+        }
+      } catch (e) {
+        console.warn(`⚠️ [Telegram] Спроба відновлення сесії ${attempt}/${retries} не вдалася:`, e);
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, attempt * 2000));
+        } else {
+          this.status = 'disconnected';
+          this.broadcastStatus();
+        }
       }
-    } catch (e) {
-      console.warn('Session string connect failed:', e);
-      this.status = 'disconnected';
     }
   }
 
@@ -186,6 +211,10 @@ export class TelegramService {
   }
 
   public async disconnect() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
     try {
       if (this.client) {
         await this.client.disconnect();
@@ -196,7 +225,18 @@ export class TelegramService {
     this.sessionString = '';
     this.accountInfo = {};
     this.pendingPhone = null;
-    await this.persistSession();
+    try {
+      await this.prisma.messengerSession.update({
+        where: { channel: 'telegram' },
+        data: {
+          status: 'disconnected',
+          sessionPayload: null,
+          qrCodeData: null,
+          phone: null
+        }
+      });
+      console.log('🧹 [Telegram] MTProto сесію очищено в базі даних.');
+    } catch (e) {}
     this.broadcastStatus();
   }
 
@@ -273,26 +313,35 @@ export class TelegramService {
   }
 
   public async sendFile(toTgIdOrUsername: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
+    let finalFileName = fileName;
+    if (mimeType === 'application/pdf' && !finalFileName.toLowerCase().endsWith('.pdf')) {
+      finalFileName = `${finalFileName}.pdf`;
+    }
+
     const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
 
     if (this.client && this.status === 'connected') {
       try {
         await this.client.sendFile(toTgIdOrUsername, {
           file: buffer,
-          caption: caption || fileName
+          caption: caption || finalFileName
         });
       } catch (err) {
         console.warn('Error sending MTProto file:', err);
       }
     }
 
-    // Save file to permanent Cloudinary Cloud Storage
-    const savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, fileName, mimeType);
+    // Save file to permanent Cloudinary Cloud Storage or local fallback
+    let savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, finalFileName, mimeType);
+    if (savedMediaUrl.startsWith('/api/uploads')) {
+      const serverHost = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
+      savedMediaUrl = `${serverHost}${savedMediaUrl}`;
+    }
 
-    const isVoice = mimeType.startsWith('audio/') || fileName.includes('Voice_Note');
+    const isVoice = mimeType.startsWith('audio/') || finalFileName.includes('Voice_Note');
     const fileLabel = isVoice
       ? `🎤 Голосове повідомлення (${caption || 'аудіо'})`
-      : `📎 Файл TG: ${fileName}${caption ? ` — ${caption}` : ''}`;
+      : `📎 Файл TG: ${finalFileName}${caption ? ` — ${caption}` : ''}`;
 
     const savedMsg = await this.prisma.chatMessage.create({
       data: {
@@ -366,7 +415,7 @@ export class TelegramService {
       // If new lead from Telegram -> Auto-Distribute via Round-Robin or Unassigned Stage
       if (!deal) {
         deal = await this.distributionService.processInboundLead({
-          title: `Звернення Telegram: ${fullName || username}`,
+          title: `Запит Telegram: ${contact.name}`,
           contactId: contact.id,
           channel: 'telegram',
           text,
@@ -438,12 +487,14 @@ export class TelegramService {
           channel: 'telegram',
           status: this.status,
           qrCodeData: sessionStr || null,
+          sessionPayload: sessionStr || null,
           accountName: accountName || 'Telegram Користувач',
           phone: phone || null
         },
         update: {
           status: this.status,
           qrCodeData: sessionStr !== undefined ? sessionStr : undefined,
+          sessionPayload: sessionStr !== undefined ? sessionStr : undefined,
           accountName: accountName !== undefined ? accountName : undefined,
           phone: phone !== undefined ? phone : undefined
         }

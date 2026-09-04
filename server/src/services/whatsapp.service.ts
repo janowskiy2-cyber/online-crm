@@ -27,6 +27,9 @@ export class WhatsAppService {
     channel: 'whatsapp'
   };
 
+  private recentSentMessages = new Map<string, number>();
+  private backupDebounceTimer: NodeJS.Timeout | null = null;
+
   public getLineStatus() {
     return this.lineStatus;
   }
@@ -59,7 +62,111 @@ export class WhatsAppService {
     this.io = io;
   }
 
+  public normalizePhone(phone: string): string {
+    let digits = String(phone || '').replace(/\D/g, '');
+    if (digits.length === 10 && digits.startsWith('0')) {
+      digits = '38' + digits; // 0971234567 -> 380971234567
+    } else if (digits.length === 9) {
+      digits = '380' + digits; // 971234567 -> 380971234567
+    }
+    return digits;
+  }
+
+  private markMessageAsSentLocally(cleanPhone: string, text: string) {
+    const key = `${cleanPhone}:${text.trim()}`;
+    this.recentSentMessages.set(key, Date.now());
+    const now = Date.now();
+    for (const [k, time] of this.recentSentMessages.entries()) {
+      if (now - time > 120000) {
+        this.recentSentMessages.delete(k);
+      }
+    }
+  }
+
+  private isMessageRecentlySentLocally(cleanPhone: string, text: string): boolean {
+    const key = `${cleanPhone}:${text.trim()}`;
+    const timestamp = this.recentSentMessages.get(key);
+    if (!timestamp) return false;
+    return (Date.now() - timestamp) < 60000;
+  }
+
+  public async restoreSessionFromDatabase() {
+    try {
+      const session = await this.prisma.messengerSession.findUnique({
+        where: { channel: 'whatsapp' }
+      });
+      if (session?.sessionPayload) {
+        const data = JSON.parse(session.sessionPayload);
+        if (data && data.files && typeof data.files === 'object') {
+          if (!fs.existsSync(this.authDir)) {
+            fs.mkdirSync(this.authDir, { recursive: true });
+          }
+          const fileNames = Object.keys(data.files);
+          for (const fn of fileNames) {
+            const base64 = data.files[fn];
+            if (base64) {
+              const filePath = path.join(this.authDir, fn);
+              fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+            }
+          }
+          console.log(`✅ [WhatsApp] Успішно відновлено ${fileNames.length} файлів авторизації з бази даних PostgreSQL (Neon).`);
+          if (session.phone) {
+            this.accountPhone = session.phone;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ [WhatsApp] Не вдалося відновити сесію з бази даних:', e);
+    }
+  }
+
+  public queueSessionBackup() {
+    if (this.backupDebounceTimer) clearTimeout(this.backupDebounceTimer);
+    this.backupDebounceTimer = setTimeout(() => {
+      this.backupSessionToDatabase().catch(e => {
+        console.warn('⚠️ [WhatsApp] Фонове збереження сесії в БД не вдалося:', e);
+      });
+    }, 1500);
+  }
+
+  public async backupSessionToDatabase() {
+    try {
+      if (!fs.existsSync(this.authDir)) return;
+      const files = fs.readdirSync(this.authDir);
+      if (files.length === 0) return;
+
+      const fileMap: Record<string, string> = {};
+      for (const f of files) {
+        const fullPath = path.join(this.authDir, f);
+        if (fs.statSync(fullPath).isFile()) {
+          fileMap[f] = fs.readFileSync(fullPath).toString('base64');
+        }
+      }
+
+      await this.prisma.messengerSession.upsert({
+        where: { channel: 'whatsapp' },
+        create: {
+          channel: 'whatsapp',
+          status: this.status,
+          sessionPayload: JSON.stringify({ files: fileMap }),
+          phone: this.accountPhone,
+          accountName: 'Корпоративний WhatsApp Business'
+        },
+        update: {
+          status: this.status,
+          sessionPayload: JSON.stringify({ files: fileMap }),
+          phone: this.accountPhone || undefined,
+          updatedAt: new Date()
+        }
+      });
+      console.log(`💾 [WhatsApp] Збережено ${files.length} ключів сесії в постійну базу даних Neon PostgreSQL.`);
+    } catch (e) {
+      console.warn('⚠️ [WhatsApp] Помилка синхронізації сесії в PostgreSQL:', e);
+    }
+  }
+
   public async initialize() {
+    await this.restoreSessionFromDatabase();
     this.startBaileysSocket().catch((e) => {
       console.warn('Baileys initial connect fallback:', e);
     });
@@ -67,6 +174,11 @@ export class WhatsAppService {
 
   public async startBaileysSocket() {
     try {
+      // Check if session directory has creds.json; if not, attempt DB restore
+      if (!fs.existsSync(path.join(this.authDir, 'creds.json'))) {
+        await this.restoreSessionFromDatabase();
+      }
+
       const baileys = await import('@whiskeysockets/baileys');
       const makeWASocket = baileys.default || baileys.makeWASocket;
       const { useMultiFileAuthState, DisconnectReason } = baileys;
@@ -84,7 +196,10 @@ export class WhatsAppService {
         syncFullHistory: false
       });
 
-      this.sock.ev.on('creds.update', saveCreds);
+      this.sock.ev.on('creds.update', async () => {
+        await saveCreds();
+        this.queueSessionBackup();
+      });
 
       this.sock.ev.on('connection.update', async (update: any) => {
         const { connection, lastDisconnect, qr } = update;
@@ -114,7 +229,8 @@ export class WhatsAppService {
           const userJid = this.sock?.user?.id || '';
           this.accountPhone = userJid.split(':')[0] || userJid.split('@')[0] || '+380734277174';
           this.broadcastStatus();
-          await this.persistSession('Корпоративний WhatsApp Business', `+${this.accountPhone.replace(/\D/g, '')}`);
+          await this.persistSession('Корпоративний WhatsApp Business', `+${this.normalizePhone(this.accountPhone)}`);
+          await this.backupSessionToDatabase();
         }
       });
 
@@ -128,7 +244,7 @@ export class WhatsAppService {
             const remoteJid = msg.key?.remoteJid || '';
             if (remoteJid === 'status@broadcast') continue;
 
-            const cleanPhone = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '').split(':')[0].replace(/\D/g, '');
+            const cleanPhone = this.normalizePhone(remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '').split(':')[0]);
             const isFromMe = !!msg.key?.fromMe;
 
             const content = msg.message;
@@ -152,6 +268,17 @@ export class WhatsAppService {
             }
 
             if (!text) continue;
+
+            // Anti-Duplication: If this was sent by CRM recently, do not duplicate in ChatMessage!
+            if (isFromMe) {
+              if (this.isMessageRecentlySentLocally(cleanPhone, text)) {
+                continue;
+              }
+              const myPhone = this.normalizePhone(this.accountPhone || '');
+              if (myPhone && cleanPhone === myPhone) {
+                continue; // Do not record messages to own self
+              }
+            }
 
             const pushName = msg.pushName || (isFromMe ? 'Менеджер' : `Клієнт (+${cleanPhone})`);
             await this.processIncomingOrOutgoingMessage(cleanPhone, pushName, text, isFromMe);
@@ -321,8 +448,8 @@ export class WhatsAppService {
         orderBy: { updatedAt: 'desc' }
       });
 
-      // If new lead from WhatsApp -> Auto-Distribute via Round-Robin or Unassigned Stage
-      if (!deal) {
+      // If new lead from WhatsApp -> Auto-Distribute via Round-Robin or Unassigned Stage ONLY for incoming messages!
+      if (!deal && !isFromMe) {
         deal = await this.distributionService.processInboundLead({
           title: `Запит WhatsApp: ${contact.name}`,
           contactId: contact.id,
@@ -413,21 +540,40 @@ export class WhatsAppService {
     if (fs.existsSync(this.authDir)) {
       fs.rmSync(this.authDir, { recursive: true, force: true });
     }
+    try {
+      await this.prisma.messengerSession.update({
+        where: { channel: 'whatsapp' },
+        data: {
+          status: 'disconnected',
+          sessionPayload: null,
+          qrCodeData: null,
+          phone: null
+        }
+      });
+      console.log('🧹 [WhatsApp] Сесію повністю видалено з PostgreSQL бази даних.');
+    } catch (e) {}
     this.broadcastStatus();
-    await this.persistSession();
     setTimeout(() => this.startBaileysSocket(), 2000);
   }
 
   public async sendMessage(toPhone: string, text: string, dealId?: string, contactId?: string) {
-    const cleanPhone = toPhone.replace(/\D/g, '');
+    const cleanPhone = this.normalizePhone(toPhone);
+    if (!cleanPhone || cleanPhone.length < 9) {
+      throw new Error('Некоректний номер телефону для відправки WhatsApp (занадто короткий)');
+    }
 
-    if (this.sock && this.status === 'connected') {
-      try {
-        const jid = `${cleanPhone}@s.whatsapp.net`;
-        await this.sock.sendMessage(jid, { text });
-      } catch (err) {
-        console.warn('Error sending text via WhatsApp:', err);
-      }
+    if (!this.sock || this.status !== 'connected') {
+      throw new Error('WhatsApp не підключений до CRM або відновлює з’єднання. Перевірте статус у розділі "Шлюз"');
+    }
+
+    const jid = `${cleanPhone}@s.whatsapp.net`;
+    this.markMessageAsSentLocally(cleanPhone, text);
+
+    try {
+      await this.sock.sendMessage(jid, { text });
+    } catch (err: any) {
+      console.error('Error sending text via WhatsApp socket:', err);
+      throw new Error(`Помилка надсилання в WhatsApp: ${err.message || 'Збій передачі'}`);
     }
 
     const savedMsg = await this.prisma.chatMessage.create({
@@ -450,42 +596,59 @@ export class WhatsAppService {
   }
 
   public async sendFile(toPhone: string, fileBase64: string, fileName: string, mimeType: string, caption?: string, dealId?: string, contactId?: string) {
-    const cleanPhone = toPhone.replace(/\D/g, '');
-    const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
-
-    if (this.sock && this.status === 'connected') {
-      try {
-        const jid = `${cleanPhone}@s.whatsapp.net`;
-        if (mimeType.startsWith('image/')) {
-          await this.sock.sendMessage(jid, {
-            image: buffer,
-            caption: caption || fileName
-          });
-        } else if (mimeType.startsWith('audio/')) {
-          await this.sock.sendMessage(jid, {
-            audio: buffer,
-            mimetype: 'audio/mp4',
-            ptt: true
-          });
-        } else {
-          await this.sock.sendMessage(jid, {
-            document: buffer,
-            mimetype: mimeType || 'application/pdf',
-            fileName: fileName || 'Document.pdf',
-            caption: caption || fileName
-          });
-        }
-      } catch (err) {
-        console.warn('Error sending file via WhatsApp:', err);
-      }
+    const cleanPhone = this.normalizePhone(toPhone);
+    if (!cleanPhone || cleanPhone.length < 9) {
+      throw new Error('Некоректний номер телефону для відправки файлу в WhatsApp');
     }
 
-    // Save file to permanent Cloudinary Cloud Storage
-    const savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, fileName, mimeType);
+    if (!this.sock || this.status !== 'connected') {
+      throw new Error('WhatsApp не підключений. Відскануйте QR-код для надсилання файлів.');
+    }
+
+    let finalFileName = fileName;
+    if (mimeType === 'application/pdf' && !finalFileName.toLowerCase().endsWith('.pdf')) {
+      finalFileName = `${finalFileName}.pdf`;
+    }
+
+    const buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
+    const jid = `${cleanPhone}@s.whatsapp.net`;
+    this.markMessageAsSentLocally(cleanPhone, caption || finalFileName);
+
+    try {
+      if (mimeType.startsWith('image/')) {
+        await this.sock.sendMessage(jid, {
+          image: buffer,
+          caption: caption || finalFileName
+        });
+      } else if (mimeType.startsWith('audio/')) {
+        await this.sock.sendMessage(jid, {
+          audio: buffer,
+          mimetype: 'audio/mp4',
+          ptt: true
+        });
+      } else {
+        await this.sock.sendMessage(jid, {
+          document: buffer,
+          mimetype: mimeType || 'application/pdf',
+          fileName: finalFileName,
+          caption: caption || finalFileName
+        });
+      }
+    } catch (err: any) {
+      console.error('Error sending file via WhatsApp:', err);
+      throw new Error(`Помилка надсилання файлу в WhatsApp: ${err.message || 'Збій'}`);
+    }
+
+    // Save file to permanent Cloudinary or local Storage
+    let savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, finalFileName, mimeType);
+    if (savedMediaUrl.startsWith('/api/uploads')) {
+      const serverHost = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
+      savedMediaUrl = `${serverHost}${savedMediaUrl}`;
+    }
 
     const fileLabel = mimeType.startsWith('audio/') 
       ? `🎤 Голосове повідомлення (${caption || 'аудіо'})` 
-      : `📎 Файл: ${fileName}${caption ? ` — ${caption}` : ''}`;
+      : `📎 Файл: ${finalFileName}${caption ? ` — ${caption}` : ''}`;
 
     const savedMsg = await this.prisma.chatMessage.create({
       data: {

@@ -229,13 +229,14 @@ model ChatMessage {
 }
 
 model MessengerSession {
-  id          String   @id @default(uuid())
-  channel     String   @unique // whatsapp, telegram
-  status      String   @default("disconnected") // qr_ready, connecting, connected, disconnected
-  qrCodeData  String?  // Base64 QR Image or raw QR string
-  accountName String?
-  phone       String?
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(uuid())
+  channel        String   @unique // whatsapp, telegram
+  status         String   @default("disconnected") // qr_ready, connecting, connected, disconnected
+  qrCodeData     String?  // Base64 QR Image or raw QR string
+  sessionPayload String?  // Serialized auth keys/files for WhatsApp or Telegram MTProto session
+  accountName    String?
+  phone          String?
+  updatedAt      DateTime @updatedAt
 }
 
 model AutomationRule {
