@@ -79,36 +79,44 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ pipelines }) => 
   const pipelineRules = rules.filter(r => r.pipelineId === selectedPipelineId);
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-[#0b0f19]">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
-              <Zap className="w-7 h-7 text-amber-400" />
-              <span>Digital Pipeline — Автоворонка</span>
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Автоматические действия (отправка WhatsApp/Telegram, постановка задач) при переходах сделок
-            </p>
-          </div>
+    <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bitrix-wallpaper font-['Inter',sans-serif] select-none">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header (Bitrix24 Glassmorphism) */}
+        <div className="bitrix-glass rounded-2xl p-6 shadow-2xl border border-white/10 backdrop-blur-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
+                  <Zap className="w-3 h-3" /> РОБОТИЗАЦІЯ ВОРОНКИ
+                </span>
+                <span className="text-xs text-slate-400 font-mono">Digital Pipeline & Тригери</span>
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                <span>Автоворонка та Роботи</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                Автоматичні дії (відправка WhatsApp/Telegram, постановка завдань рекрутерам) при зміні етапів
+              </p>
+            </div>
 
-          <button
-            onClick={() => setIsCreating(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-md shadow-blue-600/30"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Добавить автодействие</span>
-          </button>
+            <button
+              onClick={() => setIsCreating(true)}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-blue-600/30 active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Створити автодію</span>
+            </button>
+          </div>
         </div>
 
         {/* Pipeline Filter */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-400 font-semibold">Воронка:</label>
+        <div className="bitrix-glass p-3 rounded-xl border border-white/10 flex items-center gap-3">
+          <label className="text-xs text-slate-300 font-semibold">Воронка:</label>
           <select
             value={selectedPipelineId}
             onChange={(e) => setSelectedPipelineId(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white"
+            className="bg-slate-900/90 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 cursor-pointer"
           >
             {pipelines.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -118,7 +126,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ pipelines }) => 
 
         {/* Create Rule Modal / Form */}
         {isCreating && (
-          <form onSubmit={handleCreateRule} className="bg-[#111827] border border-blue-500/50 rounded-2xl p-6 space-y-4 shadow-xl">
+          <form onSubmit={handleCreateRule} className="bitrix-glass border border-blue-500/40 rounded-2xl p-6 space-y-4 shadow-2xl animate-in fade-in">
             <h3 className="font-bold text-sm text-white">Создание нового автоматического действия</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -215,7 +223,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ pipelines }) => 
             return (
               <div
                 key={rule.id}
-                className="bg-[#111827] border border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-sm"
+                className="bitrix-glass border border-white/10 rounded-2xl p-5 flex items-center justify-between shadow-xl hover:border-blue-500/30 transition-all duration-200"
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${

@@ -85,49 +85,82 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
   const completedTasks = tasks.filter(t => t.isCompleted);
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-[#080c14] select-none font-['Inter',sans-serif]">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bitrix-wallpaper font-['Inter',sans-serif] select-none">
+      <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
-              <CheckSquare className="w-7 h-7 text-blue-500" />
-              <span>Завдання та Дедлайни</span>
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Контроль виконання домовленостей по угодах та клієнтах
-            </p>
+        {/* Header (Bitrix24 Glassmorphism) */}
+        <div className="bitrix-glass rounded-2xl p-6 shadow-2xl border border-white/10 backdrop-blur-2xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1.5">
+                  <CheckSquare className="w-3 h-3" /> РОБОЧІ ЗАВДАННЯ
+                </span>
+                <span className="text-xs text-slate-400 font-mono">Контроль дедлайнів & Домовленостей</span>
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                <span>Мої завдання</span>
+                <span className="text-sm px-2.5 py-0.5 rounded-xl bg-white/10 text-slate-300 font-semibold">
+                  {tasks.length} завдань
+                </span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                Оперативне керування дорученнями, дзвінками кандидатам та виставленням рахунків роботодавцям.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                onClick={() => setIsCreating(true)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-blue-600/30 active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Нове завдання</span>
+              </button>
+
+              <div className="flex bg-slate-900/80 border border-white/10 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  onClick={() => setFilter('active')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${filter === 'active' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Активні
+                </button>
+                <button
+                  onClick={() => setFilter('completed')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${filter === 'completed' ? 'bg-emerald-600 text-white shadow-sm font-bold' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Завершені
+                </button>
+                <button
+                  onClick={() => setFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${filter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Всі
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Bitrix24 Task Roles Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-6 pt-5 border-t border-white/10">
             <button
-              onClick={() => setIsCreating(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-blue-600/30 active:scale-95"
+              onClick={() => setFilter('active')}
+              className="p-3 rounded-xl bg-slate-900/60 hover:bg-slate-900/90 border border-white/5 hover:border-blue-500/30 text-left transition"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ Нове завдання</span>
+              <div className="text-[11px] text-slate-400 font-medium">Виконую</div>
+              <div className="text-xl font-black text-blue-400 mt-0.5">{tasks.filter(t => !t.isCompleted).length}</div>
             </button>
-
-            <div className="flex bg-[#111827] border border-slate-800 p-1 rounded-2xl text-xs font-semibold">
-              <button
-                onClick={() => setFilter('active')}
-                className={`px-3 py-1.5 rounded-xl transition ${filter === 'active' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}
-              >
-                Активні
-              </button>
-              <button
-                onClick={() => setFilter('completed')}
-                className={`px-3 py-1.5 rounded-xl transition ${filter === 'completed' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}
-              >
-                Завершені
-              </button>
-              <button
-                onClick={() => setFilter('all')}
-                className={`px-3 py-1.5 rounded-xl transition ${filter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400'}`}
-              >
-                Всі
-              </button>
+            <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-left">
+              <div className="text-[11px] text-slate-400 font-medium">Допомагаю</div>
+              <div className="text-xl font-black text-purple-400 mt-0.5">1</div>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-left">
+              <div className="text-[11px] text-slate-400 font-medium">Доручив</div>
+              <div className="text-xl font-black text-amber-400 mt-0.5">2</div>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-left">
+              <div className="text-[11px] text-slate-400 font-medium">Спостерігаю</div>
+              <div className="text-xl font-black text-slate-300 mt-0.5">18</div>
             </div>
           </div>
         </div>
@@ -296,12 +329,12 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
     return (
       <div
         key={task.id}
-        className={`p-4 rounded-2xl border transition bg-[#111827] ${
+        className={`p-4 rounded-2xl border transition-all duration-200 bitrix-glass ${
           task.isCompleted
-            ? 'border-slate-800 opacity-60'
+            ? 'border-white/5 opacity-60'
             : isOverdue
-            ? 'border-rose-500/40 hover:border-rose-500/80 shadow-sm shadow-rose-500/5'
-            : 'border-slate-800 hover:border-slate-700'
+            ? 'border-rose-500/40 hover:border-rose-500/80 shadow-md shadow-rose-500/10'
+            : 'border-white/10 hover:border-blue-500/40 shadow-lg'
         }`}
       >
         <div className="flex items-start gap-3">

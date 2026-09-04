@@ -289,14 +289,14 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const currentPipeline = pipelines.find(p => p.id === activeDeal?.pipelineId) || pipelines[0];
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-[#080c14] select-none font-['Inter',sans-serif] w-full">
+    <div className="flex-1 flex overflow-hidden bitrix-wallpaper bg-[#080c14]/80 select-none font-['Inter',sans-serif] w-full">
       
       {/* Dialogs List (Hidden on mobile if chat is active) */}
       <div className={`
-        w-full md:w-80 border-r border-slate-800 flex flex-col justify-between bg-[#0e1320] flex-shrink-0
+        w-full md:w-80 border-r border-white/10 flex flex-col justify-between bitrix-glass flex-shrink-0
         ${activeDialog ? 'hidden md:flex' : 'flex'}
       `}>
-        <div className="p-4 border-b border-slate-800/80 space-y-3 bg-[#111827]">
+        <div className="p-4 border-b border-white/10 space-y-3 bg-slate-900/40">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-emerald-400" />
@@ -403,12 +403,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
       {/* Central Chat Room (Full Width on Mobile when active) */}
       <div className={`
-        flex-1 flex-col justify-between overflow-hidden bg-[#080c14] border-r border-slate-800 w-full
+        flex-1 flex-col justify-between overflow-hidden bg-slate-900/40 backdrop-blur-xl border-r border-white/10 w-full
         ${activeDialog ? 'flex' : 'hidden md:flex'}
       `}>
         {activeDialog ? (
           <>
-            <div className="border-b border-slate-800 bg-[#0e1320] flex-shrink-0">
+            <div className="border-b border-white/10 bg-slate-900/60 backdrop-blur-md flex-shrink-0">
               <div className="h-14 px-4 sm:px-6 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   {/* Mobile Back Button */}

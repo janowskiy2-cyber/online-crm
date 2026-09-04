@@ -85,48 +85,48 @@ export const AnalyticsView: React.FC = () => {
   ];
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-[#080c14] select-none font-['Inter',sans-serif]">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bitrix-wallpaper font-['Inter',sans-serif] select-none">
+      <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
-              <BarChart2 className="w-7 h-7 text-blue-500" />
-              <span>Аналітика найму та фінансові KPI</span>
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Реальні показники з хмарної бази даних Neon PostgreSQL
-            </p>
-          </div>
+        {/* Header (Bitrix24 Glassmorphism) */}
+        <div className="bitrix-glass rounded-2xl p-6 shadow-2xl border border-white/10 backdrop-blur-2xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1.5">
+                  <BarChart2 className="w-3 h-3" /> АНАЛІТИКА & KPI
+                </span>
+                <span className="text-xs text-slate-400 font-mono">Виручка & Конверсія</span>
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                <span>Аналітика найму та фінансові KPI</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                Показники працевлаштування та закриття контрактів із замовниками
+              </p>
+            </div>
 
-          <div className="flex items-center gap-3">
             <button
               onClick={fetchAnalytics}
-              disabled={loading}
-              className="px-3.5 py-2 bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-2xl text-xs font-bold flex items-center gap-2 transition"
+              className="p-2.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl transition"
+              title="Оновити дані"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-400' : ''}`} />
-              <span>Оновити</span>
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
             </button>
-            <div className="flex items-center gap-2 bg-[#111827] border border-slate-800 px-3 py-2 rounded-2xl text-xs">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <span className="text-slate-300 font-bold">2026 Live Data</span>
-            </div>
           </div>
         </div>
 
-        {/* 4 KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {kpis.map((kpi, idx) => {
+        {/* 4 KPI Grid Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpis.map((kpi, i) => {
             const Icon = kpi.icon;
             return (
               <div
-                key={idx}
-                className="bg-[#111827] border border-slate-800/90 rounded-3xl p-5 shadow-lg space-y-3"
+                key={i}
+                className="bitrix-glass rounded-2xl p-5 border border-white/10 shadow-xl flex flex-col justify-between space-y-4 hover:border-blue-500/40 transition-all duration-200"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-400">{kpi.title}</span>
+                  <span className="text-xs font-semibold text-slate-300">{kpi.title}</span>
                   <div className={`w-9 h-9 rounded-2xl flex items-center justify-center border ${kpi.bg} ${kpi.color}`}>
                     <Icon className="w-4 h-4" />
                   </div>
@@ -144,8 +144,8 @@ export const AnalyticsView: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Воронка конверсії етапів */}
-          <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <div className="bitrix-glass rounded-2xl p-6 shadow-xl border border-white/10 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-blue-400" />
                 <h3 className="text-base font-bold text-white">Розподіл угод за етапами</h3>
@@ -182,8 +182,8 @@ export const AnalyticsView: React.FC = () => {
           </div>
 
           {/* Рейтинг менеджерів (Leaderboard) */}
-          <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <div className="bitrix-glass rounded-2xl p-6 shadow-xl border border-white/10 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-emerald-400" />
                 <h3 className="text-base font-bold text-white">Рейтинг менеджерів за виручкою</h3>

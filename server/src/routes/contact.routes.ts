@@ -67,15 +67,60 @@ export function createContactRouter(prisma: PrismaClient) {
   router.get('/companies/all', async (req, res) => {
     try {
       const companies = await prisma.company.findMany({
+        where: { isDeleted: false },
         include: {
           contacts: true,
-          deals: true
+          deals: true,
+          _count: { select: { contacts: true, deals: true } }
         },
         orderBy: { name: 'asc' }
       });
       res.json(companies);
     } catch (e) {
       res.status(500).json({ error: 'Failed to fetch companies' });
+    }
+  });
+
+  // Create employer / company
+  router.post('/companies', async (req, res) => {
+    try {
+      const { name, phone, email, website, address } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: 'Company name is required' });
+      }
+      const company = await prisma.company.create({
+        data: {
+          name,
+          phone,
+          email,
+          website,
+          address
+        }
+      });
+      res.status(201).json(company);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to create company' });
+    }
+  });
+
+  // Update company
+  router.put('/companies/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, phone, email, website, address } = req.body;
+      const updated = await prisma.company.update({
+        where: { id },
+        data: {
+          name: name !== undefined ? name : undefined,
+          phone: phone !== undefined ? phone : undefined,
+          email: email !== undefined ? email : undefined,
+          website: website !== undefined ? website : undefined,
+          address: address !== undefined ? address : undefined
+        }
+      });
+      res.json(updated);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to update company' });
     }
   });
 

@@ -14,7 +14,8 @@ import {
   Share2,
   LogOut,
   X,
-  Rss
+  Rss,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -56,11 +57,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'feed', label: 'Жива стрічка', icon: Rss, badge: 'LIVE' },
     { id: 'deals', label: 'Воронка угод', icon: Kanban, badge: null },
     { id: 'inbox', label: 'Месенджери', icon: MessageSquare, badge: 'WA / TG' },
+    { id: 'contacts', label: 'Роботодавці (Клієнти)', icon: Building2, badge: 'B2B' },
     { id: 'candidates', label: 'База кандидатів', icon: Globe2, badge: 'POOL' },
-    { id: 'integrations', label: 'Реклама & Вебхуки', icon: Share2, badge: 'ADS' },
     { id: 'tasks', label: 'Завдання', icon: CheckSquare, badge: null },
-    { id: 'contacts', label: 'Підприємства', icon: Users, badge: null },
     { id: 'analytics', label: 'Аналітика & KPI', icon: BarChart3, badge: null },
+    { id: 'integrations', label: 'Реклама & Вебхуки', icon: Share2, badge: 'ADS' },
     { id: 'automation', label: 'Автоворонка', icon: Zap, badge: 'AUTO' },
   ];
 

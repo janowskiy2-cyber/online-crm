@@ -188,7 +188,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-slate-100/70 dark:bg-[#070b13] p-3 sm:p-4 select-none transition-colors duration-200 font-['Inter',sans-serif]">
+    <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper bg-slate-100/70 dark:bg-[#070b13]/80 p-3 sm:p-4 select-none transition-colors duration-200 font-['Inter',sans-serif]">
       {/* Smart amoCRM & Speed-to-Lead Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3 px-0.5 flex-shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto text-xs font-medium p-1 bg-white/90 dark:bg-[#090d16]/90 border border-slate-200/80 dark:border-white/[0.08] rounded-xl shadow-sm backdrop-blur-md">

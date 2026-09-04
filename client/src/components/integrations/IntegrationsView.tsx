@@ -86,39 +86,46 @@ export const IntegrationsView: React.FC = () => {
 </div>`;
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-[#080c14] select-none font-['Inter',sans-serif]">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bitrix-wallpaper font-['Inter',sans-serif] select-none">
+      <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
-              <Zap className="w-7 h-7 text-amber-400" />
-              <span>Рекламні інтеграції та Вебхуки (Ads Hub)</span>
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Підключення Facebook Lead Ads, Google Ads, форм сайтів (Tilda/WordPress) та авто-парсинг UTM-міток
-            </p>
-          </div>
+        {/* Header (Bitrix24 Glassmorphism) */}
+        <div className="bitrix-glass rounded-2xl p-6 shadow-2xl border border-white/10 backdrop-blur-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
+                  <Zap className="w-3 h-3" /> ADS HUB
+                </span>
+                <span className="text-xs text-slate-400 font-mono">Трафік & Лідогенерація</span>
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                <span>Рекламні інтеграції та Вебхуки</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                Автоматичний прийом заявок із Facebook Lead Ads, TikTok, Google Ads та сайтів (Tilda/WordPress)
+              </p>
+            </div>
 
-          <button
-            onClick={handleSendTestLead}
-            disabled={loadingTest}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-emerald-600/30"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>{loadingTest ? 'Надсилання...' : 'Надіслати тестовий лід'}</span>
-          </button>
+            <button
+              onClick={handleSendTestLead}
+              disabled={loadingTest}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 active:scale-95"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{loadingTest ? 'Надсилання...' : 'Надіслати тестовий лід'}</span>
+            </button>
+          </div>
         </div>
 
         {testLeadStatus && (
-          <div className="p-3.5 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs font-semibold text-center animate-in fade-in">
+          <div className="p-3.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-semibold text-center animate-in fade-in">
             {testLeadStatus}
           </div>
         )}
 
         {/* Universal Webhook Banner */}
-        <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="bitrix-glass rounded-2xl p-6 shadow-xl border border-white/10 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">Універсальний Webhook URL для реклами</span>
@@ -161,7 +168,7 @@ export const IntegrationsView: React.FC = () => {
         </div>
 
         {/* Interactive Form Builder (Embed code for website) */}
-        <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="bitrix-glass rounded-2xl border border-white/10 p-6 shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <div>
               <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Конструктор форми заявки</span>
