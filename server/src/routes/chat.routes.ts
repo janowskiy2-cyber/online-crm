@@ -254,5 +254,44 @@ export function createChatRouter(
     }
   });
 
+  // Check contact messengers availability (WhatsApp and Telegram)
+  router.post('/check-contact', async (req, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone) {
+        return res.status(400).json({ error: 'Вкажіть номер телефону' });
+      }
+
+      const cleanPhone = String(phone).replace(/\D/g, '');
+      if (cleanPhone.length < 9) {
+        return res.status(400).json({ error: 'Некоректний номер телефону (занадто короткий)' });
+      }
+
+      const [waResult, tgResult] = await Promise.allSettled([
+        whatsappService.checkNumber(cleanPhone),
+        telegramService.checkNumber(cleanPhone)
+      ]);
+
+      const whatsappData = waResult.status === 'fulfilled' 
+        ? waResult.value 
+        : { exists: false, phoneLink: `https://wa.me/${cleanPhone}` };
+
+      const telegramData = tgResult.status === 'fulfilled' 
+        ? tgResult.value 
+        : { exists: false, phoneLink: `https://t.me/+${cleanPhone}` };
+
+      res.json({
+        phone: `+${cleanPhone}`,
+        whatsappConnected: whatsappService.isConnected(),
+        telegramConnected: telegramService.isConnected(),
+        whatsapp: whatsappData,
+        telegram: telegramData
+      });
+    } catch (e) {
+      console.error('Failed to check contact messengers:', e);
+      res.status(500).json({ error: 'Помилка перевірки месенджерів' });
+    }
+  });
+
   return router;
 }

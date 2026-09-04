@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { Server as SocketIOServer } from 'socket.io';
-import { TelegramClient } from 'telegram';
+import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { NewMessage } from 'telegram/events';
 import path from 'path';
@@ -200,10 +200,54 @@ export class TelegramService {
     this.broadcastStatus();
   }
 
+  public async checkNumber(phone: string): Promise<{ exists: boolean; username?: string; firstName?: string; userId?: string; phoneLink: string }> {
+    const cleanDigits = phone.replace(/\D/g, '');
+    const phoneWithPlus = `+${cleanDigits}`;
+    const phoneLink = `https://t.me/${phoneWithPlus}`;
+
+    if (!this.client || this.status !== 'connected') {
+      return { exists: false, phoneLink };
+    }
+
+    try {
+      const res: any = await this.client.invoke(
+        new Api.contacts.ResolvePhone({
+          phone: phoneWithPlus
+        })
+      );
+
+      if (res && res.users && res.users.length > 0) {
+        const u = res.users[0];
+        return {
+          exists: true,
+          username: u.username ? `@${u.username}` : undefined,
+          firstName: u.firstName || u.first_name || '',
+          userId: String(u.id),
+          phoneLink
+        };
+      }
+      return { exists: false, phoneLink };
+    } catch (e) {
+      return { exists: false, phoneLink };
+    }
+  }
+
   public async sendMessage(toTgIdOrUsername: string, text: string, dealId?: string, contactId?: string) {
     if (this.client && this.status === 'connected') {
       try {
-        await this.client.sendMessage(toTgIdOrUsername, { message: text });
+        let peer: any = toTgIdOrUsername;
+        const cleanDigits = toTgIdOrUsername.replace(/\D/g, '');
+        if (cleanDigits.length >= 9 && (toTgIdOrUsername.startsWith('+') || !toTgIdOrUsername.startsWith('@'))) {
+          try {
+            const res: any = await this.client.invoke(new Api.contacts.ResolvePhone({ phone: `+${cleanDigits}` }));
+            if (res && res.users && res.users.length > 0) {
+              peer = res.users[0];
+            }
+          } catch (rErr) {
+            console.warn('Could not resolve phone entity in Telegram sendMessage:', rErr);
+          }
+        }
+        await this.client.sendMessage(peer, { message: text });
       } catch (err) {
         console.warn('Error sending MTProto message:', err);
       }

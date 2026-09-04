@@ -124,12 +124,62 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   // Anti-Duplicate Guard state
   const [duplicateAlert, setDuplicateAlert] = useState<any | null>(null);
 
+  // Live WhatsApp & Telegram presence & detection state
+  const [messengerStatus, setMessengerStatus] = useState<{
+    loading: boolean;
+    whatsapp: { exists: boolean; jid?: string; phoneLink?: string };
+    telegram: { exists: boolean; username?: string; firstName?: string; phoneLink?: string };
+    whatsappConnected: boolean;
+    telegramConnected: boolean;
+  }>({
+    loading: false,
+    whatsapp: { exists: false },
+    telegram: { exists: false },
+    whatsappConnected: false,
+    telegramConnected: false
+  });
+
+  const checkMessengers = async (phone: string) => {
+    if (!phone) return;
+    const cleanDigits = phone.replace(/\D/g, '');
+    if (cleanDigits.length < 9) return;
+
+    setMessengerStatus(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await api.post('/chat/check-contact', { phone: cleanDigits });
+      if (res.data) {
+        setMessengerStatus({
+          loading: false,
+          whatsapp: res.data.whatsapp || { exists: false },
+          telegram: res.data.telegram || { exists: false },
+          whatsappConnected: !!res.data.whatsappConnected,
+          telegramConnected: !!res.data.telegramConnected
+        });
+
+        // Smart auto-selection of active channel
+        if (res.data.whatsapp?.exists) {
+          setChatChannel('whatsapp');
+        } else if (res.data.telegram?.exists) {
+          setChatChannel('telegram');
+        }
+      }
+    } catch (err) {
+      setMessengerStatus(prev => ({ ...prev, loading: false }));
+    }
+  };
+
   const fetchDealDetails = async () => {
     try {
       const res = await api.get(`/deals/${dealId}`);
       if (res.data) {
         setDeal(res.data);
         setTaskAssigneeId(res.data.responsibleId);
+
+        // Check messenger presence for contact
+        const contactPhone = res.data.contact?.phone || res.data.contact?.whatsapp || res.data.contact?.phone2;
+        if (contactPhone) {
+          checkMessengers(contactPhone);
+        }
 
         // Anti-Duplicate check
         api.get(`/deals/check-duplicate?query=${encodeURIComponent(res.data.title)}&dealId=${dealId}`)
@@ -1621,32 +1671,73 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
+                      {/* WhatsApp Channel */}
                       <button
                         type="button"
                         onClick={() => setChatChannel('whatsapp')}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold transition ${
-                          chatChannel === 'whatsapp' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                          chatChannel === 'whatsapp'
+                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
                         }`}
+                        title={
+                          messengerStatus.whatsapp.exists
+                            ? 'WhatsApp знайдено та готовий до відправки прямо з CRM'
+                            : 'WhatsApp на цьому номері перевіряється або не знайдено'
+                        }
                       >
-                        WhatsApp
+                        <span className={`w-2 h-2 rounded-full ${messengerStatus.whatsapp.exists ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                        <span>WhatsApp</span>
+                        {messengerStatus.loading ? (
+                          <span className="text-[10px] opacity-60">...</span>
+                        ) : messengerStatus.whatsapp.exists ? (
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-extrabold px-1.5 py-0.2 rounded">
+                            АКТИВНИЙ
+                          </span>
+                        ) : (
+                          <span className="text-[9px] opacity-50 font-normal">
+                            не знайдено
+                          </span>
+                        )}
                       </button>
+
+                      {/* Telegram Channel */}
                       <button
                         type="button"
                         onClick={() => setChatChannel('telegram')}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold transition ${
-                          chatChannel === 'telegram' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                          chatChannel === 'telegram'
+                            ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
                         }`}
+                        title={
+                          messengerStatus.telegram.exists
+                            ? `Telegram знайдено (${messengerStatus.telegram.username || 'активний'}). Повідомлення надійде прямо в чат клієнту`
+                            : 'Telegram за цим номером не знайдено'
+                        }
                       >
-                        Telegram
+                        <span className={`w-2 h-2 rounded-full ${messengerStatus.telegram.exists ? 'bg-sky-400 animate-pulse' : 'bg-slate-500'}`} />
+                        <span>Telegram</span>
+                        {messengerStatus.loading ? (
+                          <span className="text-[10px] opacity-60">...</span>
+                        ) : messengerStatus.telegram.exists ? (
+                          <span className="text-[9px] bg-sky-500/20 text-sky-300 font-extrabold px-1.5 py-0.2 rounded">
+                            {messengerStatus.telegram.username || 'АКТИВНИЙ'}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] opacity-50 font-normal">
+                            не знайдено
+                          </span>
+                        )}
                       </button>
                     </div>
 
                     <button
                       type="button"
                       onClick={toggleVoiceDictation}
-                      className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition ${
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 transition ${
                         isDictating 
                           ? 'bg-rose-600 text-white animate-pulse' 
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300'

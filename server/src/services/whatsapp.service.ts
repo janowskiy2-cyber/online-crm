@@ -539,4 +539,24 @@ export class WhatsAppService {
       });
     } catch (e) {}
   }
+
+  public async checkNumber(phone: string): Promise<{ exists: boolean; jid?: string; phoneLink: string }> {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const phoneLink = `https://wa.me/${cleanPhone}`;
+
+    if (!this.sock || this.status !== 'connected') {
+      return { exists: false, phoneLink };
+    }
+
+    try {
+      const results = await this.sock.onWhatsApp(cleanPhone);
+      if (Array.isArray(results) && results.length > 0 && results[0]?.exists) {
+        return { exists: true, jid: results[0].jid, phoneLink };
+      }
+      return { exists: false, phoneLink };
+    } catch (e) {
+      console.warn('WhatsApp onWhatsApp check error:', e);
+      return { exists: false, phoneLink };
+    }
+  }
 }
