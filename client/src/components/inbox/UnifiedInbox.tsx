@@ -24,7 +24,9 @@ import {
   Image as ImageIcon,
   Play,
   Volume2,
-  VolumeX
+  VolumeX,
+  Video,
+  Maximize2
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { soundService } from '../../services/sound.service';
@@ -58,6 +60,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [selectedFile, setSelectedFile] = useState<{ name: string; base64: string; type: string } | null>(null);
   const [isSendingFile, setIsSendingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Active deal connected to selected chat
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
@@ -180,15 +183,31 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Розмір файлу перевищує 50 МБ. Будь ласка, оберіть файл меншого розміру.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
+      let mime = file.type;
+      if (!mime) {
+        if (file.name.toLowerCase().endsWith('.mp4')) mime = 'video/mp4';
+        else if (file.name.toLowerCase().endsWith('.webm')) mime = 'video/webm';
+        else if (file.name.toLowerCase().endsWith('.mov')) mime = 'video/quicktime';
+        else if (file.name.toLowerCase().endsWith('.pdf')) mime = 'application/pdf';
+        else mime = 'application/octet-stream';
+      }
+
       setSelectedFile({
         name: file.name,
         base64: reader.result as string,
-        type: file.type || 'application/pdf'
+        type: mime
       });
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSendVoiceNote = async (audioBase64: string, durationSec: number) => {
@@ -482,9 +501,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-3.5">
               {activeDialog.messages.map((m) => {
                 const isOut = m.direction === 'outgoing';
-                const isFile = m.text.startsWith('📎 Файл');
-                const isVoice = m.text.startsWith('🎤 Голосове') || m.text.includes('[Голосове');
-                const isImage = m.text.startsWith('📷 [Зображення]') || m.text.endsWith('.jpg') || m.text.endsWith('.png');
+                const isFile = m.text.startsWith('📎 Файл') || m.mediaType === 'pdf' || m.mediaType === 'document';
+                const isVoice = m.text.startsWith('🎤 Голосове') || m.text.includes('[Голосове') || m.mediaType === 'audio';
+                const isImage = m.text.startsWith('📷 [Зображення]') || m.text.endsWith('.jpg') || m.text.endsWith('.png') || m.mediaType === 'image';
+                const isVideo = m.mediaType === 'video' || m.text.startsWith('🎥') || m.text.startsWith('📹') || m.mediaUrl?.endsWith('.mp4') || m.mediaUrl?.endsWith('.webm') || m.mediaUrl?.endsWith('.mov') || m.mediaUrl?.includes('/video/');
 
                 return (
                   <div
@@ -505,6 +525,29 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                           transcription={m.text.replace('🎤 Голосове повідомлення', '').replace('🎤', '').trim()}
                           isOutgoing={isOut}
                         />
+                      </div>
+                    ) : isVideo && m.mediaUrl ? (
+                      <div className="max-w-xs sm:max-w-sm rounded-2xl overflow-hidden border border-slate-700 bg-black shadow-xl">
+                        <video
+                          controls
+                          preload="metadata"
+                          src={m.mediaUrl}
+                          className="w-full max-h-64 object-contain bg-black rounded-t-2xl"
+                        />
+                        <div className="p-2.5 bg-slate-900 flex items-center justify-between text-xs text-slate-300 border-t border-slate-800">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Video className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                            <span className="truncate font-medium">{m.text?.replace(/^🎥\s*/, '') || 'Відео'}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setViewingMedia({ url: m.mediaUrl!, type: 'video', title: m.text || 'Відеоповідомлення' })}
+                            className="p-1 hover:text-blue-400 text-slate-400 hover:bg-slate-800 rounded-lg transition ml-2 flex-shrink-0"
+                            title="Відкрити у вікні перегляду"
+                          >
+                            <Maximize2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ) : isImage && m.mediaUrl ? (
                       <div
@@ -543,8 +586,15 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             {selectedFile && (
               <div className="mx-3 sm:mx-4 p-2.5 bg-slate-900 border border-amber-500/40 rounded-2xl flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
                 <div className="flex items-center gap-2 truncate">
-                  <Paperclip className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  <span className="font-semibold truncate">Прикріплено: {selectedFile.name}</span>
+                  {selectedFile.type.startsWith('video/') ? (
+                    <Video className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  ) : (
+                    <Paperclip className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  )}
+                  <span className="font-semibold truncate">
+                    {selectedFile.type.startsWith('video/') ? '🎥 Відео: ' : 'Прикріплено: '}
+                    {selectedFile.name}
+                  </span>
                 </div>
                 <button onClick={() => setSelectedFile(null)} className="p-1 hover:text-white">
                   <X className="w-4 h-4" />
@@ -581,7 +631,15 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       ref={fileInputRef}
                       onChange={handleFileChange}
                       className="hidden"
-                      accept="application/pdf,image/*,.doc,.docx"
+                      accept="application/pdf,image/*,video/*,.doc,.docx,.mp4,.mov,.webm"
+                    />
+
+                    <input
+                      type="file"
+                      ref={videoInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="video/*,.mp4,.mov,.webm"
                     />
 
                     <button
@@ -591,6 +649,15 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                     >
                       <Paperclip className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => videoInputRef.current?.click()}
+                      title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
+                      className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                    >
+                      <Video className="w-4 h-4" />
                     </button>
 
                     <button

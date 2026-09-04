@@ -55,9 +55,9 @@ app.use(cors({
   credentials: true
 }));
 
-// Safe memory limits: 5mb max JSON payload prevents OOM crashes
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ limit: '5mb', extended: true }));
+// Safe memory limits: 50mb max JSON payload supports video & media uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Uploads directory for media files (voice, images, PDF)
 const uploadsDir = path.join(process.cwd(), 'uploads');

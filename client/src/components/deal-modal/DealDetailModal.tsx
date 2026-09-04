@@ -32,7 +32,8 @@ import {
   Image as ImageIcon,
   Edit3,
   Volume2,
-  VolumeX
+  VolumeX,
+  Maximize2
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -102,6 +103,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<{ name: string; base64: string; type: string } | null>(null);
   const [isSendingFile, setIsSendingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
 
   // New Note / Comment input
   const [noteText, setNoteText] = useState('');
@@ -322,15 +324,31 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Розмір файлу перевищує 50 МБ. Будь ласка, оберіть файл меншого розміру.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
+      let mime = file.type;
+      if (!mime) {
+        if (file.name.toLowerCase().endsWith('.mp4')) mime = 'video/mp4';
+        else if (file.name.toLowerCase().endsWith('.webm')) mime = 'video/webm';
+        else if (file.name.toLowerCase().endsWith('.mov')) mime = 'video/quicktime';
+        else if (file.name.toLowerCase().endsWith('.pdf')) mime = 'application/pdf';
+        else mime = 'application/octet-stream';
+      }
+
       setSelectedFile({
         name: file.name,
         base64: reader.result as string,
-        type: file.type || 'application/pdf'
+        type: mime
       });
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSendVoiceNote = async (audioBase64: string, durationSec: number) => {
@@ -1772,6 +1790,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       const isFile = item.text?.startsWith('📎') || item.mediaType === 'pdf' || item.mediaType === 'document';
                       const isVoice = item.text?.startsWith('🎤') || item.mediaType === 'audio' || item.text?.includes('Voice_Note');
                       const isImage = item.mediaType === 'image' || item.text?.startsWith('📷') || item.mediaUrl?.startsWith('data:image');
+                      const isVideo = item.mediaType === 'video' || item.text?.startsWith('🎥') || item.text?.startsWith('📹') || item.mediaUrl?.endsWith('.mp4') || item.mediaUrl?.endsWith('.webm') || item.mediaUrl?.endsWith('.mov') || item.mediaUrl?.includes('/video/');
 
                       return (
                         <div
@@ -1800,6 +1819,29 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                                 transcription={item.text.replace('🎤 Голосове повідомлення', '').replace('🎤', '').trim()}
                                 isOutgoing={isOutgoing}
                               />
+                            </div>
+                          ) : isVideo && item.mediaUrl ? (
+                            <div className="max-w-xs sm:max-w-sm rounded-2xl overflow-hidden border border-slate-700 bg-black shadow-xl">
+                              <video
+                                controls
+                                preload="metadata"
+                                src={resolveMediaUrl(item.mediaUrl)}
+                                className="w-full max-h-64 object-contain bg-black rounded-t-2xl"
+                              />
+                              <div className="p-2.5 bg-slate-900 flex items-center justify-between text-xs text-slate-300 border-t border-slate-800">
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <Video className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                                  <span className="truncate font-medium">{item.text?.replace(/^🎥\s*/, '') || 'Відео'}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'video', title: item.text || 'Відеоповідомлення' })}
+                                  className="p-1 hover:text-blue-400 text-slate-400 hover:bg-slate-800 rounded-lg transition ml-2 flex-shrink-0"
+                                  title="Відкрити у вікні перегляду"
+                                >
+                                  <Maximize2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           ) : isImage && item.mediaUrl ? (
                             <div
@@ -1912,8 +1954,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   {selectedFile && (
                     <div className="p-2 bg-slate-900 border border-amber-500/40 rounded-xl flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
                       <div className="flex items-center gap-2 truncate">
-                        <Paperclip className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                        <span className="font-semibold truncate">Прикріплено: {selectedFile.name}</span>
+                        {selectedFile.type.startsWith('video/') ? (
+                          <Video className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                        ) : (
+                          <Paperclip className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                        )}
+                        <span className="font-semibold truncate">
+                          {selectedFile.type.startsWith('video/') ? '🎥 Відео: ' : 'Прикріплено: '}
+                          {selectedFile.name}
+                        </span>
                       </div>
                       <button onClick={() => setSelectedFile(null)} className="p-1 hover:text-white">
                         <X className="w-4 h-4" />
@@ -2041,7 +2090,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       ref={fileInputRef}
                       onChange={handleFileChange}
                       className="hidden"
-                      accept="application/pdf,image/*,.doc,.docx"
+                      accept="application/pdf,image/*,video/*,.doc,.docx,.mp4,.mov,.webm"
+                    />
+
+                    <input
+                      type="file"
+                      ref={videoInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="video/*,.mp4,.mov,.webm"
                     />
 
                     <button
@@ -2051,6 +2108,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                     >
                       <Paperclip className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => videoInputRef.current?.click()}
+                      title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
+                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                    >
+                      <Video className="w-4 h-4" />
                     </button>
 
                     <button

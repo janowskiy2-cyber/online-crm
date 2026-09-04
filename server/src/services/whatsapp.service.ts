@@ -389,7 +389,7 @@ export class WhatsAppService {
                       fileName = `video_${Date.now()}.mp4`;
                       mimeType = content.videoMessage.mimetype || 'video/mp4';
                       mediaType = 'video';
-                      if (!text) text = '🎥 [Відео]';
+                      if (!text) text = content.videoMessage.caption ? `🎥 ${content.videoMessage.caption}` : '🎥 [Відеоповідомлення]';
                     }
 
                     let uploaded = await CloudinaryService.uploadBuffer(mediaBuffer, fileName, mimeType);
@@ -810,6 +810,7 @@ export class WhatsAppService {
 
     let buffer = Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64');
     const isVoice = mimeType.startsWith('audio/') || finalFileName.includes('Voice_Note');
+    const isVideo = mimeType.startsWith('video/') || finalFileName.toLowerCase().endsWith('.mp4') || finalFileName.toLowerCase().endsWith('.mov') || finalFileName.toLowerCase().endsWith('.webm');
 
     if (isVoice) {
       buffer = Buffer.from((await AudioConverterService.ensureOggOpus(buffer)) as any);
@@ -852,6 +853,12 @@ export class WhatsAppService {
           mimetype: 'audio/ogg; codecs=opus',
           ptt: true
         });
+      } else if (isVideo) {
+        await this.sock.sendMessage(targetJid, {
+          video: buffer,
+          caption: caption || finalFileName,
+          mimetype: mimeType || 'video/mp4'
+        });
       } else {
         await this.sock.sendMessage(targetJid, {
           document: buffer,
@@ -872,9 +879,9 @@ export class WhatsAppService {
       savedMediaUrl = `${serverHost}${savedMediaUrl}`;
     }
 
-    const fileLabel = mimeType.startsWith('audio/') 
+    const fileLabel = isVoice
       ? `🎤 Голосове повідомлення (${caption || 'аудіо'})` 
-      : `📎 Файл: ${finalFileName}${caption ? ` — ${caption}` : ''}`;
+      : (isVideo ? `🎥 Відео: ${finalFileName}${caption ? ` — ${caption}` : ''}` : `📎 Файл: ${finalFileName}${caption ? ` — ${caption}` : ''}`);
 
     const savedMsg = await this.prisma.chatMessage.create({
       data: {
@@ -885,7 +892,7 @@ export class WhatsAppService {
         senderPhone: cleanPhone,
         text: fileLabel,
         mediaUrl: savedMediaUrl,
-        mediaType: mimeType.startsWith('audio/') ? 'audio' : (mimeType.startsWith('image/') ? 'image' : 'pdf'),
+        mediaType: isVoice ? 'audio' : (mimeType.startsWith('image/') ? 'image' : (isVideo ? 'video' : 'pdf')),
         status: 'sent'
       }
     });

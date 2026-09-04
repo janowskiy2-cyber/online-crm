@@ -226,6 +226,7 @@ export class TelegramService {
 
                 const fileAttr = (doc.attributes || []).find((a: any) => a instanceof Api.DocumentAttributeFilename);
                 const audioAttr = (doc.attributes || []).find((a: any) => a instanceof Api.DocumentAttributeAudio);
+                const videoAttr = (doc.attributes || []).find((a: any) => a instanceof Api.DocumentAttributeVideo);
 
                 if (fileAttr && (fileAttr as any).fileName) {
                   fileName = (fileAttr as any).fileName;
@@ -239,6 +240,17 @@ export class TelegramService {
                     if (!text) text = '🎤 [Голосове повідомлення]';
                   } else {
                     if (!text) text = `🎵 [Аудіозапис] ${fileName}`;
+                  }
+                } else if (videoAttr || mimeType.startsWith('video/') || fileName.toLowerCase().endsWith('.mp4') || fileName.toLowerCase().endsWith('.mov') || fileName.toLowerCase().endsWith('.webm')) {
+                  mediaType = 'video';
+                  if ((videoAttr as any)?.roundMessage) {
+                    fileName = `video_note_${Date.now()}.mp4`;
+                    mimeType = 'video/mp4';
+                    if (!text) text = '📹 [Відеоповідомлення (кружечок)]';
+                  } else {
+                    fileName = fileName.endsWith('.mp4') ? fileName : `video_${Date.now()}.mp4`;
+                    mimeType = mimeType.startsWith('video/') ? mimeType : 'video/mp4';
+                    if (!text) text = `🎥 [Відео] ${fileName}`;
                   }
                 } else if (fileName.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf') {
                   mediaType = 'pdf';
@@ -411,6 +423,8 @@ export class TelegramService {
           caption: caption || (isVoice ? undefined : finalFileName)
         };
 
+        const isVideo = mimeType.startsWith('video/') || finalFileName.toLowerCase().endsWith('.mp4') || finalFileName.toLowerCase().endsWith('.mov') || finalFileName.toLowerCase().endsWith('.webm');
+
         if (isVoice) {
           sendOptions.voiceNote = true;
           sendOptions.attributes = [
@@ -419,6 +433,17 @@ export class TelegramService {
               duration: 0,
               title: 'Voice Message',
               performer: 'CRM'
+            })
+          ];
+        } else if (isVideo) {
+          sendOptions.mimeType = mimeType || 'video/mp4';
+          sendOptions.supportsStreaming = true;
+          sendOptions.attributes = [
+            new Api.DocumentAttributeVideo({
+              duration: 0,
+              w: 1280,
+              h: 720,
+              supportsStreaming: true
             })
           ];
         } else if (mimeType === 'application/pdf' || finalFileName.toLowerCase().endsWith('.pdf')) {
@@ -446,9 +471,11 @@ export class TelegramService {
       savedMediaUrl = `${serverHost}${savedMediaUrl}`;
     }
 
+    const isVideoMsg = mimeType.startsWith('video/') || finalFileName.toLowerCase().endsWith('.mp4') || finalFileName.toLowerCase().endsWith('.mov') || finalFileName.toLowerCase().endsWith('.webm');
+
     const fileLabel = isVoice
       ? `🎤 Голосове повідомлення (${caption || 'аудіо'})`
-      : `📎 Файл TG: ${finalFileName}${caption ? ` — ${caption}` : ''}`;
+      : (isVideoMsg ? `🎥 Відео TG: ${finalFileName}${caption ? ` — ${caption}` : ''}` : `📎 Файл TG: ${finalFileName}${caption ? ` — ${caption}` : ''}`);
 
     const savedMsg = await this.prisma.chatMessage.create({
       data: {
@@ -459,7 +486,7 @@ export class TelegramService {
         senderTgId: toTgIdOrUsername,
         text: fileLabel,
         mediaUrl: savedMediaUrl,
-        mediaType: isVoice ? 'audio' : (mimeType.startsWith('image/') ? 'image' : 'pdf'),
+        mediaType: isVoice ? 'audio' : (mimeType.startsWith('image/') ? 'image' : (isVideoMsg ? 'video' : (mimeType === 'application/pdf' ? 'pdf' : 'document'))),
         status: 'sent'
       }
     });
