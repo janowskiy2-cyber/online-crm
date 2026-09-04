@@ -29,15 +29,25 @@ export class CloudinaryService {
       const publicId = `crm_${Date.now()}_${cleanFileName.replace(/\.[^/.]+$/, "")}`;
 
       return new Promise<string>((resolve, reject) => {
+        const uploadOptions: any = {
+          folder: 'online_crm_media',
+          public_id: publicId,
+          resource_type: resourceType,
+          quality: 'auto:eco', // Ultra-efficient compression to minimize disk usage without visual loss
+          fetch_format: 'auto'
+        };
+
+        if (mimeType.startsWith('audio/')) {
+          uploadOptions.format = 'mp3';
+        } else if (resourceType === 'video') {
+          // Downscale 4K / 1080p phone videos to 720p HD: reduces file size by 75-85% with zero visible loss
+          uploadOptions.width = 1280;
+          uploadOptions.crop = 'limit';
+          uploadOptions.video_codec = 'auto';
+        }
+
         const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: 'online_crm_media',
-            public_id: publicId,
-            resource_type: resourceType,
-            quality: 'auto:eco', // Ultra-efficient compression to minimize disk usage without visual loss
-            fetch_format: 'auto',
-            format: mimeType.startsWith('audio/') ? 'mp3' : undefined
-          },
+          uploadOptions,
           (error, result) => {
             if (error || !result) {
               console.warn('Cloudinary upload stream error:', error);
@@ -69,6 +79,25 @@ export class CloudinaryService {
       return `/api/uploads/${uniqueName}`;
     } catch (e) {
       return '';
+    }
+  }
+
+  /**
+   * Delete asset from Cloudinary to free up storage
+   */
+  public static async deleteAsset(url?: string | null): Promise<boolean> {
+    if (!url || !url.includes('cloudinary.com')) return false;
+    try {
+      const parts = url.split('/');
+      const filenameWithExt = parts[parts.length - 1];
+      const filename = filenameWithExt.split('.')[0];
+      const publicId = `online_crm_media/${filename}`;
+      const resourceType = url.includes('/video/') ? 'video' : (url.includes('/image/') ? 'image' : 'raw');
+      await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+      return true;
+    } catch (err) {
+      console.warn('Failed to delete asset from Cloudinary:', err);
+      return false;
     }
   }
 }

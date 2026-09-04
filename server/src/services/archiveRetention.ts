@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { CloudinaryService } from './cloudinary.service';
 
 /**
  * 30-Day Archive Retention Service
@@ -29,6 +30,17 @@ export class ArchiveRetentionService {
 
       let purgedDeals = 0;
       for (const d of oldDeals) {
+        // Clean up Cloudinary cloud storage files
+        const msgsWithMedia = await prisma.chatMessage.findMany({
+          where: { dealId: d.id, mediaUrl: { not: null } },
+          select: { mediaUrl: true }
+        });
+        for (const m of msgsWithMedia) {
+          if (m.mediaUrl) {
+            await CloudinaryService.deleteAsset(m.mediaUrl);
+          }
+        }
+
         await prisma.dealNote.deleteMany({ where: { dealId: d.id } });
         await prisma.task.deleteMany({ where: { dealId: d.id } });
         await prisma.chatMessage.deleteMany({ where: { dealId: d.id } });
@@ -47,6 +59,17 @@ export class ArchiveRetentionService {
 
       let purgedContacts = 0;
       for (const c of oldContacts) {
+        // Clean up Cloudinary cloud storage files
+        const msgsWithMedia = await prisma.chatMessage.findMany({
+          where: { contactId: c.id, mediaUrl: { not: null } },
+          select: { mediaUrl: true }
+        });
+        for (const m of msgsWithMedia) {
+          if (m.mediaUrl) {
+            await CloudinaryService.deleteAsset(m.mediaUrl);
+          }
+        }
+
         await prisma.chatMessage.deleteMany({ where: { contactId: c.id } });
         await prisma.contact.delete({ where: { id: c.id } });
         purgedContacts++;
