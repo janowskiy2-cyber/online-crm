@@ -82,17 +82,15 @@ const CRM_PROJECT_REGISTRY = {
     try {
       // 1. Спробувати клікнути всі види кнопок закриття
       const closeSelectors = [
-        'button[data-testid="close-modal"]',
         'button[data-modal-close]',
+        'button[data-testid="close-modal"]',
+        'button[title="Закрити"]',
         'button[aria-label="Закрити"]',
-        'div.fixed button[title*="акрити"]',
-        'button[title*="Закрити"]',
+        'button[title*="акрити"]',
         'div.fixed button:has(svg.lucide-x)',
         'div.fixed button:has-text("✕")',
         'div.fixed button:has-text("×")',
-        'div.fixed button:has-text("X")',
-        'div.fixed button:has-text("Закрити")',
-        'div.fixed button:has-text("Скасувати")'
+        'div.fixed button:has-text("X")'
       ];
       
       for (const sel of closeSelectors) {
@@ -100,45 +98,33 @@ const CRM_PROJECT_REGISTRY = {
         for (const b of btns) {
           if (await b.isVisible().catch(() => false)) {
             await b.click({ force: true }).catch(() => {});
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(150);
           }
         }
-      }
-
-      // 1.5 Примусовий клік по першій кнопці у модалці (зазвичай це хрестик в шапці)
-      const topCloseBtn = await page.$('div.fixed.inset-0.z-50 button');
-      if (topCloseBtn && await topCloseBtn.isVisible().catch(() => false)) {
-        await topCloseBtn.click({ force: true }).catch(() => {});
-        await page.waitForTimeout(300);
       }
 
       // 2. Натиснути Escape двічі
       await page.keyboard.press('Escape').catch(() => {});
       await page.waitForTimeout(200);
       await page.keyboard.press('Escape').catch(() => {});
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(250);
 
-      // 2.5 Клік по бекдропу на безпечній позиції (x: 10, y: 10)
+      // 3. Клік по бекдропу на безпечній позиції (x: 10, y: 10)
       const activeBackdrop = await page.$('div.fixed.inset-0.z-50');
       if (activeBackdrop && await activeBackdrop.isVisible().catch(() => false)) {
         await activeBackdrop.click({ position: { x: 10, y: 10 } }).catch(() => {});
         await page.waitForTimeout(250);
       }
 
-      // 3. Якщо оверлей все ще перекриває DOM, примусово закрити через evaluate
+      // 4. Якщо оверлей все ще перекриває DOM, клікнути точний хрестик через evaluate
       await page.evaluate(() => {
         const overlays = document.querySelectorAll('div.fixed.inset-0.z-50');
         overlays.forEach(ov => {
-          const closeBtn = ov.querySelector('button[title*="акрити"], button[aria-label*="акрити"], button[data-testid*="close"], button[data-modal-close]');
-          if (closeBtn) {
-            closeBtn.click();
-          } else {
-            const btn = ov.querySelector('button');
-            if (btn) btn.click();
-          }
+          const closeBtn = ov.querySelector('button[data-modal-close], button[data-testid="close-modal"], button[title*="акрити"], button[aria-label*="акрити"]');
+          if (closeBtn) closeBtn.click();
         });
       }).catch(() => {});
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(300);
 
       // 4. Якщо відкрита картка /deals/... перейти назад до /deals
       if (page.url().includes('/deals/')) {
@@ -394,10 +380,10 @@ const CRM_PROJECT_REGISTRY = {
             logStep('ADMIN_MODAL', 'Перемикач "Round-Robin розподіл лідів"', 'PASS', 'Режим змінено');
           }
 
-          const adminCloseBtn = await page.$('div.fixed.inset-0 button:has(svg), button[data-testid="close-modal"], button[title="Закрити"]');
+          const adminCloseBtn = await page.$('button[data-modal-close="admin-panel"], button[data-testid="close-modal"]');
           if (adminCloseBtn) {
             await adminCloseBtn.click({ force: true }).catch(() => {});
-            await page.waitForTimeout(400);
+            await page.waitForTimeout(500);
           }
           await closeAnyOpenModal();
         }

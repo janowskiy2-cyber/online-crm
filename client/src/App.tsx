@@ -74,6 +74,16 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Automatically dismiss floating modal overlays on page navigation
+  useEffect(() => {
+    setIsAdminPanelOpen(false);
+    setIsUserSwitcherOpen(false);
+    setIsCalcOpen(false);
+    setIsObjectionsOpen(false);
+    setIsQROpen(false);
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname]);
+
   // Deep linking: URL match for /deals/:dealId
   const dealMatch = useMatch('/deals/:dealId');
   const activeDealId = dealMatch?.params.dealId || selectedDealId;
