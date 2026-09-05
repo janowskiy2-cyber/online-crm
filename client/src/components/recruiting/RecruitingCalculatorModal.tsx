@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calculator, Download, Send, CheckCircle2, FileText, Globe2, Users, DollarSign } from 'lucide-react';
 
 interface RecruitingCalculatorModalProps {
@@ -37,8 +37,21 @@ export const RecruitingCalculatorModal: React.FC<RecruitingCalculatorModalProps>
 
   const formatEUR = (val: number) => `€${new Intl.NumberFormat('ru-RU').format(val)}`;
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none font-['Inter',sans-serif]">
+    <div 
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none font-['Inter',sans-serif]"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="bg-[#111827] border border-slate-700/80 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
@@ -58,7 +71,15 @@ export const RecruitingCalculatorModal: React.FC<RecruitingCalculatorModalProps>
             </div>
           </div>
 
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-xl">
+          <button 
+            type="button"
+            onClick={onClose} 
+            title="Закрити"
+            aria-label="Закрити"
+            data-testid="close-modal"
+            data-modal-close="calculator"
+            className="p-2 text-slate-400 hover:text-white rounded-xl transition hover:bg-slate-800"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>

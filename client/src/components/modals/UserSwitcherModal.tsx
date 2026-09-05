@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   ShieldAlert, 
@@ -40,8 +40,21 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ onClose })
     await updateUserPermissions(user.id, { [key]: updatedVal });
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif] select-none animate-in fade-in">
+    <div 
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif] select-none animate-in fade-in"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="bitrix-glass border border-white/15 rounded-3xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden backdrop-blur-2xl">
         
         {/* Modal Header */}
@@ -64,7 +77,12 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ onClose })
           </div>
 
           <button
+            type="button"
             onClick={onClose}
+            title="Закрити"
+            aria-label="Закрити"
+            data-testid="close-modal"
+            data-modal-close="user-switcher"
             className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition"
           >
             <X className="w-4 h-4" />

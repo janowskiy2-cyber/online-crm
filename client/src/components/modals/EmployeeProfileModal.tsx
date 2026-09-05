@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Phone, 
@@ -60,6 +60,16 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const displayRole = roleLabels[colleague.role || ''] || colleague.role || 'Співробітник';
   const displayDept = colleague.department || 'Відділ працевлаштування та рекрутингу';
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div 
       className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
@@ -79,9 +89,13 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           </div>
           
           <button 
+            type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-slate-300 hover:text-white flex items-center justify-center transition border border-white/10"
-            title="Закрити картку"
+            title="Закрити"
+            aria-label="Закрити"
+            data-testid="close-modal"
+            data-modal-close="employee-profile"
           >
             <X className="w-4 h-4" />
           </button>

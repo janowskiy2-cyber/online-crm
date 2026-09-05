@@ -118,6 +118,13 @@ const CRM_PROJECT_REGISTRY = {
       await page.keyboard.press('Escape').catch(() => {});
       await page.waitForTimeout(300);
 
+      // 2.5 Клік по бекдропу на безпечній позиції (x: 10, y: 10)
+      const activeBackdrop = await page.$('div.fixed.inset-0.z-50');
+      if (activeBackdrop && await activeBackdrop.isVisible().catch(() => false)) {
+        await activeBackdrop.click({ position: { x: 10, y: 10 } }).catch(() => {});
+        await page.waitForTimeout(250);
+      }
+
       // 3. Якщо оверлей все ще перекриває DOM, примусово закрити через evaluate
       await page.evaluate(() => {
         const overlays = document.querySelectorAll('div.fixed.inset-0.z-50');

@@ -156,6 +156,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   useEffect(() => {
+    if (!isProfileMenuOpen && !isShiftMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsProfileMenuOpen(false);
+        setIsShiftMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isProfileMenuOpen, isShiftMenuOpen]);
+
+  useEffect(() => {
     let timer: any;
     if (workStatus === 'working') {
       timer = setInterval(() => {
@@ -357,7 +369,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Profile Dropdown Menu */}
             {isProfileMenuOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-2 z-50 animate-in fade-in zoom-in-95">
+              <>
+                <div 
+                  className="fixed inset-0 z-40 bg-transparent" 
+                  onClick={() => setIsProfileMenuOpen(false)} 
+                />
+                <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-2 z-50 animate-in fade-in zoom-in-95">
                 <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
                   <div>
                     <div className="font-bold text-xs text-white">{currentUser?.name || 'Головний Адміністратор'}</div>
@@ -435,6 +452,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 </div>
               </div>
+              </>
             )}
           </div>
 

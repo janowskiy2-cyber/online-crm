@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, FileText, CheckCircle2, AlertCircle, RefreshCw, Users, Building2, Download } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -22,6 +22,17 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -152,7 +163,10 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="bg-[#0b101b] border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         
         {/* Header */}
@@ -172,7 +186,12 @@ export const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
+            title="Закрити"
+            aria-label="Закрити"
+            data-testid="close-modal"
+            data-modal-close="import-csv"
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
           >
             <X className="w-5 h-5" />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ShieldAlert, Sparkles, Copy, Check, MessageSquare, HelpCircle } from 'lucide-react';
 
 interface ObjectionsCheatSheetModalProps {
@@ -69,8 +69,21 @@ export const ObjectionsCheatSheetModal: React.FC<ObjectionsCheatSheetModalProps>
     setTimeout(() => setCopiedId(null), 2500);
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none font-['Inter',sans-serif]">
+    <div 
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 select-none font-['Inter',sans-serif]"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="bg-[#111827] border border-slate-700/80 rounded-3xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
@@ -90,7 +103,15 @@ export const ObjectionsCheatSheetModal: React.FC<ObjectionsCheatSheetModalProps>
             </div>
           </div>
 
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-xl">
+          <button 
+            type="button"
+            onClick={onClose} 
+            title="Закрити"
+            aria-label="Закрити"
+            data-testid="close-modal"
+            data-modal-close="objections"
+            className="p-2 text-slate-400 hover:text-white rounded-xl transition hover:bg-slate-800"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
