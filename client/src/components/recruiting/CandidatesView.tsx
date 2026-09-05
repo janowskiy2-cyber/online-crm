@@ -23,7 +23,10 @@ import {
   UserCheck,
   ChevronDown,
   Download,
-  Upload
+  Upload,
+  CheckSquare,
+  Square,
+  Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -41,6 +44,12 @@ export const CandidatesView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [activeVideoModal, setActiveVideoModal] = useState<string | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  // Batch Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchCompanyId, setBatchCompanyId] = useState('');
+  const [batchStatus, setBatchStatus] = useState('');
+  const [isBatchBusy, setIsBatchBusy] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -157,6 +166,82 @@ export const CandidatesView: React.FC = () => {
     } catch (err) {
       console.error(err);
       alert('Помилка завантаження експорту');
+    }
+  };
+
+  const toggleSelectCandidate = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (visibleCandidateIds: string[]) => {
+    setSelectedIds(prev => {
+      const allSelected = visibleCandidateIds.every(id => prev.has(id));
+      if (allSelected) {
+        return new Set();
+      } else {
+        return new Set(visibleCandidateIds);
+      }
+    });
+  };
+
+  const handleBatchAssignEmployer = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBatchBusy(true);
+    try {
+      await api.post('/contacts/batch-assign', {
+        contactIds: Array.from(selectedIds),
+        companyId: batchCompanyId || null
+      });
+      await fetchCandidates();
+      setSelectedIds(new Set());
+      setBatchCompanyId('');
+    } catch (e) {
+      alert('Помилка масового призначення роботодавця');
+    } finally {
+      setIsBatchBusy(false);
+    }
+  };
+
+  const handleBatchUpdateStatus = async () => {
+    if (selectedIds.size === 0 || !batchStatus) return;
+    setIsBatchBusy(true);
+    try {
+      await api.post('/contacts/batch-status', {
+        contactIds: Array.from(selectedIds),
+        status: batchStatus
+      });
+      await fetchCandidates();
+      setSelectedIds(new Set());
+      setBatchStatus('');
+    } catch (e) {
+      alert('Помилка масової зміни статусу');
+    } finally {
+      setIsBatchBusy(false);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Видалити обраних кандидатів (${selectedIds.size} чол.)?`)) return;
+    setIsBatchBusy(true);
+    try {
+      await api.post('/contacts/batch-delete', {
+        contactIds: Array.from(selectedIds)
+      });
+      await fetchCandidates();
+      setSelectedIds(new Set());
+    } catch (e) {
+      alert('Помилка масового видалення кандидатів');
+    } finally {
+      setIsBatchBusy(false);
     }
   };
 
@@ -311,6 +396,43 @@ export const CandidatesView: React.FC = () => {
           ))}
         </div>
 
+        {/* Batch Selection Header Toolbar */}
+        <div className="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-xl border border-white/5 text-xs text-slate-300">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => toggleSelectAll(filteredCandidates.map(c => c.id))}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-white font-medium border border-white/10 transition"
+            >
+              {filteredCandidates.length > 0 && filteredCandidates.every(c => selectedIds.has(c.id)) ? (
+                <>
+                  <CheckSquare className="w-4 h-4 text-emerald-400" />
+                  <span>Зняти виділення</span>
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4 text-slate-400" />
+                  <span>Вибрати всіх ({filteredCandidates.length})</span>
+                </>
+              )}
+            </button>
+
+            {selectedIds.size > 0 && (
+              <span className="text-emerald-400 font-bold">
+                Вибрано: {selectedIds.size}
+              </span>
+            )}
+          </div>
+
+          {selectedIds.size > 0 && (
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-slate-400 hover:text-white transition text-xs"
+            >
+              Скинути вибір
+            </button>
+          )}
+        </div>
+
         {/* Candidates Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCandidates.length === 0 ? (
@@ -329,13 +451,30 @@ export const CandidatesView: React.FC = () => {
             filteredCandidates.map((cand) => (
               <div
                 key={cand.id}
-                className="bitrix-glass rounded-2xl p-5 border border-white/10 hover:border-emerald-500/40 transition-all duration-200 shadow-xl flex flex-col justify-between group"
+                className={`bitrix-glass rounded-2xl p-5 border transition-all duration-200 shadow-xl flex flex-col justify-between group ${
+                  selectedIds.has(cand.id)
+                    ? 'border-emerald-500/80 bg-emerald-950/20 ring-1 ring-emerald-500/30'
+                    : 'border-white/10 hover:border-emerald-500/40'
+                }`}
               >
                 <div>
-                  {/* Card Header: Avatar & Info */}
+                  {/* Card Header: Checkbox, Avatar & Info */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600/30 to-teal-600/30 border border-emerald-500/30 flex items-center justify-center text-emerald-300 font-black text-base shadow-inner flex-shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectCandidate(cand.id)}
+                        className="p-1 -ml-1 text-slate-400 hover:text-emerald-400 transition"
+                        title={selectedIds.has(cand.id) ? 'Зняти позначку' : 'Вибрати кандидата'}
+                      >
+                        {selectedIds.has(cand.id) ? (
+                          <CheckSquare className="w-5 h-5 text-emerald-400" />
+                        ) : (
+                          <Square className="w-5 h-5 text-slate-500" />
+                        )}
+                      </button>
+
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-600/30 to-teal-600/30 border border-emerald-500/30 flex items-center justify-center text-emerald-300 font-black text-base shadow-inner flex-shrink-0">
                         {cand.name.charAt(0)}
                       </div>
                       <div>
@@ -598,6 +737,92 @@ export const CandidatesView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Floating Batch Actions Bar (Glassmorphism) */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-4xl bitrix-glass border border-emerald-500/40 bg-slate-950/95 shadow-2xl backdrop-blur-2xl rounded-2xl p-4 animate-in slide-in-from-bottom-5">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-500/30">
+                {selectedIds.size}
+              </span>
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Кандидатів обрано</span>
+                </div>
+                <div className="text-[10px] text-slate-400">Виберіть групову дію нижче</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Batch Assign Employer */}
+              <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-white/10">
+                <select
+                  value={batchCompanyId}
+                  onChange={(e) => setBatchCompanyId(e.target.value)}
+                  className="bg-transparent text-xs text-slate-200 px-2 py-1 focus:outline-none max-w-[150px]"
+                >
+                  <option value="" className="bg-slate-900">-- Роботодавець --</option>
+                  <option value="" className="bg-slate-900 text-amber-400">В резерв (зняти)</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id} className="bg-slate-900">{c.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleBatchAssignEmployer}
+                  disabled={isBatchBusy}
+                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50 active:scale-95"
+                >
+                  Призначити
+                </button>
+              </div>
+
+              {/* Batch Status */}
+              <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-white/10">
+                <select
+                  value={batchStatus}
+                  onChange={(e) => setBatchStatus(e.target.value)}
+                  className="bg-transparent text-xs text-slate-200 px-2 py-1 focus:outline-none max-w-[140px]"
+                >
+                  <option value="" className="bg-slate-900">-- Статус --</option>
+                  <option value="Скринінг / Анкета" className="bg-slate-900">Скринінг / Анкета</option>
+                  <option value="Співбесіда з заводом" className="bg-slate-900">Співбесіда з заводом</option>
+                  <option value="Оформлення візи" className="bg-slate-900">Оформлення візи</option>
+                  <option value="Працевлаштований" className="bg-slate-900">Працевлаштований</option>
+                  <option value="Резерв" className="bg-slate-900">Резерв</option>
+                </select>
+                <button
+                  onClick={handleBatchUpdateStatus}
+                  disabled={isBatchBusy || !batchStatus}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50 active:scale-95"
+                >
+                  Змінити
+                </button>
+              </div>
+
+              {/* Batch Delete */}
+              <button
+                onClick={handleBatchDelete}
+                disabled={isBatchBusy}
+                className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                title="Видалити обраних кандидатів"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Видалити</span>
+              </button>
+
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="p-1.5 text-slate-400 hover:text-white"
+                title="Закрити панель"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ImportCsvModal
         isOpen={isImportModalOpen}

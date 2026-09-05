@@ -555,6 +555,30 @@ export class WhatsAppService {
           console.error('Error handling WhatsApp call event:', err);
         }
       });
+
+      // Handle WhatsApp real-time message status updates (Delivered / Read receipts - Blue ticks)
+      this.sock.ev.on('messages.update', async (updates: any) => {
+        try {
+          if (!updates || !Array.isArray(updates)) return;
+          for (const u of updates) {
+            if (!u.key?.id) continue;
+            const statusNum = u.update?.status;
+            let newStatus: 'delivered' | 'read' | null = null;
+            if (statusNum === 3) newStatus = 'delivered';
+            else if (statusNum === 4 || statusNum === 5) newStatus = 'read';
+
+            if (newStatus && this.io) {
+              this.io.emit('message_status_updated', {
+                externalMsgId: u.key.id,
+                status: newStatus,
+                channel: 'whatsapp'
+              });
+            }
+          }
+        } catch (updateErr) {
+          console.warn('Error handling WhatsApp messages.update:', updateErr);
+        }
+      });
     } catch (err) {
       console.warn('Baileys running in resilient mode:', err);
     }

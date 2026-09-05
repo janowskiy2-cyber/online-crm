@@ -26,7 +26,8 @@ import {
   Volume2,
   VolumeX,
   Video,
-  Maximize2
+  Maximize2,
+  Eye
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { soundService } from '../../services/sound.service';
@@ -35,6 +36,8 @@ import { MediaViewerModal } from '../media/MediaViewerModal';
 import { AudioMessagePlayer } from '../media/AudioMessagePlayer';
 import { VoiceRecorder } from '../media/VoiceRecorder';
 import { CallModal } from '../telephony/CallModal';
+import { SlashCommandsPopup } from '../chat/SlashCommandsPopup';
+import { CannedResponse } from '../../constants/cannedResponses';
 
 interface UnifiedInboxProps {
   onOpenDeal: (dealId: string) => void;
@@ -68,6 +71,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
 
+  // Slash commands state
+  const [slashFilter, setSlashFilter] = useState<string | null>(null);
+
+  // Anti-Collision Presence (active viewers in currently opened dialog)
+  const [activeViewers, setActiveViewers] = useState<string[]>([]);
+
   // Sound notification state
   const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
 
@@ -96,6 +105,46 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       console.warn('Inbox fetch:', e);
     }
   };
+
+  // Real-time WhatsApp read status synchronization (Blue ticks ack)
+  useEffect(() => {
+    const handleStatusUpdate = ({ externalMsgId, status }: { externalMsgId: string; status: string }) => {
+      setMessages(prev => prev.map(m => {
+        if ((m as any).externalId === externalMsgId || m.id === externalMsgId) {
+          return { ...m, status: status as any };
+        }
+        return m;
+      }));
+    };
+
+    socket.on('message_status_updated', handleStatusUpdate);
+    return () => {
+      socket.off('message_status_updated', handleStatusUpdate);
+    };
+  }, []);
+
+  // Real-time Dialog Collision Detection (joins dialog room and tracks viewers)
+  useEffect(() => {
+    if (!selectedChatKey) {
+      setActiveViewers([]);
+      return;
+    }
+    const currentUserName = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_name') || 'Менеджер' : 'Менеджер';
+    socket.emit('dialog_join', { dialogKey: selectedChatKey, userName: currentUserName });
+
+    const handleViewers = ({ dialogKey, viewers }: { dialogKey: string; viewers: string[] }) => {
+      if (dialogKey === selectedChatKey) {
+        setActiveViewers(viewers);
+      }
+    };
+
+    socket.on('dialog_viewers', handleViewers);
+
+    return () => {
+      socket.emit('dialog_leave', { dialogKey: selectedChatKey });
+      socket.off('dialog_viewers', handleViewers);
+    };
+  }, [selectedChatKey]);
 
   useEffect(() => {
     fetchMessages();
@@ -515,6 +564,21 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 </div>
               </div>
 
+              {/* Anti-Collision Warning Banner */}
+              {activeViewers.length > 1 && (
+                <div className="px-4 sm:px-6 py-1.5 bg-amber-500/15 border-t border-amber-500/30 text-amber-300 text-xs flex items-center justify-between animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-amber-400 animate-pulse" />
+                    <span className="font-semibold text-[11px]">
+                      Увага: у цьому діалозі зараз також колеги ({activeViewers.join(', ')})
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-200 font-bold">
+                    Запобігання колізіям
+                  </span>
+                </div>
+              )}
+
               {activeDeal && currentPipeline && (
                 <div className="px-4 sm:px-6 py-2 bg-[#0c101c] border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto">
                   <span className="text-[10px] text-slate-500 uppercase font-bold mr-1">Етап:</span>
@@ -714,78 +778,101 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     ))}
                   </div>
 
-                  <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-1.5 sm:gap-2">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      className="hidden"
-                      accept="application/pdf,image/*,video/*,.doc,.docx,.mp4,.mov,.webm"
-                    />
+                  <div className="relative">
+                    {slashFilter !== null && (
+                      <SlashCommandsPopup
+                        filterQuery={slashFilter}
+                        onSelect={(item) => {
+                          const newText = replyText.replace(/(^|\s)(\/[^\s]*)$/, `$1${item.text}`);
+                          setReplyText(newText);
+                          setSlashFilter(null);
+                        }}
+                        onClose={() => setSlashFilter(null)}
+                      />
+                    )}
 
-                    <input
-                      type="file"
-                      ref={videoInputRef}
-                      onChange={handleFileChange}
-                      className="hidden"
-                      accept="video/*,.mp4,.mov,.webm"
-                    />
+                    <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-1.5 sm:gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="application/pdf,image/*,video/*,.doc,.docx,.mp4,.mov,.webm"
+                      />
 
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Прикріпити файл (PDF / Фото / Договір)"
-                      className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
-                    >
-                      <Paperclip className="w-4 h-4" />
-                    </button>
+                      <input
+                        type="file"
+                        ref={videoInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="video/*,.mp4,.mov,.webm"
+                      />
 
-                    <button
-                      type="button"
-                      onClick={() => videoInputRef.current?.click()}
-                      title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
-                      className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
-                    >
-                      <Video className="w-4 h-4" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Прикріпити файл (PDF / Фото / Договір)"
+                        className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsVoiceRecording(true)}
-                      title="Записати голосове повідомлення"
-                      className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
-                    >
-                      <Mic className="w-4 h-4" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => videoInputRef.current?.click()}
+                        title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
+                        className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                      >
+                        <Video className="w-4 h-4" />
+                      </button>
 
-                    <input
-                      type="text"
-                      placeholder={isInternalNote 
-                        ? "Напишіть службову замітку для команди (клієнт не побачить)..."
-                        : `Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      className={`flex-1 bg-slate-900 border rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
-                        isInternalNote 
-                          ? 'border-amber-500/60 focus:border-amber-400 ring-1 ring-amber-500/20' 
-                          : 'border-slate-700 focus:border-blue-500'
-                      }`}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSendingFile}
-                      className={`px-3 sm:px-4 py-2 sm:py-2.5 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg flex-shrink-0 ${
-                        isInternalNote 
-                          ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30' 
-                          : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
-                      }`}
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">
-                        {isSendingFile ? '...' : (isInternalNote ? 'Зберегти' : 'Надіслати')}
-                      </span>
-                    </button>
-                  </form>
+                      <button
+                        type="button"
+                        onClick={() => setIsVoiceRecording(true)}
+                        title="Записати голосове повідомлення"
+                        className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                      >
+                        <Mic className="w-4 h-4" />
+                      </button>
+
+                      <input
+                        type="text"
+                        placeholder={isInternalNote 
+                          ? "Напишіть службову замітку для команди (клієнт не побачить)..."
+                          : `Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}... (введіть / для швидких шаблонів)`}
+                        value={replyText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setReplyText(val);
+                          const match = val.match(/(^|\s)(\/[^\s]*)$/);
+                          if (match) {
+                            setSlashFilter(match[2]);
+                          } else {
+                            setSlashFilter(null);
+                          }
+                        }}
+                        className={`flex-1 bg-slate-900 border rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                          isInternalNote 
+                            ? 'border-amber-500/60 focus:border-amber-400 ring-1 ring-amber-500/20' 
+                            : 'border-slate-700 focus:border-blue-500'
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSendingFile}
+                        className={`px-3 sm:px-4 py-2 sm:py-2.5 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg flex-shrink-0 ${
+                          isInternalNote 
+                            ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30' 
+                            : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+                        }`}
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">
+                          {isSendingFile ? '...' : (isInternalNote ? 'Зберегти' : 'Надіслати')}
+                        </span>
+                      </button>
+                    </form>
+                  </div>
                 </>
               )}
             </div>

@@ -49,6 +49,8 @@ import { VoiceRecorder } from '../media/VoiceRecorder';
 import { GeminiModal } from '../recruiting/GeminiModal';
 import { startSpeechToText } from '../../utils/speechRecognition';
 import { openPrintableInvoice } from '../../utils/invoiceGenerator';
+import { SlashCommandsPopup } from '../chat/SlashCommandsPopup';
+import { CannedResponse } from '../../constants/cannedResponses';
 
 const resolveMediaUrl = (url?: string) => {
   if (!url) return '';
@@ -176,6 +178,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [editContactPhone2, setEditContactPhone2] = useState('');
   const [editContactTg, setEditContactTg] = useState('');
   const [editContactEmail, setEditContactEmail] = useState('');
+
+  // Slash commands state
+  const [slashFilter, setSlashFilter] = useState<string | null>(null);
   const [editContactPosition, setEditContactPosition] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
 
@@ -2142,68 +2147,91 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     ))}
                   </div>
 
-                  <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex gap-2">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      className="hidden"
-                      accept="application/pdf,image/*,video/*,.doc,.docx,.mp4,.mov,.webm"
-                    />
+                  <div className="relative">
+                    {slashFilter !== null && (
+                      <SlashCommandsPopup
+                        filterQuery={slashFilter}
+                        onSelect={(item) => {
+                          const newText = chatMessageText.replace(/(^|\s)(\/[^\s]*)$/, `$1${item.text}`);
+                          setChatMessageText(newText);
+                          setSlashFilter(null);
+                        }}
+                        onClose={() => setSlashFilter(null)}
+                      />
+                    )}
 
-                    <input
-                      type="file"
-                      ref={videoInputRef}
-                      onChange={handleFileChange}
-                      className="hidden"
-                      accept="video/*,.mp4,.mov,.webm"
-                    />
+                    <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="application/pdf,image/*,video/*,.doc,.docx,.mp4,.mov,.webm"
+                      />
 
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Прикріпити файл (PDF / Фото / Договір)"
-                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
-                    >
-                      <Paperclip className="w-4 h-4" />
-                    </button>
+                      <input
+                        type="file"
+                        ref={videoInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="video/*,.mp4,.mov,.webm"
+                      />
 
-                    <button
-                      type="button"
-                      onClick={() => videoInputRef.current?.click()}
-                      title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
-                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
-                    >
-                      <Video className="w-4 h-4" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Прикріпити файл (PDF / Фото / Договір)"
+                        className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsVoiceRecording(true)}
-                      title="Записати голосове повідомлення"
-                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
-                    >
-                      <Mic className="w-4 h-4" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => videoInputRef.current?.click()}
+                        title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
+                        className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                      >
+                        <Video className="w-4 h-4" />
+                      </button>
 
-                    <input
-                      type="text"
-                      placeholder={`Напишіть повідомлення клієнту в ${chatChannel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}...`}
-                      value={chatMessageText}
-                      onChange={(e) => setChatMessageText(e.target.value)}
-                      className={`flex-1 bg-slate-900 border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
-                        isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-blue-500'
-                      }`}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSendingFile}
-                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30 flex-shrink-0"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>{isSendingFile ? '...' : 'Надіслати'}</span>
-                    </button>
-                  </form>
+                      <button
+                        type="button"
+                        onClick={() => setIsVoiceRecording(true)}
+                        title="Записати голосове повідомлення"
+                        className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                      >
+                        <Mic className="w-4 h-4" />
+                      </button>
+
+                      <input
+                        type="text"
+                        placeholder={`Напишіть повідомлення клієнту в ${chatChannel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}... (введіть / для швидких шаблонів)`}
+                        value={chatMessageText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setChatMessageText(val);
+                          const match = val.match(/(^|\s)(\/[^\s]*)$/);
+                          if (match) {
+                            setSlashFilter(match[2]);
+                          } else {
+                            setSlashFilter(null);
+                          }
+                        }}
+                        className={`flex-1 bg-slate-900 border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                          isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-blue-500'
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSendingFile}
+                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30 flex-shrink-0"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{isSendingFile ? '...' : 'Надіслати'}</span>
+                      </button>
+                    </form>
+                  </div>
                 </>
               )}
             </div>

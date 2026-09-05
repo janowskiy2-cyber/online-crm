@@ -99,6 +99,46 @@ app.use('/api/feed', authRequired, createFeedRouter(prisma));
 app.use('/api/export', authRequired, createExportRouter(prisma));
 app.use('/api/import', authRequired, createImportRouter(prisma));
 
+// ── Real-time Dialog Collision Detection & Viewer Presence ──
+const dialogViewers = new Map<string, Map<string, string>>(); // dialogKey -> (socketId -> userName)
+
+io.on('connection', (socket) => {
+  socket.on('dialog_join', ({ dialogKey, userName }: { dialogKey: string; userName?: string }) => {
+    if (!dialogKey) return;
+    const room = `dialog_${dialogKey}`;
+    socket.join(room);
+    if (!dialogViewers.has(dialogKey)) {
+      dialogViewers.set(dialogKey, new Map());
+    }
+    dialogViewers.get(dialogKey)!.set(socket.id, userName || 'Колега');
+    
+    const viewers = Array.from(dialogViewers.get(dialogKey)!.values());
+    io.to(room).emit('dialog_viewers', { dialogKey, viewers });
+  });
+
+  socket.on('dialog_leave', ({ dialogKey }: { dialogKey: string }) => {
+    if (!dialogKey) return;
+    const room = `dialog_${dialogKey}`;
+    socket.leave(room);
+    if (dialogViewers.has(dialogKey)) {
+      dialogViewers.get(dialogKey)!.delete(socket.id);
+      const viewers = Array.from(dialogViewers.get(dialogKey)!.values());
+      io.to(room).emit('dialog_viewers', { dialogKey, viewers });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    dialogViewers.forEach((viewersMap, dialogKey) => {
+      if (viewersMap.has(socket.id)) {
+        viewersMap.delete(socket.id);
+        const room = `dialog_${dialogKey}`;
+        const viewers = Array.from(viewersMap.values());
+        io.to(room).emit('dialog_viewers', { dialogKey, viewers });
+      }
+    });
+  });
+});
+
 // Serve frontend client build directly if available
 const clientDistPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientDistPath)) {
@@ -109,6 +149,20 @@ if (fs.existsSync(clientDistPath)) {
 }
 
 const PORT = process.env.PORT || 4000;
+
+// Render Free-tier Keep-Alive Self-Pinger (runs every 10 minutes to prevent cold starts)
+const PING_INTERVAL_MS = 10 * 60 * 1000;
+const RENDER_APP_URL = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
+
+setInterval(() => {
+  try {
+    const healthUrl = `${RENDER_APP_URL}/api/health`;
+    const protocol = healthUrl.startsWith('https') ? require('https') : require('http');
+    protocol.get(healthUrl, (res: any) => {
+      res.resume();
+    }).on('error', () => {});
+  } catch (e) {}
+}, PING_INTERVAL_MS);
 
 server.listen(PORT, async () => {
   console.log(`🚀 Production CRM Server running on port ${PORT}`);

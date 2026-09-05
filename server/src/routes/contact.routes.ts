@@ -280,5 +280,56 @@ export function createContactRouter(prisma: PrismaClient) {
     }
   });
 
+  // Batch assign company/employer to contacts
+  router.post('/batch-assign', async (req, res) => {
+    try {
+      const { contactIds, companyId } = req.body;
+      if (!Array.isArray(contactIds) || contactIds.length === 0) {
+        return res.status(400).json({ error: 'contactIds array is required' });
+      }
+      const result = await prisma.contact.updateMany({
+        where: { id: { in: contactIds } },
+        data: { companyId: companyId || null }
+      });
+      res.json({ success: true, count: result.count });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to batch assign company' });
+    }
+  });
+
+  // Batch update contact status
+  router.post('/batch-status', async (req, res) => {
+    try {
+      const { contactIds, status } = req.body;
+      if (!Array.isArray(contactIds) || contactIds.length === 0 || !status) {
+        return res.status(400).json({ error: 'contactIds and status are required' });
+      }
+      const result = await prisma.contact.updateMany({
+        where: { id: { in: contactIds } },
+        data: { status }
+      });
+      res.json({ success: true, count: result.count });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to batch update status' });
+    }
+  });
+
+  // Batch delete / archive contacts
+  router.post('/batch-delete', async (req, res) => {
+    try {
+      const { contactIds } = req.body;
+      if (!Array.isArray(contactIds) || contactIds.length === 0) {
+        return res.status(400).json({ error: 'contactIds array is required' });
+      }
+      const result = await prisma.contact.updateMany({
+        where: { id: { in: contactIds } },
+        data: { isDeleted: true, deletedAt: new Date() }
+      });
+      res.json({ success: true, count: result.count });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to batch delete contacts' });
+    }
+  });
+
   return router;
 }
