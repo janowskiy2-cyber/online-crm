@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { api, setAuthHeader, setAuthToken } from '../services/api';
+import { api, setAuthHeader, setAuthToken, clearAuth, UNAUTHORIZED_EVENT } from '../services/api';
 import { DEFAULT_ADMIN_AVATAR } from '../constants/defaultAvatar';
 
 const defaultRootUser: User = {
@@ -118,14 +118,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem('crm_auth_token');
-    localStorage.removeItem('crm_active_user');
-    localStorage.removeItem('crm_user_id');
-    delete api.defaults.headers.common['Authorization'];
-    delete api.defaults.headers.common['x-user-id'];
+    clearAuth();
     setCurrentUser(null);
     setIsAuthenticated(false);
   };
+
+  // Session expired / rejected by backend → return to the login screen instead of a blank UI
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
 
   const switchUser = async (userId: string) => {
     try {

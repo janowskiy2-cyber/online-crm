@@ -69,7 +69,7 @@ export class TelegramService {
     return {
       channel: 'telegram',
       status: this.status,
-      phone: this.accountInfo.phone || '+380 (73) 427-71-74',
+      phone: this.accountInfo.phone || process.env.CORP_TELEGRAM_PHONE || '',
       accountName: this.accountInfo.name || this.accountInfo.username || 'Корпоративний Telegram (Користувач)',
       updatedAt: new Date()
     };

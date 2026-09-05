@@ -1,0 +1,68 @@
+# CI: verification only (no deploy). Vercel and Render deploy from their own hooks.
+# Every MR and push to main gets type-checked and built so regressions are caught early.
+
+stages:
+  - verify
+
+default:
+  image: node:20
+  interruptible: true
+
+variables:
+  # Dummy connection string: prisma validate/generate only need the variable to exist,
+  # no real database connection is made in CI.
+  DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci?schema=public"
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+.node_cache: &node_cache
+  cache:
+    key:
+      files:
+        - server/package-lock.json
+        - client/package-lock.json
+    paths:
+      - .npm/
+
+server:typecheck:
+  stage: verify
+  <<: *node_cache
+  script:
+    - cd server
+    - npm ci --no-audit --no-fund
+    - npx prisma validate
+    - npx prisma generate
+    - npx tsc --noEmit
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH
+
+client:typecheck:
+  stage: verify
+  <<: *node_cache
+  # Type errors in the client do not block the pipeline yet; the build job below does.
+  allow_failure: true
+  script:
+    - cd client
+    - npm ci --no-audit --no-fund
+    - npx tsc --noEmit
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH
+
+client:build:
+  stage: verify
+  <<: *node_cache
+  script:
+    - cd client
+    - npm ci --no-audit --no-fund
+    - npm run build
+  artifacts:
+    paths:
+      - client/dist
+    expire_in: 1 day
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH

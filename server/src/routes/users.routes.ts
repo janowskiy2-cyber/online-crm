@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword, generateSecurePassword } from '../utils/security';
-import { adminRequired, AuthRequest } from '../middleware/auth.middleware';
+import { adminRequired, isMasterKeyValid, AuthRequest } from '../middleware/auth.middleware';
 import { CloudinaryService } from '../services/cloudinary.service';
 
 async function processAvatar(avatar: string | undefined | null, userId: string, oldAvatar?: string | null): Promise<string | undefined> {
@@ -81,12 +81,14 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Verify Admin Master Password
-  router.post('/verify-admin-pin', (req, res) => {
+  // Verify Admin Master Password (second factor; caller must already be authenticated via JWT)
+  router.post('/verify-admin-pin', (req: AuthRequest, res) => {
     try {
-      const { password } = req.body;
-      const adminKey = process.env.ADMIN_MASTER_KEY || '22222222';
-      if (password && password === adminKey) {
+      if (!req.userId) {
+        return res.status(401).json({ error: 'Потрібна авторизація' });
+      }
+      const { password } = req.body || {};
+      if (isMasterKeyValid(typeof password === 'string' ? password.trim() : password)) {
         return res.json({ success: true });
       }
       return res.status(401).json({ error: 'Невірний майстер-пароль адміністратора' });

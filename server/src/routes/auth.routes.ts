@@ -2,9 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { verifyPassword, hashPassword } from '../utils/security';
-import { authRequired, adminRequired, AuthRequest } from '../middleware/auth.middleware';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'crm_super_secret_jwt_key_2026';
+import { authRequired, adminRequired, AuthRequest, JWT_SECRET, getMasterKey } from '../middleware/auth.middleware';
 
 const userSafeSelect = {
   id: true, email: true, name: true, avatar: true, role: true,
@@ -12,11 +10,6 @@ const userSafeSelect = {
   canViewAllDeals: true, canViewDeptDeals: true, canEditDeals: true,
   canDeleteDeals: true, canExportData: true, canManageUsers: true,
   canManageIntegrations: true
-};
-
-// Public select for login picker — NEVER leaks phone numbers or personal emails
-const userPublicSelect = {
-  id: true, name: true, role: true, department: true, avatar: true
 };
 
 const DEFAULT_TEAM = [
@@ -149,14 +142,13 @@ async function ensureDefaultTeamProvisioned(prisma: PrismaClient) {
 export function createAuthRouter(prisma: PrismaClient) {
   const router = Router();
 
-  // Get all users for login picker or full list for authenticated users
-  router.get('/users', async (req, res) => {
+  // Team list for authenticated users only (no public employee directory)
+  router.get('/users', authRequired, async (req: AuthRequest, res) => {
     try {
       await ensureDefaultTeamProvisioned(prisma);
-      const isAuth = req.headers.authorization?.startsWith('Bearer ');
       const users = await prisma.user.findMany({
         where: { isActive: true, isDeleted: false },
-        select: isAuth ? userSafeSelect : userPublicSelect,
+        select: userSafeSelect,
         orderBy: { name: 'asc' }
       });
       res.json(users);
@@ -203,16 +195,17 @@ export function createAuthRouter(prisma: PrismaClient) {
         return res.status(400).json({ error: 'Введіть email та пароль' });
       }
 
-      const cleanEmail = email.trim().toLowerCase();
-      const masterKey = process.env.ADMIN_MASTER_KEY || '22222222';
-      const isMasterKey = (password === masterKey);
+      const cleanEmail = String(email).trim().toLowerCase();
+      const masterKey = getMasterKey();
+      const isMasterKey = !!masterKey && password === masterKey;
 
       let user = await prisma.user.findUnique({
         where: { email: cleanEmail }
       });
 
-      // Auto-provision default super admin if logging in as admin@crm.pro and doesn't exist
-      if (!user && cleanEmail === 'admin@crm.pro') {
+      // Bootstrap: create the root super admin ONLY on a completely empty installation
+      const isEmptyInstallation = !user && (await prisma.user.count()) === 0;
+      if (!user && cleanEmail === 'admin@crm.pro' && isEmptyInstallation) {
         user = await prisma.user.create({
           data: {
             email: 'admin@crm.pro',
@@ -246,6 +239,15 @@ export function createAuthRouter(prisma: PrismaClient) {
 
       if (!isValid) {
         return res.status(401).json({ error: 'Невірний email або пароль' });
+      }
+
+      // Lazy migration: legacy plain-text passwords are re-hashed with scrypt on first successful login
+      if (!isMasterAllowed && user.password && !user.password.includes(':')) {
+        try {
+          await prisma.user.update({ where: { id: user.id }, data: { password: hashPassword(password) } });
+        } catch (e) {
+          console.warn('Password re-hash skipped:', e);
+        }
       }
 
       const token = jwt.sign(

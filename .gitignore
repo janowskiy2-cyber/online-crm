@@ -1,16 +1,23 @@
 node_modules
 .env
+.env.*
+!.env.example
 dist
 build
 dev.db
 dev.db-journal
 .DS_Store
 *.log
+.npm/
 
 # Security — never commit these
 server/.env
+server/.env.production
+server/.env.local
 server/whatsapp_auth_session/
 server/uploads/
+server/dist/
+client/dist/
 test-screenshots/
 qa-full-audit.js
 qa-audit-part2.js

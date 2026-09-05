@@ -1,6 +1,7 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
+import https from 'https';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
@@ -30,14 +31,61 @@ import { createExportRouter } from './routes/export.routes';
 import { createImportRouter } from './routes/import.routes';
 import { ArchiveRetentionService } from './services/archiveRetention';
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// ── Startup configuration sanity check (warn only, never blocks startup) ──
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'ADMIN_MASTER_KEY'];
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.warn(`⚠️ [Config] Не задано змінні оточення: ${missingEnv.join(', ')}. Перевірте налаштування хостингу.`);
+}
+
 const app = express();
 app.set('trust proxy', 1);
 const server = http.createServer(app);
 
+// ── CORS whitelist shared by HTTP and Socket.IO ──
+// Production frontend + Vercel previews + local development. Extra origin via ALLOWED_ORIGIN.
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://online-crm-alpha.vercel.app';
+const allowedOrigins = new Set<string>([
+  FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+]);
+if (process.env.ALLOWED_ORIGIN) {
+  process.env.ALLOWED_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean).forEach((o) => allowedOrigins.add(o));
+}
+
+function isOriginAllowed(origin?: string): boolean {
+  // Non-browser requests (server-to-server, health checks, keep-alive pings) carry no Origin
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return protocol === 'https:' && hostname.endsWith('.vercel.app');
+  } catch {
+    return false;
+  }
+}
+
+const corsOriginHandler = (
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void
+) => {
+  if (isOriginAllowed(origin)) {
+    callback(null, true);
+  } else {
+    callback(new Error('CORS policy: Access denied from this origin.'));
+  }
+};
+
 const io = new SocketIOServer(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: corsOriginHandler,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
@@ -52,31 +100,7 @@ waService.setSocketIO(io);
 tgService.setSocketIO(io);
 automationService.setSocketIO(io);
 
-// Secure CORS whitelist: restricts cross-origin access to Vercel production/previews and local dev
-const allowedOrigins = [
-  'https://online-crm-alpha.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000'
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow non-browser requests (tools, server-to-server, health checks)
-    if (!origin) return callback(null, true);
-    const isAllowed = allowedOrigins.includes(origin) || 
-      origin.endsWith('.vercel.app') || 
-      Boolean(process.env.ALLOWED_ORIGIN && origin === process.env.ALLOWED_ORIGIN);
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy: Access denied from this origin.'));
-    }
-  },
-  credentials: true
-}));
+app.use(cors({ origin: corsOriginHandler, credentials: true }));
 
 // Safe memory limits: 50mb max JSON payload supports video & media uploads
 app.use(express.json({ limit: '50mb' }));
@@ -119,6 +143,11 @@ app.use('/api/feed', authRequired, createFeedRouter(prisma));
 app.use('/api/export', authRequired, createExportRouter(prisma));
 app.use('/api/import', authRequired, createImportRouter(prisma));
 
+// Unknown API route → JSON 404 (instead of falling through to the SPA index.html)
+app.use('/api', (req: Request, res: Response) => {
+  res.status(404).json({ error: 'Маршрут не знайдено' });
+});
+
 // ── Real-time Dialog Collision Detection & Viewer Presence ──
 const dialogViewers = new Map<string, Map<string, string>>(); // dialogKey -> (socketId -> userName)
 
@@ -131,7 +160,7 @@ io.on('connection', (socket) => {
       dialogViewers.set(dialogKey, new Map());
     }
     dialogViewers.get(dialogKey)!.set(socket.id, userName || 'Колега');
-    
+
     const viewers = Array.from(dialogViewers.get(dialogKey)!.values());
     io.to(room).emit('dialog_viewers', { dialogKey, viewers });
   });
@@ -168,21 +197,91 @@ if (fs.existsSync(clientDistPath)) {
   });
 }
 
+// ── Global error handler (must be the last middleware) ──
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  if (res.headersSent) return;
+
+  const message = typeof err?.message === 'string' ? err.message : '';
+
+  if (message.startsWith('CORS policy')) {
+    return res.status(403).json({ error: message });
+  }
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Файл або запит занадто великий (максимум 50MB)' });
+  }
+  if (err?.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Некоректний формат JSON у запиті' });
+  }
+
+  console.error('❌ [Server] Unhandled error:', err);
+  const status = Number.isInteger(err?.status) && err.status >= 400 && err.status < 600 ? err.status : 500;
+  res.status(status).json({
+    error: IS_PRODUCTION ? 'Внутрішня помилка сервера' : (message || 'Internal server error')
+  });
+});
+
 const PORT = process.env.PORT || 4000;
 
-// Render Free-tier Keep-Alive Self-Pinger (runs every 10 minutes to prevent cold starts)
-const PING_INTERVAL_MS = 10 * 60 * 1000;
-const RENDER_APP_URL = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
+// ── Optional self-pinger for free-tier hosting ──
+// Disabled by default: an external uptime monitor is used to keep the instance awake.
+// Enable with ENABLE_SELF_PING=true if needed.
+if (process.env.ENABLE_SELF_PING === 'true') {
+  const PING_INTERVAL_MS = 10 * 60 * 1000;
+  const APP_URL = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || 'https://online-crm.onrender.com';
+  setInterval(() => {
+    try {
+      const healthUrl = `${APP_URL}/api/health`;
+      const client = healthUrl.startsWith('https') ? https : http;
+      client.get(healthUrl, (res) => { res.resume(); }).on('error', () => {});
+    } catch (e) {}
+  }, PING_INTERVAL_MS).unref();
+}
 
-setInterval(() => {
+// ── Process-level safety nets: log, never silently die ──
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ [Process] Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('❌ [Process] Uncaught exception:', err);
+});
+
+// ── Graceful shutdown: persist messenger session, close connections, release DB ──
+let isShuttingDown = false;
+async function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`🛑 [Server] Отримано ${signal}. Коректне завершення роботи...`);
+
+  const forceExit = setTimeout(() => {
+    console.error('⏱️ [Server] Примусове завершення після таймауту.');
+    process.exit(1);
+  }, 15000);
+  forceExit.unref();
+
   try {
-    const healthUrl = `${RENDER_APP_URL}/api/health`;
-    const protocol = healthUrl.startsWith('https') ? require('https') : require('http');
-    protocol.get(healthUrl, (res: any) => {
-      res.resume();
-    }).on('error', () => {});
+    await waService.backupSessionToDatabase();
+  } catch (e) {
+    console.warn('⚠️ [Server] Не вдалося зберегти WhatsApp-сесію під час завершення:', e);
+  }
+
+  await new Promise<void>((resolve) => {
+    io.close(() => resolve());
+  });
+  await new Promise<void>((resolve) => {
+    server.close(() => resolve());
+  });
+
+  try {
+    await prisma.$disconnect();
   } catch (e) {}
-}, PING_INTERVAL_MS);
+
+  console.log('✅ [Server] Роботу завершено коректно.');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => { shutdown('SIGTERM'); });
+process.on('SIGINT', () => { shutdown('SIGINT'); });
 
 server.listen(PORT, async () => {
   console.log(`🚀 Production CRM Server running on port ${PORT}`);

@@ -8,7 +8,8 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
   router.get('/', async (req, res) => {
     try {
       const { pipelineId, stageId, search, projectId } = req.query;
-      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
+      // Identity comes strictly from the verified JWT (authRequired), never from client headers
+      const currentUserId = (req as any).userId as string | undefined;
 
       const where: any = { isDeleted: false };
 

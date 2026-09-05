@@ -38,11 +38,11 @@ interface AdminPanelModalProps {
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => {
   const { currentUser, refreshUsers, updateUserAvatar } = useAuth();
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(() => {
-    return currentUser?.role === 'super_admin' || localStorage.getItem('crm_admin_pin') === '22222222';
+    const role = currentUser?.role;
+    if (role === 'super_admin' || role === 'sales_director' || role === 'admin') return true;
+    try { return !!sessionStorage.getItem('crm_admin_pin'); } catch (e) { return false; }
   });
-  const [adminPin, setAdminPin] = useState(() => {
-    return localStorage.getItem('crm_admin_pin') || '22222222';
-  });
+  const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState('');
   
   const [userList, setUserList] = useState<User[]>([]);
@@ -171,26 +171,22 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     } catch (e) {}
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
   const handleVerifyPin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const pin = (adminPin || '22222222').trim();
+    const pin = adminPin.trim();
+    if (!pin) {
+      setPinError('Введіть майстер-пароль адміністратора');
+      return;
+    }
     try {
       const res = await api.post('/users/verify-admin-pin', { password: pin });
       if (res.data?.success) {
         setIsAdminAuthorized(true);
         setPinError('');
+        setAdminPin('');
+        // Elevated access lives only for the current browser tab
         api.defaults.headers.common['x-admin-pin'] = pin;
-        localStorage.setItem('crm_admin_pin', pin);
+        try { sessionStorage.setItem('crm_admin_pin', pin); } catch (err) {}
         fetchUsers();
       }
     } catch (err: any) {
@@ -312,12 +308,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     setIsCreating(true);
   };
 
-  const copyWorkerInvite = (user: User) => {
+  const copyWorkerInvite = (user: User, password?: string) => {
+    const passwordLine = password
+      ? `🔑 Пароль: ${password}`
+      : '🔑 Пароль: видається адміністратором особисто (кнопка «Скинути пароль» згенерує новий)';
     const inviteText = `Вам надано робочий доступ до Recruiting CRM!
 
 🔗 Посилання для входу: ${window.location.origin}
 👤 Логін / Email: ${user.email}
-🔑 Пароль: 123456 (або пароль, встановлений адміністратором)`;
+${passwordLine}`;
 
     navigator.clipboard.writeText(inviteText);
     setCopiedId(user.id);
@@ -368,7 +367,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
           </button>
         </div>
 
-        {/* Auth Gate (PIN 22222222) */}
+        {/* Auth Gate (master admin PIN, verified server-side) */}
         {!isAdminAuthorized ? (
           <div className="flex-1 flex items-center justify-center p-6 bg-[#080c14]">
             <div className="w-full max-w-sm bg-[#111827] border border-slate-800 rounded-3xl p-8 shadow-2xl text-center space-y-5">
@@ -393,30 +392,20 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
               <form onSubmit={handleVerifyPin} className="space-y-4">
                 <input
                   type="password"
-                  placeholder="22222222"
+                  placeholder="••••••••"
+                  autoComplete="off"
                   value={adminPin}
                   onChange={(e) => setAdminPin(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-center text-lg tracking-widest text-white focus:outline-none focus:border-rose-500 font-mono"
                   autoFocus
                 />
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdminPin('22222222');
-                      handleVerifyPin();
-                    }}
-                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-semibold transition border border-slate-700"
-                  >
-                    Майстер-код (22222222)
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-rose-600/30"
-                  >
-                    Підтвердити
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={!adminPin.trim()}
+                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-rose-600/30"
+                >
+                  Підтвердити
+                </button>
               </form>
             </div>
           </div>

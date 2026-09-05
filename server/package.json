@@ -4,7 +4,9 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && prisma generate",
+    "build": "prisma generate && tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
     "seed": "tsx prisma/seed.ts",
     "db:push": "prisma db push",
     "prisma:generate": "prisma generate"
