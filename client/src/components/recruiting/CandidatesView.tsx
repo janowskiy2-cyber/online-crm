@@ -76,18 +76,18 @@ export const CandidatesView: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!isCreateOpen && !isImportOpen && !selectedFilesCandidate && !geminiBriefCandidate) return;
+    if (!isCreateOpen && !isImportModalOpen && !isResumeModalOpen && !selectedCandidateForFiles) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsCreateOpen(false);
-        setIsImportOpen(false);
-        setSelectedFilesCandidate(null);
-        setGeminiBriefCandidate(null);
+        setIsImportModalOpen(false);
+        setIsResumeModalOpen(false);
+        setSelectedCandidateForFiles(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCreateOpen, isImportOpen, selectedFilesCandidate, geminiBriefCandidate]);
+  }, [isCreateOpen, isImportModalOpen, isResumeModalOpen, selectedCandidateForFiles]);
 
   const fetchCompanies = async () => {
     try {

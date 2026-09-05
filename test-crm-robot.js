@@ -149,6 +149,29 @@ const CRM_PROJECT_REGISTRY = {
   };
 
   /**
+   * Надійна навігація між розділами CRM через лівий сайдбар
+   */
+  const navigateSidebar = async (navId, fallbackText = '') => {
+    await closeAnyOpenModal();
+    const btn = await page.$(`aside.bitrix-glass-sidebar button[data-nav-id="${navId}"]`);
+    if (btn && await btn.isVisible().catch(() => false)) {
+      await btn.click();
+      await page.waitForTimeout(1500);
+      return;
+    }
+    if (fallbackText) {
+      const textBtn = await page.$(`aside.bitrix-glass-sidebar button:has-text("${fallbackText}")`);
+      if (textBtn && await textBtn.isVisible().catch(() => false)) {
+        await textBtn.click();
+        await page.waitForTimeout(1500);
+        return;
+      }
+    }
+    await page.goto(`${TARGET_URL}/${navId}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(1500);
+  };
+
+  /**
    * Допоміжний сканер сторінки на мертві порожні кнопки
    */
   const scanForDeadButtons = async (scopeName) => {
@@ -389,8 +412,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [4/15] ПЕРЕВІРКА РОЗДІЛУ: ЖИВА СТРІЧКА (/feed) ---');
     try {
-      await page.click('aside button:has-text("Живая лента")');
-      await page.waitForTimeout(1500);
+      await navigateSidebar('feed', 'Живая лента');
 
       const feedTextarea = await page.$('textarea');
       if (feedTextarea) {
@@ -419,8 +441,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [5/15] ПЕРЕВІРКА РОЗДІЛУ: ЗАВДАННЯ ТА ПРОЄКТИ (/tasks) ---');
     try {
-      await page.click('aside button:has-text("Задачи и Проекты")');
-      await page.waitForTimeout(1500);
+      await navigateSidebar('tasks', 'Задачи');
 
       const taskTabs = ['Активні', 'Завершені', 'Всі'];
       for (const t of taskTabs) {
@@ -451,8 +472,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [6/15] ПЕРЕВІРКА РОЗДІЛУ: ЧАТ ТА ДЗВІНКИ (/inbox) ---');
     try {
-      await page.click('aside button:has-text("Чат и звонки")');
-      await page.waitForTimeout(1500);
+      await navigateSidebar('inbox', 'Чат');
 
       const qrConnectBtn = await page.$('button:has-text("Підключити"), button:has-text("QR")');
       if (qrConnectBtn) {
@@ -497,11 +517,10 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [7/15] ПЕРЕВІРКА РОЗДІЛУ: РОБОТОДАВЦІ (/contacts) ---');
     try {
-      await page.click('aside button:has-text("Работодатели")');
-      await page.waitForTimeout(1500);
+      await navigateSidebar('contacts', 'Работодатели');
 
-      const employersTab = await page.$('button:has-text("Роботодавці")');
-      const repsTab = await page.$('button:has-text("Представники")');
+      const employersTab = await page.$('main button:has-text("Роботодавці")');
+      const repsTab = await page.$('main button:has-text("Представники")');
       if (employersTab && repsTab) {
         await repsTab.click();
         await page.waitForTimeout(400);
@@ -545,8 +564,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [8/15] ПЕРЕВІРКА РОЗДІЛУ: БАЗА КАНДИДАТІВ (/candidates) ---');
     try {
-      await page.click('aside button[data-nav-id="candidates"], aside button:has-text("Кандидати"), aside button:has-text("База кандидатов")');
-      await page.waitForTimeout(1500);
+      await navigateSidebar('candidates', 'База кандидатов');
 
       const countries = ['Всі країни', 'Узбекистан', 'Індія', 'Туреччина', 'Бангладеш'];
       for (const c of countries) {
@@ -588,8 +606,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [9/15] ПЕРЕВІРКА РОЗДІЛУ: CRM ВОРОНКА УГОД (/deals) ---');
     try {
-      await page.click('aside button[data-nav-id="deals"], aside button:has-text("CRM"), aside button:has-text("Угоди"), aside button:has-text("Воронка")');
-      await page.waitForTimeout(2000);
+      await navigateSidebar('deals', 'Воронка');
 
       const pipeSelector = await page.$('select');
       if (pipeSelector) {
@@ -685,8 +702,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [11/15] ПЕРЕВІРКА РОЗДІЛУ: АНАЛІТИКА ТА ЗВІТИ (/analytics) ---');
     try {
-      await page.click('aside button[data-nav-id="analytics"], aside button:has-text("Аналитика"), aside button:has-text("Аналітика")');
-      await page.waitForTimeout(1500);
+      await navigateSidebar('analytics', 'Аналитика');
 
       const timeFilters = ['Сьогодні', 'Тиждень', 'Місяць'];
       for (const tf of timeFilters) {
@@ -708,8 +724,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [12/15] ПЕРЕВІРКА РОЗДІЛУ: РЕКЛАМА ТА ВЕБХУКИ (/integrations) ---');
     try {
-      await page.click('aside button[data-nav-id="integrations"], aside button:has-text("Реклама и вебхуки"), aside button:has-text("Інтеграції"), aside button:has-text("Реклама")');
-      await page.waitForTimeout(1500);
+      await navigateSidebar('integrations', 'Реклама');
 
       const copyWebhookBtn = await page.$('button:has-text("Скопіювати"), button:has-text("Копіювати")');
       if (copyWebhookBtn) {
@@ -727,7 +742,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [13/15] ПЕРЕВІРКА РОЗДІЛУ: АВТОВОРОНКА (/automation) ---');
     try {
-      await page.click('aside button[data-nav-id="automation"], aside button:has-text("Автоворонка"), aside button:has-text("Автоматизація")');
+      await navigateSidebar('automation', 'Автоворонка');
       await page.waitForTimeout(1500);
 
       const ruleSwitch = await page.$('button[role="switch"], input[type="checkbox"]');
@@ -778,6 +793,8 @@ const CRM_PROJECT_REGISTRY = {
       logStep('STABILITY', 'Стабільність інтерфейсу та ядра React (Console)', 'PASS', '0 критичних помилок');
     } else {
       logStep('STABILITY', 'Попередження консолі', 'WARN', `${criticalErrors.length} попереджень`);
+      console.log('--- КОНСОЛЬНІ ЛОГИ БРАУЗЕРА ---');
+      criticalErrors.forEach(err => console.log('  ⚠️', err));
     }
 
     if (deadOrphanElements.length === 0) {
