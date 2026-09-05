@@ -13,6 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { isWebPushSupported, getWebPushPermission, requestWebPushPermission } from '../../utils/webPush';
 
 export interface NotificationItem {
   id: string;
@@ -37,6 +38,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
 }) => {
   const navigate = useNavigate();
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>(getWebPushPermission());
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
@@ -147,6 +149,27 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Web Push Native Activation Banner */}
+      {pushPermission !== 'granted' && isWebPushSupported() && (
+        <div className="p-2.5 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-blue-500/30 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Bell className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-bounce" />
+            <span className="text-[10px] text-blue-200 truncate font-medium">
+              Отримувати Push при згорнутому браузері
+            </span>
+          </div>
+          <button
+            onClick={async () => {
+              const ok = await requestWebPushPermission();
+              if (ok) setPushPermission('granted');
+            }}
+            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-[10px] font-bold transition shrink-0"
+          >
+            Увімкнути
+          </button>
+        </div>
+      )}
 
       {/* Notifications List */}
       <div className="max-h-80 overflow-y-auto divide-y divide-white/[0.06] text-xs">

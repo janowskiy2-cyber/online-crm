@@ -17,6 +17,7 @@ import { useAuth } from './context/AuthContext';
 import { api, socket } from './services/api';
 import { Pipeline, Deal } from './types';
 import { Kanban, MessageSquare, Globe2, CheckSquare, Menu } from 'lucide-react';
+import { triggerNativePush } from './utils/webPush';
 
 // Code-Splitting: Lazy load heavy modules for fast initial paint (<150KB)
 const LiveFeedView = lazy(() => import('./components/feed/LiveFeedView').then(m => ({ default: m.LiveFeedView })));
@@ -135,12 +136,37 @@ export function App() {
 
     const handleIncomingCall = (data: IncomingCallData) => {
       setIncomingCall(data);
+      if (document.hidden) {
+        triggerNativePush('📞 Вхідний дзвінок у CRM', {
+          body: `Клієнт: ${data.callerName || data.callerNumber} (${data.channel.toUpperCase()})`
+        });
+      }
+    };
+
+    const handleNewMessage = (msg: any) => {
+      if (document.hidden) {
+        triggerNativePush(`💬 Повідомлення від ${msg.senderName || 'Клієнта'}`, {
+          body: msg.text || 'Отримано медіафайл або документ'
+        });
+      }
+    };
+
+    const handleTaskCreated = (task: any) => {
+      if (document.hidden && task?.text) {
+        triggerNativePush('📋 Нове завдання в CRM', {
+          body: task.text
+        });
+      }
     };
 
     socket.on('incoming_call', handleIncomingCall);
+    socket.on('new_message', handleNewMessage);
+    socket.on('task_created', handleTaskCreated);
 
     return () => {
       socket.off('incoming_call', handleIncomingCall);
+      socket.off('new_message', handleNewMessage);
+      socket.off('task_created', handleTaskCreated);
     };
   }, [isAuthenticated]);
 

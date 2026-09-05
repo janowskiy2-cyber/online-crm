@@ -1,14 +1,14 @@
 import rateLimit from 'express-rate-limit';
 
 export const authLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute window
-  max: 10, // 10 failed attempts per minute per IP
+  windowMs: 1 * 60 * 1000, // 1 minute sliding window
+  max: 5, // Strict maximum 5 attempts per minute per IP to prevent brute-force
   skipSuccessfulRequests: true, // Successful logins never count towards the limit
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
   message: {
-    error: 'Забагато невдалих спроб входу. Зачекайте 1 хвилину перед наступною спробою.'
+    error: 'Забагато невдалих спроб входу (ліміт: 5 спроб на хвилину). Зачекайте 60 секунд перед наступною спробою.'
   }
 });
 
