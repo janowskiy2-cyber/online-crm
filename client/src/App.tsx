@@ -29,6 +29,7 @@ const AdminPanelModal = lazy(() => import('./components/admin/AdminPanelModal').
 const UserSwitcherModal = lazy(() => import('./components/modals/UserSwitcherModal').then(m => ({ default: m.UserSwitcherModal })));
 const RecruitingCalculatorModal = lazy(() => import('./components/recruiting/RecruitingCalculatorModal').then(m => ({ default: m.RecruitingCalculatorModal })));
 const ObjectionsCheatSheetModal = lazy(() => import('./components/recruiting/ObjectionsCheatSheetModal').then(m => ({ default: m.ObjectionsCheatSheetModal })));
+const EmployeeProfileModal = lazy(() => import('./components/modals/EmployeeProfileModal').then(m => ({ default: m.EmployeeProfileModal })));
 
 const ViewLoader = () => (
   <div className="flex-1 flex items-center justify-center bg-[#080c14]">
@@ -58,6 +59,7 @@ export function App() {
   const [isUserSwitcherOpen, setIsUserSwitcherOpen] = useState(false);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [isObjectionsOpen, setIsObjectionsOpen] = useState(false);
+  const [selectedColleague, setSelectedColleague] = useState<any | null>(null);
 
   // Incoming and Active Call State
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
@@ -252,11 +254,12 @@ export function App() {
               onOpenFeed={() => navigate('/feed')}
               onInviteColleagues={() => setIsAdminPanelOpen(true)}
               onCallUser={(name, phone) => {
-                setActiveCallSession({
-                  name,
-                  phone,
-                  type: 'gsm'
-                });
+                const found = users.find(u => u.name === name || u.phone === phone);
+                if (found) {
+                  setSelectedColleague(found);
+                } else {
+                  setSelectedColleague({ id: `colleague-${Date.now()}`, name, phone, status: 'online' });
+                }
               }}
             />
           </aside>
@@ -272,12 +275,8 @@ export function App() {
                 });
               }}
               onOpenMessenger={() => navigate('/inbox')}
-              onSelectColleague={(name, phone) => {
-                setActiveCallSession({
-                  name,
-                  phone,
-                  type: 'gsm'
-                });
+              onSelectColleague={(colleague) => {
+                setSelectedColleague(colleague);
               }}
             />
           </div>
@@ -397,6 +396,30 @@ export function App() {
         <Suspense fallback={null}>
           <ObjectionsCheatSheetModal
             onClose={() => setIsObjectionsOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Employee Profile Card Modal — Info card with explicit call/chat actions */}
+      {selectedColleague && (
+        <Suspense fallback={null}>
+          <EmployeeProfileModal
+            colleague={selectedColleague}
+            onClose={() => setSelectedColleague(null)}
+            onCall={(name, phone) => {
+              setActiveCallSession({
+                name,
+                phone,
+                type: 'gsm'
+              });
+            }}
+            onChat={() => {
+              navigate('/inbox');
+            }}
+            onFilterDeals={(managerName) => {
+              navigate('/deals');
+              setSearchQuery(managerName);
+            }}
           />
         </Suspense>
       )}

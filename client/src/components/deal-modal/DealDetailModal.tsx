@@ -33,7 +33,10 @@ import {
   Edit3,
   Volume2,
   VolumeX,
-  Maximize2
+  Maximize2,
+  Minimize2,
+  Link2,
+  Copy
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -80,6 +83,19 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [deal, setDeal] = useState<Deal | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'candidates' | 'documents' | 'notes' | 'tasks'>('all');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Deep Linking & Fullscreen Workspace State
+  const [isCopiedLink, setIsCopiedLink] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const handleCopyDealLink = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!deal) return;
+    const dealUrl = `${window.location.origin}/deals/${deal.id}`;
+    navigator.clipboard.writeText(dealUrl);
+    setIsCopiedLink(true);
+    setTimeout(() => setIsCopiedLink(false), 2500);
+  };
   
   // Modals state
   const [isKPModalOpen, setIsKPModalOpen] = useState(false);
@@ -868,13 +884,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const currentStages = pipeline?.stages || [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 select-none font-['Inter',sans-serif]">
-      <div className="bg-white dark:bg-[#0c111d] border border-slate-200 dark:border-white/[0.1] rounded-2xl w-full max-w-6xl h-[94vh] sm:h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className={`fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-2 sm:p-4'} select-none font-['Inter',sans-serif]`}>
+      <div className={`bg-white dark:bg-[#0c111d] border border-slate-200 dark:border-white/[0.1] flex flex-col shadow-2xl overflow-hidden transition-all duration-200 ${
+        isFullscreen ? 'w-full h-full rounded-none' : 'rounded-2xl w-full max-w-6xl h-[94vh] sm:h-[92vh] animate-in fade-in zoom-in-95 duration-150'
+      }`}>
         
         {/* Modal Top Bar */}
         <div className="h-14 px-4 sm:px-6 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/90 dark:bg-[#0f1526]/90 flex-shrink-0">
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-md">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[180px] sm:max-w-md">
               {deal.title}
             </h2>
             <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-xs sm:text-sm px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
@@ -882,8 +900,49 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </span>
           </div>
 
-          {/* Quick Action Tools: Call, AI, KP, Calc */}
+          {/* Quick Action Tools: Direct Link, Open in Tab, Fullscreen, Call, AI, KP, Calc */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* 1-Click Copy Shareable Deal URL */}
+            <button
+              onClick={handleCopyDealLink}
+              className="px-2.5 sm:px-3 py-1 bg-slate-200/70 hover:bg-slate-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-300/70 dark:border-white/10 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              title="Скопіювати пряме посилання на цю угоду"
+            >
+              {isCopiedLink ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Скопійовано!</span>
+                </>
+              ) : (
+                <>
+                  <Link2 className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="hidden md:inline">Пряме посилання</span>
+                </>
+              )}
+            </button>
+
+            {/* Open Deal in New Tab */}
+            <a
+              href={`/deals/${deal.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
+              title="Відкрити в окремій вкладці браузера"
+            >
+              <ExternalLink className="w-4 h-4" strokeWidth={1.75} />
+            </a>
+
+            {/* Fullscreen Workspace Toggle (Unload Background View) */}
+            <button
+              onClick={() => setIsFullscreen(prev => !prev)}
+              className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
+              title={isFullscreen ? "Згорнути у вікно" : "Розгорнути на весь екран (Розвантажити фон)"}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" strokeWidth={1.75} /> : <Maximize2 className="w-4 h-4" strokeWidth={1.75} />}
+            </button>
+
+            <div className="w-[1px] h-4 bg-slate-300 dark:bg-white/10 mx-0.5" />
+
             <button
               onClick={() => setIsCallModalOpen(true)}
               className="px-2.5 sm:px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"

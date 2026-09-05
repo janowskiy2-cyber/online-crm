@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 interface RightQuickDockProps {
   onQuickCall: () => void;
   onOpenMessenger: () => void;
-  onSelectColleague?: (name: string, phone: string) => void;
+  onSelectColleague?: (colleague: any) => void;
 }
 
 export const RightQuickDock: React.FC<RightQuickDockProps> = ({
@@ -29,15 +29,17 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
         id: u.id,
         name: u.name,
         role: u.role,
+        department: u.department,
+        email: u.email,
         phone: u.phone || '+380',
-        status: u.isActive ? 'online' : 'busy',
+        status: (u.isActive ? 'online' : 'busy') as 'online' | 'busy' | 'offline',
         avatar: u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'
       }))
     : [
-        { id: '1', name: 'Олег Строкатий', role: 'Керівник', phone: '+380671112233', status: 'online', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face' },
-        { id: '2', name: 'Катерина Шеленкова', role: 'HR Скринінг', phone: '+380682223344', status: 'online', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face' },
-        { id: '3', name: 'Дмитро Філаткін', role: 'Координатор', phone: '+380993334455', status: 'online', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face' },
-        { id: '4', name: 'Наталія Грихіна', role: 'Юрист (Візи)', phone: '+380974445566', status: 'busy', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face' }
+        { id: '1', name: 'Олег Строкатий', role: 'Керівник', department: 'Керівництво', email: 'oleg@crm.pro', phone: '+380671112233', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face' },
+        { id: '2', name: 'Катерина Шеленкова', role: 'HR Скринінг', department: 'Відділ найму', email: 'katerina@crm.pro', phone: '+380682223344', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face' },
+        { id: '3', name: 'Дмитро Філаткін', role: 'Координатор', department: 'Логістика кандидатів', email: 'dmitro@crm.pro', phone: '+380993334455', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face' },
+        { id: '4', name: 'Наталія Грихіна', role: 'Юрист (Візи)', department: 'Юридичний супровід', email: 'natalia@crm.pro', phone: '+380974445566', status: 'busy' as const, avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face' }
       ];
 
   return (
@@ -59,9 +61,9 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
           {activeColleagues.map((colleague) => (
             <div
               key={colleague.id}
-              onClick={() => onSelectColleague && onSelectColleague(colleague.name, colleague.phone)}
+              onClick={() => onSelectColleague && onSelectColleague(colleague)}
               className="relative group cursor-pointer"
-              title={`${colleague.name} (${colleague.role}) — ${colleague.phone}`}
+              title={`Картка співробітника: ${colleague.name} (${colleague.role})`}
             >
               <img
                 src={colleague.avatar}
