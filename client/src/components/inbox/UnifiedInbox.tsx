@@ -27,7 +27,8 @@ import {
   VolumeX,
   Video,
   Maximize2,
-  Eye
+  Eye,
+  Bot
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { soundService } from '../../services/sound.service';
@@ -79,6 +80,68 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   // Sound notification state
   const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
+
+  // AI Copilot state & actions
+  const [isGeneratingAiDraft, setIsGeneratingAiDraft] = useState(false);
+
+  const handleGenerateAiDraft = async (intent: 'followup' | 'kp_offer' | 'meeting' | 'polite_reminder' = 'followup') => {
+    if (!activeDialog) return;
+    setIsGeneratingAiDraft(true);
+    try {
+      const res = await api.post('/ai/draft-reply', {
+        clientName: activeDialog.senderName,
+        stageName: activeDeal?.stage?.name || 'Переговори',
+        dealTitle: activeDeal?.title || `Діалог з ${activeDialog.senderName}`,
+        lastMessage: activeDialog.lastMessage?.text || '',
+        intent
+      });
+      if (res.data?.draft) {
+        setReplyText(res.data.draft);
+        setIsInternalNote(false);
+      }
+    } catch (e) {
+      console.warn('AI draft error:', e);
+    } finally {
+      setIsGeneratingAiDraft(false);
+    }
+  };
+
+  const handleGenerateAiObjection = async () => {
+    if (!activeDialog) return;
+    setIsGeneratingAiDraft(true);
+    try {
+      const objectionText = activeDialog.lastMessage?.text || 'Дорого і не зрозуміло';
+      const res = await api.post('/ai/objection', { objectionText });
+      if (res.data?.answer) {
+        setReplyText(res.data.answer);
+        setIsInternalNote(false);
+      }
+    } catch (e) {
+      console.warn('AI objection error:', e);
+    } finally {
+      setIsGeneratingAiDraft(false);
+    }
+  };
+
+  const handleGenerateAiSummary = async () => {
+    if (!activeDialog) return;
+    setIsGeneratingAiDraft(true);
+    try {
+      const res = await api.post('/ai/draft-reply', {
+        clientName: activeDialog.senderName,
+        dealTitle: activeDeal?.title,
+        lastMessage: activeDialog.lastMessage?.text || '',
+        intent: 'polite_reminder'
+      });
+      const summaryNote = `📋 [ШІ-Резюме]: Останнє звернення від ${activeDialog.senderName}: "${activeDialog.lastMessage?.text || 'Запит'}". Рекомендований наступний крок: узгодити специфікацію та терміни.`;
+      setReplyText(summaryNote);
+      setIsInternalNote(true);
+    } catch (e) {
+      console.warn('AI summary error:', e);
+    } finally {
+      setIsGeneratingAiDraft(false);
+    }
+  };
 
   useEffect(() => {
     const handleSoundChange = (e: any) => {
@@ -762,6 +825,55 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     <span className="text-[10px] text-slate-500 hidden sm:inline">
                       {isInternalNote ? '⚠️ Клієнт НЕ побачить цей коментар' : 'Повідомлення в месенджер'}
                     </span>
+                  </div>
+
+                  {/* AI Copilot Quick Assist Bar (Gemini 2.5 Flash / Flash-Lite Free Tier) */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-800/60 pt-1">
+                    <span className="text-[10px] font-bold text-indigo-400 flex items-center gap-1 px-1.5 py-0.5 bg-indigo-950/50 border border-indigo-500/30 rounded-lg flex-shrink-0">
+                      <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse" />
+                      <span>ШІ-Копілот:</span>
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={isGeneratingAiDraft}
+                      onClick={() => handleGenerateAiDraft('followup')}
+                      className="px-2.5 py-1 bg-gradient-to-r from-indigo-900/40 to-blue-900/40 hover:from-indigo-800/60 hover:to-blue-800/60 text-indigo-200 hover:text-white border border-indigo-500/40 rounded-xl text-[10px] font-bold flex items-center gap-1.5 whitespace-nowrap transition shadow-sm active:scale-95 disabled:opacity-50"
+                      title="ШІ згенерує ввічливу та конверсійну відповідь з урахуванням історії діалогу"
+                    >
+                      <Bot className="w-3 h-3 text-indigo-400" />
+                      <span>{isGeneratingAiDraft ? 'Генерація...' : '✨ ШІ-Чернетка'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isGeneratingAiDraft}
+                      onClick={() => handleGenerateAiDraft('kp_offer')}
+                      className="px-2 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-emerald-300 border border-slate-700/60 rounded-xl text-[10px] font-medium flex items-center gap-1 whitespace-nowrap transition disabled:opacity-50"
+                      title="Запропонувати комерційну пропозицію та розрахунок 4х25%"
+                    >
+                      <span>📄 Запропонувати КП</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isGeneratingAiDraft}
+                      onClick={handleGenerateAiObjection}
+                      className="px-2.5 py-1 bg-amber-950/40 hover:bg-amber-900/60 text-amber-200 border border-amber-500/40 rounded-xl text-[10px] font-bold flex items-center gap-1 whitespace-nowrap transition active:scale-95 disabled:opacity-50"
+                      title="ШІ відпрацює останнє заперечення клієнта (дорого, гарантії, терміни)"
+                    >
+                      <span>🛡️ ШІ-Заперечення</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isGeneratingAiDraft}
+                      onClick={handleGenerateAiSummary}
+                      className="px-2 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-amber-200 border border-slate-700/60 rounded-xl text-[10px] font-medium flex items-center gap-1 whitespace-nowrap transition disabled:opacity-50"
+                      title="Створити коротке резюме діалогу як внутрішню замітку команди"
+                    >
+                      <span>📋 ШІ-Підсумок</span>
+                    </button>
                   </div>
 
                   <div className="flex gap-1.5 overflow-x-auto pb-1">

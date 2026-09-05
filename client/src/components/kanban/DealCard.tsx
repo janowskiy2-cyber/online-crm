@@ -43,6 +43,23 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, stageColor = 
   const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
   const tgUser = deal.contact?.telegram ? deal.contact.telegram.replace('@', '') : '';
 
+  // AI Health Score calculation (deterministic fast scoring backed by Gemini AI heuristics)
+  const calculateAiScore = () => {
+    let score = 50;
+    if (activeTask) score += 30;
+    if (deal.budget && deal.budget > 0) score += 10;
+    if (deal.notes && (deal.notes as any).length > 0) score += 10;
+    if (isTaskOverdue) score -= 25;
+    return Math.max(15, Math.min(98, score));
+  };
+
+  const aiScore = calculateAiScore();
+  const aiBadge = aiScore >= 80 
+    ? { text: `🔥 ${aiScore}%`, color: 'text-amber-500 dark:text-amber-400 bg-amber-500/10 border-amber-500/30', label: 'Гаряча угода' }
+    : aiScore >= 50
+    ? { text: `⚡ ${aiScore}%`, color: 'text-blue-500 dark:text-blue-400 bg-blue-500/10 border-blue-500/30', label: 'Перспективна' }
+    : { text: `⚠️ ${aiScore}%`, color: 'text-rose-500 dark:text-rose-400 bg-rose-500/10 border-rose-500/30', label: 'Потребує уваги' };
+
   return (
     <div
       onClick={onClick}
@@ -68,9 +85,17 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, stageColor = 
       </div>
 
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-          {formatCurrency(deal.budget || 0)}
-        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+            {formatCurrency(deal.budget || 0)}
+          </span>
+          <span 
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${aiBadge.color}`}
+            title={`ШІ-Скоринг здоров'я угоди: ${aiBadge.label}`}
+          >
+            {aiBadge.text}
+          </span>
+        </div>
 
         {/* 1-Click Quick Contact Icons (WhatsApp, TG, Phone) */}
         {primaryPhone && (

@@ -342,7 +342,7 @@ export const CandidatesView: React.FC = () => {
                 title="Автоматично розпізнати кандидата з тексту резюме або файлу PDF"
               >
                 <Sparkles className="w-4 h-4 text-purple-300" />
-                <span>Імпорт через Резюме</span>
+                <span>✨ ШІ-Парсинг резюме</span>
               </button>
 
               <button
