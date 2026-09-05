@@ -101,7 +101,7 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
 
   const fetchCompanies = async () => {
     try {
-      const res = await api.get('/contacts/companies/all');
+      const res = await api.get('/contacts/companies/all', { params: { search: search.trim() || undefined } });
       if (res.data && Array.isArray(res.data)) {
         setCompanies(res.data);
       }

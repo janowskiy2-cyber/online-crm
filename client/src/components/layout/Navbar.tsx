@@ -23,7 +23,10 @@ import {
   UserCheck,
   Camera,
   Loader2,
-  ShieldAlert
+  ShieldAlert,
+  Briefcase,
+  CheckSquare,
+  X
 } from 'lucide-react';
 import { Pipeline, ProjectCategory, ProjectInfo } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -83,6 +86,7 @@ interface NavbarProps {
   openUserSwitcher?: () => void;
   openObjections?: () => void;
   onToggleMobileSidebar?: () => void;
+  onOpenDeal?: (dealId: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -98,7 +102,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   openAdminPanel,
   openUserSwitcher,
   openObjections,
-  onToggleMobileSidebar
+  onToggleMobileSidebar,
+  onOpenDeal
 }) => {
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
@@ -110,6 +115,64 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Synaptic Omnisearch State
+  const [omniData, setOmniData] = useState<{
+    terms: string[];
+    deals: any[];
+    candidates: any[];
+    employers: any[];
+    tasks: any[];
+    totalFound: number;
+  } | null>(null);
+  const [isOmniLoading, setIsOmniLoading] = useState(false);
+  const [isOmniOpen, setIsOmniOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const searchContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Omnisearch Synapse Fetcher
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setOmniData(null);
+      setIsOmniLoading(false);
+      return;
+    }
+
+    setIsOmniLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get('/ai/omnisearch', { params: { q: searchQuery.trim() } });
+        setOmniData(res.data);
+      } catch (err) {
+        console.warn('Omnisearch error:', err);
+      } finally {
+        setIsOmniLoading(false);
+      }
+    }, 280);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Click outside listener for Omnisearch Popover
+  useEffect(() => {
+    if (!isOmniOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsOmniOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOmniOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOmniOpen]);
   
   // Database Avatar Upload State
   const { updateUserAvatar } = useAuth();
@@ -240,6 +303,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Menu className="w-5 h-5" />
           </button>
 
+          <button
+            onClick={() => setIsMobileSearchOpen(prev => !prev)}
+            className="md:hidden p-1.5 text-white/80 hover:text-white bg-white/10 rounded-lg transition"
+            title="ШІ-пошук"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+
           {/* Project Category Pills */}
           <div className="flex items-center p-0.5 bg-black/20 border border-white/10 rounded-xl">
             {PROJECTS_CONFIG.map((proj) => {
@@ -276,16 +347,240 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Center: Omnisearch & Bitrix24 Large Digital Clock + Shift Status */}
         <div className="flex items-center gap-4 flex-1 justify-center max-w-2xl">
-          {/* Bitrix Search Capsule */}
-          <div className="relative flex-1 max-w-md hidden md:block">
+          {/* Bitrix Search Capsule with Synaptic AI Omnisearch */}
+          <div ref={searchContainerRef} className="relative flex-1 max-w-md hidden md:block">
             <Search className="w-4 h-4 text-white/60 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="искать сотрудника, документ, кандидата..."
+              placeholder="ШІ-пошук: синоніми, посада, угода, кандидат..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/15 hover:bg-white/20 focus:bg-white/25 border border-white/20 focus:border-white/40 rounded-full pl-10 pr-4 py-1.5 text-xs text-white placeholder-white/60 focus:outline-none transition shadow-inner"
+              onFocus={() => {
+                if (searchQuery.trim().length >= 2) setIsOmniOpen(true);
+              }}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value.trim().length >= 2) {
+                  setIsOmniOpen(true);
+                }
+              }}
+              className="w-full bg-white/15 hover:bg-white/20 focus:bg-white/25 border border-white/20 focus:border-white/40 rounded-full pl-10 pr-9 py-1.5 text-xs text-white placeholder-white/60 focus:outline-none transition shadow-inner"
             />
+            {isOmniLoading ? (
+              <Loader2 className="w-3.5 h-3.5 text-sky-400 animate-spin absolute right-3.5 top-1/2 -translate-y-1/2" />
+            ) : searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setIsOmniOpen(false);
+                }}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition"
+                title="Очистити"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
+
+            {/* Omnisearch Synaptic Dropdown Popover */}
+            {isOmniOpen && searchQuery.trim().length >= 2 && (
+              <div className="absolute left-0 right-0 sm:-left-8 sm:-right-8 mt-2 bg-slate-900/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-2xl p-3.5 z-50 animate-in fade-in zoom-in-95 max-h-[75vh] overflow-y-auto">
+                {/* Popover Header with Synaptic expansion */}
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-[11px] font-extrabold text-white uppercase tracking-wider">
+                      Синаптичний ШІ-пошук
+                    </span>
+                  </div>
+                  {isOmniLoading ? (
+                    <span className="text-[10px] text-sky-400 font-mono flex items-center gap-1">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> Аналіз синапсів...
+                    </span>
+                  ) : omniData ? (
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Знайдено: {omniData.totalFound}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* Synapse Terms Tags */}
+                {omniData?.terms && omniData.terms.length > 0 && (
+                  <div className="mb-3 px-1">
+                    <div className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                      <span>🧠 Активовані синапси (синоніми):</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {omniData.terms.slice(0, 7).map((term, idx) => (
+                        <span 
+                          key={idx} 
+                          className="px-2 py-0.5 rounded-md bg-blue-500/20 border border-blue-500/40 text-[10px] font-semibold text-blue-300"
+                        >
+                          {term}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Body Content */}
+                {isOmniLoading && !omniData ? (
+                  <div className="py-8 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+                    <span>Пошук по всій CRM з синаптичним аналізом...</span>
+                  </div>
+                ) : omniData && omniData.totalFound === 0 ? (
+                  <div className="py-6 text-center text-slate-400 text-xs">
+                    Нічого не знайдено за запитом «<span className="text-white font-medium">{searchQuery}</span>»
+                  </div>
+                ) : omniData ? (
+                  <div className="space-y-3 text-left">
+                    {/* Deals Section */}
+                    {omniData.deals && omniData.deals.length > 0 && (
+                      <div>
+                        <div className="px-1 text-[10px] uppercase font-bold text-blue-400 tracking-wider flex items-center justify-between mb-1">
+                          <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" /> Угоди / Сделки</span>
+                          <span className="text-slate-400 font-normal">{omniData.deals.length}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {omniData.deals.map((deal: any) => (
+                            <div
+                              key={deal.id}
+                              onClick={() => {
+                                if (onOpenDeal) {
+                                  onOpenDeal(deal.id);
+                                } else {
+                                  navigate(`/deals/${deal.id}`);
+                                }
+                                setIsOmniOpen(false);
+                              }}
+                              className="p-2 rounded-xl bg-white/5 hover:bg-blue-600/20 border border-white/5 hover:border-blue-500/30 cursor-pointer transition flex items-center justify-between"
+                            >
+                              <div className="min-w-0 flex-1 mr-2">
+                                <div className="text-xs font-semibold text-white truncate">{deal.title}</div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {deal.contact?.name || deal.company?.name || 'Без контакту'}
+                                </div>
+                              </div>
+                              {deal.stage?.name && (
+                                <span className="px-2 py-0.5 rounded-md bg-blue-500/20 text-[10px] font-bold text-blue-300 shrink-0">
+                                  {deal.stage.name}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Candidates Section */}
+                    {omniData.candidates && omniData.candidates.length > 0 && (
+                      <div>
+                        <div className="px-1 text-[10px] uppercase font-bold text-emerald-400 tracking-wider flex items-center justify-between mb-1">
+                          <span className="flex items-center gap-1"><Users className="w-3 h-3" /> Кандидати (Пул)</span>
+                          <span className="text-slate-400 font-normal">{omniData.candidates.length}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {omniData.candidates.map((cand: any) => (
+                            <div
+                              key={cand.id}
+                              onClick={() => {
+                                navigate('/candidates');
+                                setIsOmniOpen(false);
+                              }}
+                              className="p-2 rounded-xl bg-white/5 hover:bg-emerald-600/20 border border-white/5 hover:border-emerald-500/30 cursor-pointer transition flex items-center justify-between"
+                            >
+                              <div className="min-w-0 flex-1 mr-2">
+                                <div className="text-xs font-semibold text-white truncate">{cand.name}</div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {cand.profession || 'Кандидат'} • {cand.country || 'Країна не вказана'}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                                {cand.phone || cand.whatsapp || ''}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Employers / Companies Section */}
+                    {omniData.employers && omniData.employers.length > 0 && (
+                      <div>
+                        <div className="px-1 text-[10px] uppercase font-bold text-indigo-400 tracking-wider flex items-center justify-between mb-1">
+                          <span className="flex items-center gap-1"><Building2 className="w-3 h-3" /> Роботодавці</span>
+                          <span className="text-slate-400 font-normal">{omniData.employers.length}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {omniData.employers.map((emp: any) => (
+                            <div
+                              key={emp.id}
+                              onClick={() => {
+                                navigate('/contacts');
+                                setIsOmniOpen(false);
+                              }}
+                              className="p-2 rounded-xl bg-white/5 hover:bg-indigo-600/20 border border-white/5 hover:border-indigo-500/30 cursor-pointer transition flex items-center justify-between"
+                            >
+                              <div className="min-w-0 flex-1 mr-2">
+                                <div className="text-xs font-semibold text-white truncate">{emp.name}</div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {emp.address || emp.phone || 'Роботодавець B2B'}
+                                </div>
+                              </div>
+                              {emp._count && (
+                                <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-[10px] font-medium text-indigo-300 shrink-0">
+                                  {emp._count.deals || 0} угод • {emp._count.contacts || 0} конт.
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tasks Section */}
+                    {omniData.tasks && omniData.tasks.length > 0 && (
+                      <div>
+                        <div className="px-1 text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center justify-between mb-1">
+                          <span className="flex items-center gap-1"><CheckSquare className="w-3 h-3" /> Завдання</span>
+                          <span className="text-slate-400 font-normal">{omniData.tasks.length}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {omniData.tasks.map((task: any) => (
+                            <div
+                              key={task.id}
+                              onClick={() => {
+                                navigate('/tasks');
+                                setIsOmniOpen(false);
+                              }}
+                              className="p-2 rounded-xl bg-white/5 hover:bg-amber-600/20 border border-white/5 hover:border-amber-500/30 cursor-pointer transition flex items-center justify-between"
+                            >
+                              <div className="min-w-0 flex-1 mr-2">
+                                <div className="text-xs font-semibold text-white truncate">{task.text}</div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {task.deal?.title ? `Угода: ${task.deal.title}` : (task.responsible?.name || 'Завдання')}
+                                </div>
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${task.isCompleted ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                {task.isCompleted ? 'Виконано' : 'В роботі'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {/* Popover Footer */}
+                {omniData && omniData.totalFound > 0 && (
+                  <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400 px-1">
+                    <span>Всього результатів: {omniData.totalFound}</span>
+                    <span className="font-mono">Esc щоб закрити</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bitrix24 Large Digital Clock: 09:51 */}
@@ -497,6 +792,31 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Mobile Omnisearch Input Bar */}
+      {isMobileSearchOpen && (
+        <div className="md:hidden px-3 py-2 border-t border-white/10 bg-black/50 backdrop-blur-md animate-in slide-in-from-top-2">
+          <div className="relative">
+            <Search className="w-4 h-4 text-white/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="ШІ-пошук: синоніми, угода, кандидат..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/15 border border-white/20 rounded-full pl-9 pr-8 py-1.5 text-xs text-white placeholder-white/60 focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 };

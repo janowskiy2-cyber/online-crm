@@ -198,6 +198,7 @@ export function App() {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
+          onOpenDeal={handleOpenDeal}
         />
 
         {/* Dynamic Views & Bitrix24 Right Utility Widgets + Right Quick Dock */}

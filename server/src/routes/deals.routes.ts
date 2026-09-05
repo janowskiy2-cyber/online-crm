@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { SemanticSearchService } from '../services/semantic-search.service';
 
 export function createDealsRouter(prisma: PrismaClient, io?: any) {
   const router = Router();
@@ -41,12 +42,16 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
       }
 
       if (search) {
-        where.OR = [
-          { title: { contains: String(search) } },
-          { contact: { name: { contains: String(search) } } },
-          { contact: { phone: { contains: String(search) } } },
-          { company: { name: { contains: String(search) } } }
-        ];
+        const terms = await SemanticSearchService.expandQuery(String(search));
+        where.OR = terms.flatMap(term => [
+          { title: { contains: term, mode: 'insensitive' } },
+          { contact: { name: { contains: term, mode: 'insensitive' } } },
+          { contact: { phone: { contains: term, mode: 'insensitive' } } },
+          { contact: { profession: { contains: term, mode: 'insensitive' } } },
+          { company: { name: { contains: term, mode: 'insensitive' } } },
+          { stage: { name: { contains: term, mode: 'insensitive' } } },
+          { tags: { contains: term, mode: 'insensitive' } }
+        ]);
       }
 
       const deals = await prisma.deal.findMany({

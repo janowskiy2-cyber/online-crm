@@ -8,7 +8,9 @@ import {
   User as UserIcon,
   ExternalLink,
   Plus,
-  X
+  X,
+  Search,
+  Sparkles
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { DealTask } from '../../types';
@@ -20,6 +22,7 @@ interface TasksViewProps {
 export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
   const [tasks, setTasks] = useState<DealTask[]>([]);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('active');
+  const [search, setSearch] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskDue, setNewTaskDue] = useState('');
@@ -28,7 +31,12 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
 
   const fetchTasks = async () => {
     try {
-      const res = await api.get('/tasks', { params: { status: filter } });
+      const res = await api.get('/tasks', { 
+        params: { 
+          status: filter,
+          search: search.trim() || undefined
+        } 
+      });
       setTasks(res.data);
     } catch (e) {
       console.error('Failed to load tasks:', e);
@@ -36,17 +44,20 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
   };
 
   useEffect(() => {
-    fetchTasks();
+    const timer = setTimeout(() => {
+      fetchTasks();
+    }, 250);
 
     const handleTaskChange = () => fetchTasks();
     socket.on('task_created', handleTaskChange);
     socket.on('task_updated', handleTaskChange);
 
     return () => {
+      clearTimeout(timer);
       socket.off('task_created', handleTaskChange);
       socket.off('task_updated', handleTaskChange);
     };
-  }, [filter]);
+  }, [filter, search]);
 
   useEffect(() => {
     if (!isCreating) return;
@@ -121,6 +132,25 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
             </div>
 
             <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="relative min-w-[220px] sm:min-w-[280px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Пошук завдань (дзвінок, оплата, рахунок)..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-slate-900/80 border border-white/10 rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 transition"
+                />
+                {search && (
+                  <button 
+                    onClick={() => setSearch('')} 
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
               <button
                 onClick={() => setIsCreating(true)}
                 className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-blue-600/30 active:scale-95"

@@ -5,6 +5,7 @@ import { ModelRouterService } from '../services/model-router.service';
 import { EmbeddingService } from '../services/embedding.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { CloudinaryService } from '../services/cloudinary.service';
+import { SemanticSearchService } from '../services/semantic-search.service';
 
 export function createAiRouter(prisma: PrismaClient) {
   const router = Router();
@@ -62,6 +63,92 @@ export function createAiRouter(prisma: PrismaClient) {
       res.json({ matches, modelUsed: 'gemini-embedding-2' });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // AI: Omnisearch — Global Synaptic Search Across CRM (Deals, Candidates, Companies, Tasks)
+  router.get('/omnisearch', async (req, res) => {
+    try {
+      const q = String(req.query.q || '').trim();
+      if (!q || q.length < 2) {
+        return res.json({ query: q, terms: [], deals: [], candidates: [], employers: [], tasks: [] });
+      }
+
+      // Generate semantic synapses (synonyms & industry keywords)
+      const terms = await SemanticSearchService.expandQuery(q);
+
+      // Perform parallel subqueries with high limit
+      const [deals, candidates, employers, tasks] = await Promise.all([
+        // 1. Deals
+        prisma.deal.findMany({
+          where: {
+            isDeleted: false,
+            OR: terms.flatMap(t => [
+              { title: { contains: t, mode: 'insensitive' } },
+              { contact: { name: { contains: t, mode: 'insensitive' } } },
+              { company: { name: { contains: t, mode: 'insensitive' } } },
+              { stage: { name: { contains: t, mode: 'insensitive' } } }
+            ])
+          },
+          include: { contact: true, company: true, stage: true },
+          take: 5
+        }),
+
+        // 2. Candidates
+        prisma.contact.findMany({
+          where: {
+            isDeleted: false,
+            type: 'candidate',
+            OR: terms.flatMap(t => [
+              { name: { contains: t, mode: 'insensitive' } },
+              { profession: { contains: t, mode: 'insensitive' } },
+              { country: { contains: t, mode: 'insensitive' } },
+              { phone: { contains: t, mode: 'insensitive' } }
+            ])
+          },
+          take: 5
+        }),
+
+        // 3. Employers / Companies
+        prisma.company.findMany({
+          where: {
+            isDeleted: false,
+            OR: terms.flatMap(t => [
+              { name: { contains: t, mode: 'insensitive' } },
+              { phone: { contains: t, mode: 'insensitive' } },
+              { address: { contains: t, mode: 'insensitive' } }
+            ])
+          },
+          include: { _count: { select: { contacts: true, deals: true } } },
+          take: 5
+        }),
+
+        // 4. Tasks
+        prisma.task.findMany({
+          where: {
+            isDeleted: false,
+            OR: terms.flatMap(t => [
+              { text: { contains: t, mode: 'insensitive' } },
+              { deal: { title: { contains: t, mode: 'insensitive' } } }
+            ])
+          },
+          include: { responsible: true, deal: true },
+          take: 5
+        })
+      ]);
+
+      res.json({
+        query: q,
+        terms,
+        deals,
+        candidates,
+        employers,
+        tasks,
+        totalFound: deals.length + candidates.length + employers.length + tasks.length
+      });
+    } catch (e: any) {
+      console.error('Omnisearch error:', e);
+      res.status(500).json({ error: 'Omnisearch failed', details: e.message });
     }
   });
 

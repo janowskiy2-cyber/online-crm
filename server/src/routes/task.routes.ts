@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { Server as SocketIOServer } from 'socket.io';
+import { SemanticSearchService } from '../services/semantic-search.service';
 
 export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServer | null) {
   const router = Router();
@@ -46,13 +47,13 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
     }
   });
 
-  // Get tasks for user or team
+  // Get tasks for user or team with Synaptic Semantic Search
   router.get('/', async (req, res) => {
     try {
       const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
-      const { status, dealId } = req.query;
+      const { status, dealId, search } = req.query;
 
-      let where: any = {};
+      let where: any = { isDeleted: false };
 
       if (dealId) {
         where.dealId = String(dealId);
@@ -62,6 +63,16 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
         where.isCompleted = false;
       } else if (status === 'completed') {
         where.isCompleted = true;
+      }
+
+      if (search) {
+        const terms = await SemanticSearchService.expandQuery(String(search));
+        where.OR = terms.flatMap(term => [
+          { text: { contains: term, mode: 'insensitive' } },
+          { type: { contains: term, mode: 'insensitive' } },
+          { responsible: { name: { contains: term, mode: 'insensitive' } } },
+          { deal: { title: { contains: term, mode: 'insensitive' } } }
+        ]);
       }
 
       if (currentUserId) {

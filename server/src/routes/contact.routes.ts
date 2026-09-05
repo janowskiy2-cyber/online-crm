@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { CloudinaryService } from '../services/cloudinary.service';
+import { SemanticSearchService } from '../services/semantic-search.service';
 
 export function createContactRouter(prisma: PrismaClient) {
   const router = Router();
@@ -16,25 +17,37 @@ export function createContactRouter(prisma: PrismaClient) {
         totalRepresentatives
       ] = await Promise.all([
         prisma.company.count({ where: { isDeleted: false } }),
-        prisma.contact.count({ where: { isDeleted: false, type: 'candidate' } }),
-        prisma.contact.count({ where: { isDeleted: false, type: 'candidate', companyId: { not: null } } }),
-        prisma.contact.count({ where: { isDeleted: false, type: 'candidate', companyId: null } }),
-        prisma.contact.count({ where: { isDeleted: false, type: 'b2b_contact' } })
+        prisma.contact.count({ where: { type: 'candidate', isDeleted: false } }),
+        prisma.contact.count({
+          where: {
+            type: 'candidate',
+            companyId: { not: null },
+            isDeleted: false
+          }
+        }),
+        prisma.contact.count({
+          where: {
+            type: 'candidate',
+            companyId: null,
+            isDeleted: false
+          }
+        }),
+        prisma.contact.count({ where: { type: 'b2b_contact', isDeleted: false } })
       ]);
 
       res.json({
-        totalCompanies,
-        totalCandidates,
-        assignedCandidates,
-        freeReserveCandidates,
-        totalRepresentatives
+        totalCompanies: totalCompanies || 0,
+        totalCandidates: totalCandidates || 0,
+        assignedCandidates: assignedCandidates || 0,
+        freeReserveCandidates: freeReserveCandidates || 0,
+        totalRepresentatives: totalRepresentatives || 0
       });
     } catch (e) {
-      res.status(500).json({ error: 'Failed to calculate stats' });
+      res.status(500).json({ error: 'Failed to fetch stats overview' });
     }
   });
 
-  // Get contacts (supports ?type=candidate or ?type=b2b_contact)
+  // Get contacts (supports ?type=candidate or ?type=b2b_contact) with Synaptic Semantic Search
   router.get('/', async (req, res) => {
     try {
       const { search, type } = req.query;
@@ -43,14 +56,17 @@ export function createContactRouter(prisma: PrismaClient) {
         where.type = String(type);
       }
       if (search) {
-        const searchConditions = [
-          { name: { contains: String(search), mode: 'insensitive' } },
-          { phone: { contains: String(search), mode: 'insensitive' } },
-          { email: { contains: String(search), mode: 'insensitive' } },
-          { telegram: { contains: String(search), mode: 'insensitive' } },
-          { country: { contains: String(search), mode: 'insensitive' } },
-          { profession: { contains: String(search), mode: 'insensitive' } }
-        ];
+        const terms = await SemanticSearchService.expandQuery(String(search));
+        const searchConditions = terms.flatMap(term => [
+          { name: { contains: term, mode: 'insensitive' } },
+          { phone: { contains: term, mode: 'insensitive' } },
+          { email: { contains: term, mode: 'insensitive' } },
+          { telegram: { contains: term, mode: 'insensitive' } },
+          { country: { contains: term, mode: 'insensitive' } },
+          { profession: { contains: term, mode: 'insensitive' } },
+          { position: { contains: term, mode: 'insensitive' } },
+          { company: { name: { contains: term, mode: 'insensitive' } } }
+        ]);
         if (where.type) {
           where.AND = [
             { isDeleted: false },
@@ -128,11 +144,25 @@ export function createContactRouter(prisma: PrismaClient) {
     }
   });
 
-  // Get companies
+  // Get companies with Synaptic Semantic Search
   router.get('/companies/all', async (req, res) => {
     try {
+      const { search } = req.query;
+      const where: any = { isDeleted: false };
+
+      if (search) {
+        const terms = await SemanticSearchService.expandQuery(String(search));
+        where.OR = terms.flatMap(term => [
+          { name: { contains: term, mode: 'insensitive' } },
+          { phone: { contains: term, mode: 'insensitive' } },
+          { email: { contains: term, mode: 'insensitive' } },
+          { address: { contains: term, mode: 'insensitive' } },
+          { contacts: { some: { name: { contains: term, mode: 'insensitive' } } } }
+        ]);
+      }
+
       const companies = await prisma.company.findMany({
-        where: { isDeleted: false },
+        where,
         include: {
           contacts: true,
           deals: true,
