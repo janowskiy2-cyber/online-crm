@@ -58,6 +58,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   const formAvatarFileRef = React.useRef<HTMLInputElement>(null);
   const quickAvatarFileRef = React.useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleFormAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -346,7 +356,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
             </div>
           </div>
 
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-xl">
+          <button 
+            onClick={onClose} 
+            title="Закрити"
+            aria-label="Закрити"
+            data-testid="close-modal"
+            data-modal-close="admin-panel"
+            className="p-2 text-slate-400 hover:text-white rounded-xl transition hover:bg-slate-800"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>

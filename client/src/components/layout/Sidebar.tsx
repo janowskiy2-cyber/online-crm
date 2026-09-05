@@ -118,6 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <button
                   key={item.id}
+                  data-nav-id={item.id}
                   onClick={() => handleNavClick(item.id)}
                   className={`w-full flex items-center justify-between px-3.5 py-2 rounded-full text-xs font-medium transition-all duration-150 ${
                     isActive

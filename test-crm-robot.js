@@ -82,14 +82,17 @@ const CRM_PROJECT_REGISTRY = {
     try {
       // 1. Спробувати клікнути всі види кнопок закриття
       const closeSelectors = [
+        'button[data-testid="close-modal"]',
+        'button[data-modal-close]',
+        'button[aria-label="Закрити"]',
+        'div.fixed button[title*="акрити"]',
+        'button[title*="Закрити"]',
         'div.fixed button:has(svg.lucide-x)',
         'div.fixed button:has-text("✕")',
         'div.fixed button:has-text("×")',
         'div.fixed button:has-text("X")',
         'div.fixed button:has-text("Закрити")',
-        'div.fixed button:has-text("Скасувати")',
-        'div.fixed button[title*="акрити"]',
-        'button[title*="Закрити"]'
+        'div.fixed button:has-text("Скасувати")'
       ];
       
       for (const sel of closeSelectors) {
@@ -102,6 +105,13 @@ const CRM_PROJECT_REGISTRY = {
         }
       }
 
+      // 1.5 Примусовий клік по першій кнопці у модалці (зазвичай це хрестик в шапці)
+      const topCloseBtn = await page.$('div.fixed.inset-0.z-50 button');
+      if (topCloseBtn && await topCloseBtn.isVisible().catch(() => false)) {
+        await topCloseBtn.click({ force: true }).catch(() => {});
+        await page.waitForTimeout(300);
+      }
+
       // 2. Натиснути Escape двічі
       await page.keyboard.press('Escape').catch(() => {});
       await page.waitForTimeout(200);
@@ -112,11 +122,16 @@ const CRM_PROJECT_REGISTRY = {
       await page.evaluate(() => {
         const overlays = document.querySelectorAll('div.fixed.inset-0.z-50');
         overlays.forEach(ov => {
-          const btn = ov.querySelector('button');
-          if (btn) btn.click();
+          const closeBtn = ov.querySelector('button[title*="акрити"], button[aria-label*="акрити"], button[data-testid*="close"], button[data-modal-close]');
+          if (closeBtn) {
+            closeBtn.click();
+          } else {
+            const btn = ov.querySelector('button');
+            if (btn) btn.click();
+          }
         });
       }).catch(() => {});
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(400);
 
       // 4. Якщо відкрита картка /deals/... перейти назад до /deals
       if (page.url().includes('/deals/')) {
@@ -349,6 +364,11 @@ const CRM_PROJECT_REGISTRY = {
             logStep('ADMIN_MODAL', 'Перемикач "Round-Robin розподіл лідів"', 'PASS', 'Режим змінено');
           }
 
+          const adminCloseBtn = await page.$('div.fixed.inset-0 button:has(svg), button[data-testid="close-modal"], button[title="Закрити"]');
+          if (adminCloseBtn) {
+            await adminCloseBtn.click({ force: true }).catch(() => {});
+            await page.waitForTimeout(400);
+          }
           await closeAnyOpenModal();
         }
       }
@@ -438,9 +458,9 @@ const CRM_PROJECT_REGISTRY = {
         }
       }
 
-      const dialogItem = await page.$('div.cursor-pointer, [role="button"]');
+      const dialogItem = await page.$('main div.cursor-pointer:has-text("WA"), main div.cursor-pointer:has-text("TG"), main div.cursor-pointer');
       if (dialogItem) {
-        await dialogItem.click();
+        await dialogItem.click().catch(() => {});
         await page.waitForTimeout(500);
 
         const messageBox = await page.$('input[placeholder*="повідомлення"], textarea');
@@ -518,7 +538,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [8/15] ПЕРЕВІРКА РОЗДІЛУ: БАЗА КАНДИДАТІВ (/candidates) ---');
     try {
-      await page.click('aside button:has-text("База кандидатов")');
+      await page.click('aside button[data-nav-id="candidates"], aside button:has-text("Кандидати"), aside button:has-text("База кандидатов")');
       await page.waitForTimeout(1500);
 
       const countries = ['Всі країни', 'Узбекистан', 'Індія', 'Туреччина', 'Бангладеш'];
@@ -561,7 +581,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [9/15] ПЕРЕВІРКА РОЗДІЛУ: CRM ВОРОНКА УГОД (/deals) ---');
     try {
-      await page.click('aside button:has-text("CRM")');
+      await page.click('aside button[data-nav-id="deals"], aside button:has-text("CRM"), aside button:has-text("Угоди"), aside button:has-text("Воронка")');
       await page.waitForTimeout(2000);
 
       const pipeSelector = await page.$('select');
@@ -658,7 +678,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [11/15] ПЕРЕВІРКА РОЗДІЛУ: АНАЛІТИКА ТА ЗВІТИ (/analytics) ---');
     try {
-      await page.click('aside button:has-text("Аналитика")');
+      await page.click('aside button[data-nav-id="analytics"], aside button:has-text("Аналитика"), aside button:has-text("Аналітика")');
       await page.waitForTimeout(1500);
 
       const timeFilters = ['Сьогодні', 'Тиждень', 'Місяць'];
@@ -681,7 +701,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [12/15] ПЕРЕВІРКА РОЗДІЛУ: РЕКЛАМА ТА ВЕБХУКИ (/integrations) ---');
     try {
-      await page.click('aside button:has-text("Реклама и вебхуки")');
+      await page.click('aside button[data-nav-id="integrations"], aside button:has-text("Реклама и вебхуки"), aside button:has-text("Інтеграції"), aside button:has-text("Реклама")');
       await page.waitForTimeout(1500);
 
       const copyWebhookBtn = await page.$('button:has-text("Скопіювати"), button:has-text("Копіювати")');
@@ -700,7 +720,7 @@ const CRM_PROJECT_REGISTRY = {
     // =========================================================================
     console.log('\n--- [13/15] ПЕРЕВІРКА РОЗДІЛУ: АВТОВОРОНКА (/automation) ---');
     try {
-      await page.click('aside button:has-text("Автоворонка")');
+      await page.click('aside button[data-nav-id="automation"], aside button:has-text("Автоворонка"), aside button:has-text("Автоматизація")');
       await page.waitForTimeout(1500);
 
       const ruleSwitch = await page.$('button[role="switch"], input[type="checkbox"]');

@@ -19,7 +19,8 @@ import {
   ChevronRight,
   UserCheck,
   Download,
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -61,6 +62,18 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
     website: '',
     quota: 15
   });
+
+  useEffect(() => {
+    if (!isAddEmployerOpen && !isImportModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsAddEmployerOpen(false);
+        setIsImportModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAddEmployerOpen, isImportModalOpen]);
 
   const [stats, setStats] = useState({
     totalCompanies: 0,
@@ -450,7 +463,10 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
 
       {/* Modal: Add Employer (Client) */}
       {isAddEmployerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsAddEmployerOpen(false); }}
+        >
           <div className="bitrix-glass w-full max-w-lg rounded-2xl p-6 border border-white/15 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
@@ -463,10 +479,15 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsAddEmployerOpen(false)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
+                title="Закрити"
+                aria-label="Закрити"
+                data-testid="close-modal"
+                data-modal-close="add-employer"
+                className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-white/10 transition"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 

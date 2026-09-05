@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Plus, 
   AlertCircle, 
+  AlertTriangle,
   Building2, 
   User, 
   Euro, 
   FolderKanban,
   Sparkles,
   ChevronDown,
-  Tag
+  Tag,
+  ExternalLink
 } from 'lucide-react';
 import { Pipeline } from '../../types';
 import { api } from '../../services/api';
@@ -48,6 +50,46 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Escape key close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Anti-Duplicate Live Guard
+  const [duplicateWarning, setDuplicateWarning] = useState<any[]>([]);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+
+  useEffect(() => {
+    const query = contactPhone.trim() || companyName.trim();
+    if (query.length < 5) {
+      setDuplicateWarning([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        setIsCheckingDuplicate(true);
+        const res = await api.get('/deals/check-duplicate', { params: { query } });
+        if (res.data?.duplicateFound && res.data?.duplicates?.length > 0) {
+          setDuplicateWarning(res.data.duplicates);
+        } else {
+          setDuplicateWarning([]);
+        }
+      } catch (e) {
+        setDuplicateWarning([]);
+      } finally {
+        setIsCheckingDuplicate(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [contactPhone, companyName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +174,9 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
             onClick={onClose} 
             className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 rounded-2xl transition-all duration-200"
             title="Закрити"
+            aria-label="Закрити"
+            data-testid="close-modal"
+            data-modal-close="create-deal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -296,6 +341,30 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                 className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono"
               />
             </div>
+
+            {/* Live Duplicate Warning Banner */}
+            {duplicateWarning.length > 0 && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-300 text-xs space-y-2 animate-in fade-in">
+                <div className="flex items-center gap-1.5 font-bold text-amber-400">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <span>Увага: у системі вже є схожі клієнти/угоди!</span>
+                </div>
+                <div className="space-y-1.5">
+                  {duplicateWarning.map(dup => (
+                    <div key={dup.id} className="bg-black/30 p-2 rounded-xl border border-amber-500/20 text-[11px] flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-white">{dup.title}</div>
+                        <div className="text-slate-400 text-[10px]">
+                          {dup.companyName && <span>Підприємство: {dup.companyName} • </span>}
+                          {dup.phone && <span>Тел: {dup.phone} • </span>}
+                          <span>Менеджер: {dup.responsibleName} ({dup.stageName})</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="relative">

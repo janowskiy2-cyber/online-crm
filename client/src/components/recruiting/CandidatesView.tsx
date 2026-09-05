@@ -75,6 +75,20 @@ export const CandidatesView: React.FC = () => {
     videoUrl: ''
   });
 
+  useEffect(() => {
+    if (!isCreateOpen && !isImportOpen && !selectedFilesCandidate && !geminiBriefCandidate) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsCreateOpen(false);
+        setIsImportOpen(false);
+        setSelectedFilesCandidate(null);
+        setGeminiBriefCandidate(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCreateOpen, isImportOpen, selectedFilesCandidate, geminiBriefCandidate]);
+
   const fetchCompanies = async () => {
     try {
       const res = await api.get('/contacts/companies/all');
@@ -606,7 +620,10 @@ export const CandidatesView: React.FC = () => {
 
         {/* Modal: Create Candidate */}
         {isCreateOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setIsCreateOpen(false); }}
+          >
             <div className="bitrix-glass w-full max-w-lg rounded-2xl p-6 border border-white/15 shadow-2xl space-y-4 animate-in fade-in">
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
@@ -619,10 +636,15 @@ export const CandidatesView: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="text-slate-400 hover:text-white text-lg font-bold"
+                  title="Закрити"
+                  aria-label="Закрити"
+                  data-testid="close-modal"
+                  data-modal-close="create-candidate"
+                  className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-white/10 transition"
                 >
-                  ✕
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 

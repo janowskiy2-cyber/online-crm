@@ -48,6 +48,17 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
     };
   }, [filter]);
 
+  useEffect(() => {
+    if (!isCreating) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsCreating(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCreating]);
+
   const handleToggleTask = async (taskId: string, isCompleted: boolean) => {
     try {
       await api.put(`/tasks/${taskId}`, { isCompleted: !isCompleted });
@@ -187,7 +198,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
                 </h3>
                 <button
                   onClick={() => setIsCreating(false)}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-xl"
+                  title="Закрити"
+                  aria-label="Закрити"
+                  data-testid="close-modal"
+                  data-modal-close="tasks"
+                  className="p-1.5 text-slate-400 hover:text-white rounded-xl transition hover:bg-slate-800"
                 >
                   <X className="w-4 h-4" />
                 </button>
