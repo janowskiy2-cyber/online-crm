@@ -302,14 +302,16 @@ const CRM_PROJECT_REGISTRY = {
         }
       }
 
-      // 2.6 Дзвіночок сповіщень 🔔 1
+      // 2.6 Дзвіночок сповіщень 🔔 (Bitrix24 Notifications Popover)
       const bellBtn = await page.$('header button[title*="повіщ"], header button:has(svg.lucide-bell)');
       if (bellBtn) {
         await bellBtn.click();
-        await page.waitForTimeout(1000);
-        const dealModalOpen = await page.$('h2:has-text("Нова угода"), h3:has-text("Нова угода"), h2:has-text("Створити")');
-        if (dealModalOpen) {
-          logStep('NAVBAR', 'Дзвіночок 🔔 ➔ Швидка дія створення угоди', 'PASS', 'Модалка створення активна');
+        await page.waitForTimeout(600);
+        const notifPopover = await page.$('div:has-text("Сповіщення системи")');
+        if (notifPopover) {
+          logStep('NAVBAR', 'Дзвіночок 🔔 ➔ Панель системних сповіщень Bitrix24', 'PASS', 'Попап сповіщень відкрито');
+          await bellBtn.click().catch(() => {});
+          await page.waitForTimeout(300);
         } else {
           logStep('NAVBAR', 'Дзвіночок 🔔 (Сповіщення)', 'PASS', 'Кнопка активна');
         }
@@ -624,6 +626,19 @@ const CRM_PROJECT_REGISTRY = {
         }
         await closeAnyOpenModal();
       }
+
+      // 9.2 Перевірка кнопки "+ Додати угоду" всередині конкретного етапу
+      const colAddBtn = await page.$('main button:has-text("+ Додати угоду")');
+      if (colAddBtn) {
+        await colAddBtn.click();
+        await page.waitForTimeout(800);
+        const modal = await page.$('h2:has-text("Нова угода"), h3:has-text("Нова угода"), h2:has-text("Створити")');
+        if (modal) {
+          logStep('DEALS', 'Кнопка "+ Додати угоду" у колонці етапу', 'PASS', 'Форма з прив\'язкою етапу відкрита');
+        }
+        await closeAnyOpenModal();
+      }
+
       await scanForDeadButtons('DEALS');
       await page.screenshot({ path: path.join(SCREENSHOTS_DIR, '07_kanban_board.png') });
     } catch (e) {

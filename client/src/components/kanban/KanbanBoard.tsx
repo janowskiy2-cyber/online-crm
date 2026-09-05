@@ -17,6 +17,7 @@ import {
 import { Deal, Pipeline, Stage } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { api, socket } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { LossReasonModal } from '../modals/LossReasonModal';
 import { AnalyticsDashboardModal } from '../analytics/AnalyticsDashboardModal';
 import { ArchivedDealsModal } from '../modals/ArchivedDealsModal';
@@ -44,20 +45,33 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   openCreateDeal,
 }) => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'no_tasks' | 'overdue' | 'my_deals'>('all');
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [recentlyMovedDealId, setRecentlyMovedDealId] = useState<string | null>(null);
 
-  const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
+  const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
+  const currentUserId = currentUser?.id || (typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin') || 'usr-admin';
 
   const noTaskCount = deals.filter(d => !d.tasks || d.tasks.length === 0 || d.tasks.every(t => t.isCompleted)).length;
   const overdueCount = deals.filter(d => d.tasks && d.tasks.some(t => !t.isCompleted && new Date(t.dueDate) < new Date())).length;
   const myDealsCount = deals.filter(d => d.responsibleId === currentUserId).length;
 
-  const filteredDeals = deals.filter(d => {
+  const filteredDeals = deals.map(d => {
+    // Safety fallback: if deal has an unknown stageId not in stagesList, assign it to stagesList[0].id so it never vanishes
+    if (stagesList.length > 0 && !stagesList.some(s => s.id === d.stageId)) {
+      return { ...d, stageId: stagesList[0].id };
+    }
+    return d;
+  }).filter(d => {
+    // If this deal was recently moved by the user, keep it in view so amoCRM auto-tasks don't abruptly evict it
+    if (recentlyMovedDealId && d.id === recentlyMovedDealId) {
+      return true;
+    }
     if (activeFilter === 'no_tasks') {
       return !d.tasks || d.tasks.length === 0 || d.tasks.every(t => t.isCompleted);
     }
@@ -122,15 +136,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
     if (!destination) return;
-    
-    // In-column priority reordering
-    if (destination.droppableId === source.droppableId) {
-      if (destination.index === source.index) return;
-      const columnDeals = deals.filter(d => d.stageId === source.droppableId);
-      const otherDeals = deals.filter(d => d.stageId !== source.droppableId);
-      const [moved] = columnDeals.splice(source.index, 1);
-      columnDeals.splice(destination.index, 0, moved);
-      setDeals([...otherDeals, ...columnDeals]);
+
+    // No move occurred
+    if (destination.droppableId === source.droppableId && destination.index === source.index) {
       return;
     }
 
@@ -141,10 +149,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       targetStage.name.toLowerCase().includes('програн') ||
       targetStage.name.toLowerCase().includes('отказ') ||
       targetStage.name.toLowerCase().includes('нереал') ||
-      (targetStage as any).type === 'lost'
+      (targetStage as any).type === 'lost' ||
+      targetStage.isLost === true
     );
 
-    if (isLossStage) {
+    // If moving to a loss stage from a different stage, open modal
+    if (isLossStage && source.droppableId !== newStageId) {
       const movedDeal = deals.find(d => d.id === draggableId);
       setPendingLossDeal({
         id: draggableId,
@@ -154,15 +164,36 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       return;
     }
 
-    // Optimistic UI update
-    setDeals((prev) =>
-      prev.map((deal) =>
-        deal.id === draggableId ? { ...deal, stageId: newStageId } : deal
-      )
-    );
+    // Find the deal being moved
+    const movedDeal = deals.find(d => d.id === draggableId);
+    if (!movedDeal) return;
+
+    // Keep deal visible even if its amoCRM task state changes
+    setRecentlyMovedDealId(draggableId);
+    setTimeout(() => setRecentlyMovedDealId(null), 8000);
+
+    // Clean atomic reordering without relying on filtered indices
+    const updatedDeal: Deal = { ...movedDeal, stageId: newStageId };
+
+    setDeals((prev) => {
+      // Remove moved deal from previous list
+      const remaining = prev.filter(d => d.id !== draggableId);
+      // Group deals belonging to target stage
+      const targetColumnDeals = remaining.filter(d => d.stageId === newStageId);
+      const otherColumnDeals = remaining.filter(d => d.stageId !== newStageId);
+
+      // Insert at destination index within the target stage list
+      targetColumnDeals.splice(destination.index, 0, updatedDeal);
+      return [...otherColumnDeals, ...targetColumnDeals];
+    });
 
     try {
-      await api.put(`/deals/${draggableId}`, { stageId: newStageId });
+      const res = await api.put(`/deals/${draggableId}`, { stageId: newStageId });
+      if (res.data) {
+        setDeals((prev) =>
+          prev.map((d) => (d.id === draggableId ? { ...d, ...res.data, stageId: newStageId } : d))
+        );
+      }
     } catch (e) {
       console.error('Failed to move deal:', e);
       fetchDeals();
@@ -174,6 +205,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     const { id, targetStageId } = pendingLossDeal;
     setPendingLossDeal(null);
 
+    setRecentlyMovedDealId(id);
+    setTimeout(() => setRecentlyMovedDealId(null), 8000);
+
     setDeals((prev) =>
       prev.map((deal) =>
         deal.id === id ? { ...deal, stageId: targetStageId, lossReason: reason } : deal
@@ -181,7 +215,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     );
 
     try {
-      await api.put(`/deals/${id}`, { stageId: targetStageId, lossReason: reason });
+      const res = await api.put(`/deals/${id}`, { stageId: targetStageId, lossReason: reason });
+      if (res.data) {
+        setDeals((prev) =>
+          prev.map((d) => (d.id === id ? { ...d, ...res.data, stageId: targetStageId, lossReason: reason } : d))
+        );
+      }
     } catch (e) {
       console.error('Failed to save loss reason:', e);
       fetchDeals();
@@ -208,8 +247,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const formatCurrency = (val: number) => {
     return `${new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(val || 0)} ₴`;
   };
-
-  const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper bg-slate-100/70 dark:bg-[#070b13]/80 p-3 sm:p-4 select-none transition-colors duration-200 font-['Inter',sans-serif]">

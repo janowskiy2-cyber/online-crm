@@ -51,6 +51,13 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync stageId if initialStageId prop changes
+  useEffect(() => {
+    if (initialStageId) {
+      setStageId(initialStageId);
+    }
+  }, [initialStageId]);
+
   // Escape key close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

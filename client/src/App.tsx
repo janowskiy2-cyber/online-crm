@@ -53,6 +53,13 @@ export function App() {
 
   // Modals state
   const [isCreateDealOpen, setIsCreateDealOpen] = useState(false);
+  const [createDealStageId, setCreateDealStageId] = useState<string | undefined>(undefined);
+
+  const handleOpenCreateDeal = (stageId?: string) => {
+    setCreateDealStageId(stageId);
+    setIsCreateDealOpen(true);
+  };
+
   const [isQROpen, setIsQROpen] = useState(false);
   const [qrChannel, setQrChannel] = useState<'whatsapp' | 'telegram'>('whatsapp');
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
@@ -183,7 +190,7 @@ export function App() {
           pipelines={pipelines}
           activePipelineId={activePipelineId}
           setActivePipelineId={setActivePipelineId}
-          openCreateDeal={() => setIsCreateDealOpen(true)}
+          openCreateDeal={() => handleOpenCreateDeal()}
           openQRModal={handleOpenQRModal}
           openAdminPanel={() => setIsAdminPanelOpen(true)}
           openUserSwitcher={() => setIsUserSwitcherOpen(true)}
@@ -211,7 +218,7 @@ export function App() {
                     searchQuery={searchQuery}
                     refreshTrigger={refreshTrigger}
                     onOpenDeal={handleOpenDeal}
-                    openCreateDeal={() => setIsCreateDealOpen(true)}
+                    openCreateDeal={handleOpenCreateDeal}
                   />
                 } />
 
@@ -224,7 +231,7 @@ export function App() {
                     searchQuery={searchQuery}
                     refreshTrigger={refreshTrigger}
                     onOpenDeal={handleOpenDeal}
-                    openCreateDeal={() => setIsCreateDealOpen(true)}
+                    openCreateDeal={handleOpenCreateDeal}
                   />
                 } />
 
@@ -264,7 +271,7 @@ export function App() {
               onOpenFeed={() => navigate('/feed')}
               onInviteColleagues={() => setIsAdminPanelOpen(true)}
               onCallUser={(name, phone) => {
-                const found = users.find(u => u.name === name || u.phone === phone);
+                const found = (users || []).find(u => u && (u.name === name || u.phone === phone));
                 if (found) {
                   setSelectedColleague(found);
                 } else {
@@ -355,9 +362,14 @@ export function App() {
         <CreateDealModal
           pipelines={pipelines}
           activePipelineId={activePipelineId}
-          onClose={() => setIsCreateDealOpen(false)}
+          initialStageId={createDealStageId}
+          onClose={() => {
+            setIsCreateDealOpen(false);
+            setCreateDealStageId(undefined);
+          }}
           onDealCreated={(newDeal) => {
             setIsCreateDealOpen(false);
+            setCreateDealStageId(undefined);
             setRefreshTrigger(prev => prev + 1);
             if (newDeal?.id) {
               handleOpenDeal(newDeal.id);

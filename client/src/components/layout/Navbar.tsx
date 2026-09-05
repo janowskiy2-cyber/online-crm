@@ -32,6 +32,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { api, socket } from '../../services/api';
 import { compressImageToBase64 } from '../../utils/imageUtils';
 import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
+import { NotificationsPopover } from '../common/NotificationsPopover';
 
 export const PROJECTS_CONFIG: ProjectInfo[] = [
   {
@@ -107,6 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const [currentTime, setCurrentTime] = useState<string>('09:51');
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
   
   // Database Avatar Upload State
@@ -473,18 +475,25 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
 
-          {/* Notification Bell: 🔔 1 (Bitrix Iconic Notification Badge) */}
+          {/* Notification Bell: 🔔 (Bitrix/amoCRM Dedicated System Notifications) */}
           <div className="relative">
             <button
-              onClick={openCreateDeal}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
-              title="Сповіщення"
+              onClick={() => setIsNotificationsOpen(prev => !prev)}
+              className={`w-8 h-8 rounded-full transition flex items-center justify-center ${
+                isNotificationsOpen ? 'bg-white/30 text-white' : 'bg-white/10 hover:bg-white/20 text-white'
+              }`}
+              title="Сповіщення системи та воронок"
             >
               <Bell className="w-4 h-4" />
             </button>
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center border border-[#0e1424] animate-pulse">
-              1
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center border border-[#0e1424] animate-pulse pointer-events-none">
+              2
             </span>
+
+            <NotificationsPopover
+              isOpen={isNotificationsOpen}
+              onClose={() => setIsNotificationsOpen(false)}
+            />
           </div>
         </div>
       </div>

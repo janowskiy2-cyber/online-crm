@@ -289,30 +289,42 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           }
 
           const dueDate = new Date(Date.now() + hours * 3600 * 1000);
-          const assignee = data.responsibleId || existingDeal?.responsibleId || 'usr-admin';
-          const autoTask = await prisma.task.create({
-            data: {
-              dealId: id,
-              responsibleId: assignee,
-              createdById: assignee,
-              text: taskText,
-              type: taskType,
-              dueDate
-            }
-          });
+          let assignee = data.responsibleId || existingDeal?.responsibleId || 'usr-admin';
+          
+          // Verify assignee exists in User table to strictly prevent Foreign Key violations
+          const userExists = await prisma.user.findUnique({ where: { id: assignee } });
+          if (!userExists) {
+            const firstUser = await prisma.user.findFirst();
+            assignee = firstUser ? firstUser.id : assignee;
+          }
 
-          // Log system activity note
-          await prisma.dealNote.create({
-            data: {
-              dealId: id,
-              userId: existingDeal?.responsibleId || 'usr-admin',
-              content: `🤖 Digital Pipeline: Створено автоматичне завдання: "${taskText}" (термін: ${hours}г)`,
-              type: 'system'
-            }
-          }).catch(() => {});
+          try {
+            const autoTask = await prisma.task.create({
+              data: {
+                dealId: id,
+                responsibleId: assignee,
+                createdById: assignee,
+                text: taskText,
+                type: taskType,
+                dueDate
+              }
+            });
 
-          if (io) {
-            io.emit('task_created', autoTask);
+            // Log system activity note
+            await prisma.dealNote.create({
+              data: {
+                dealId: id,
+                userId: assignee,
+                content: `🤖 Digital Pipeline: Створено автоматичне завдання: "${taskText}" (термін: ${hours}г)`,
+                type: 'system'
+              }
+            }).catch(() => {});
+
+            if (io) {
+              io.emit('task_created', autoTask);
+            }
+          } catch (taskErr) {
+            console.warn('Digital pipeline task auto-creation non-blocking notice:', taskErr);
           }
         }
       }
@@ -329,11 +341,34 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
         }).catch(() => {});
       }
 
+      // Return fully loaded deal identical to GET /deals for rock-solid frontend synchronization
+      const fullDeal = await prisma.deal.findUnique({
+        where: { id },
+        include: {
+          contact: true,
+          company: true,
+          responsible: {
+            select: { id: true, name: true, avatar: true, department: true, role: true }
+          },
+          stage: true,
+          tasks: {
+            where: { isCompleted: false },
+            include: { responsible: true }
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: 'desc' }
+          }
+        }
+      });
+
+      const finalDeal = fullDeal || updated;
+
       if (io) {
-        io.emit('deal_updated', updated);
+        io.emit('deal_updated', finalDeal);
       }
 
-      res.json(updated);
+      res.json(finalDeal);
     } catch (e) {
       console.error('Failed to update deal:', e);
       res.status(500).json({ error: 'Failed to update deal' });
