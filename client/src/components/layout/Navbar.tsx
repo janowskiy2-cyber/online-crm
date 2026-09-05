@@ -25,6 +25,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Pipeline, ProjectCategory, ProjectInfo } from '../../types';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, socket } from '../../services/api';
@@ -94,6 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   openObjections,
   onToggleMobileSidebar
 }) => {
+  const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
   const [lineBusy, setLineBusy] = useState(false);
@@ -215,10 +217,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center p-0.5 bg-black/20 border border-white/10 rounded-xl">
             {PROJECTS_CONFIG.map((proj) => {
               const isActive = currentWorkspace === proj.id;
+              const handleWorkspaceSelect = () => {
+                setCurrentWorkspace(proj.id);
+                if (proj.id === 'candidates') {
+                  navigate('/candidates');
+                } else if (proj.id === 'employers') {
+                  navigate('/deals');
+                } else if (proj.id === 'agencies') {
+                  navigate('/contacts');
+                } else if (proj.id === 'legal_logistics') {
+                  navigate('/deals');
+                }
+              };
               return (
                 <button
                   key={proj.id}
-                  onClick={() => setCurrentWorkspace(proj.id)}
+                  onClick={handleWorkspaceSelect}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
                     isActive
                       ? 'bg-white/20 text-white shadow-sm'

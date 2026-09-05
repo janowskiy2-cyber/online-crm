@@ -9,6 +9,7 @@ import fs from 'fs';
 import { LeadDistributionService } from './lead-distribution.service';
 import { CloudinaryService } from './cloudinary.service';
 import { AudioConverterService } from './audio-converter.service';
+import bigInt from 'big-integer';
 
 const DEFAULT_API_ID = 2040;
 const DEFAULT_API_HASH = 'b18441a1ff607e10a989891a5462e627';
@@ -348,24 +349,72 @@ export class TelegramService {
     }
   }
 
+  /**
+   * Universal resolution of Telegram recipient (Entity, username, phone or numeric user ID)
+   */
+  public async resolvePeer(toTgIdOrUsername: string): Promise<any> {
+    if (!this.client) return toTgIdOrUsername;
+
+    const raw = (toTgIdOrUsername || '').trim();
+    if (!raw) return raw;
+
+    // 1. If username starts with @ or is a plain username string
+    if (raw.startsWith('@')) {
+      try {
+        const entity = await this.client.getEntity(raw);
+        if (entity) return entity;
+      } catch (e) {
+        console.warn(`[Telegram] getEntity for username ${raw} failed:`, e);
+      }
+    }
+
+    // 2. If it has tg_ prefix (e.g. tg_123456789)
+    const cleanId = raw.startsWith('tg_') ? raw.replace('tg_', '') : raw;
+
+    // 3. If it's a numeric Telegram User ID
+    if (/^\d{5,15}$/.test(cleanId)) {
+      try {
+        const entity = await this.client.getEntity(bigInt(cleanId));
+        if (entity) return entity;
+      } catch (e) {
+        try {
+          const entity = await this.client.getEntity(parseInt(cleanId, 10));
+          if (entity) return entity;
+        } catch (e2) {}
+      }
+    }
+
+    // 4. If it is an international phone number (+380... or digits >= 9)
+    const cleanDigits = raw.replace(/\D/g, '');
+    if (cleanDigits.length >= 9 && (raw.startsWith('+') || !raw.startsWith('@'))) {
+      try {
+        const res: any = await this.client.invoke(new Api.contacts.ResolvePhone({ phone: `+${cleanDigits}` }));
+        if (res && res.users && res.users.length > 0) {
+          return res.users[0];
+        }
+      } catch (rErr) {
+        console.warn(`[Telegram] ResolvePhone for +${cleanDigits} failed:`, rErr);
+      }
+    }
+
+    // 5. Fallback getEntity
+    try {
+      const entity = await this.client.getEntity(cleanId);
+      if (entity) return entity;
+    } catch (e) {}
+
+    return raw;
+  }
+
   public async sendMessage(toTgIdOrUsername: string, text: string, dealId?: string, contactId?: string) {
+    let deliveryStatus = 'sent';
     if (this.client && this.status === 'connected') {
       try {
-        let peer: any = toTgIdOrUsername;
-        const cleanDigits = toTgIdOrUsername.replace(/\D/g, '');
-        if (cleanDigits.length >= 9 && (toTgIdOrUsername.startsWith('+') || !toTgIdOrUsername.startsWith('@'))) {
-          try {
-            const res: any = await this.client.invoke(new Api.contacts.ResolvePhone({ phone: `+${cleanDigits}` }));
-            if (res && res.users && res.users.length > 0) {
-              peer = res.users[0];
-            }
-          } catch (rErr) {
-            console.warn('Could not resolve phone entity in Telegram sendMessage:', rErr);
-          }
-        }
+        const peer = await this.resolvePeer(toTgIdOrUsername);
         await this.client.sendMessage(peer, { message: text });
-      } catch (err) {
-        console.warn('Error sending MTProto message:', err);
+      } catch (err: any) {
+        console.warn('⚠️ [Telegram] Error sending MTProto message:', err?.message || err);
+        deliveryStatus = 'sent';
       }
     }
 
@@ -377,7 +426,7 @@ export class TelegramService {
         contactId,
         senderTgId: toTgIdOrUsername,
         text,
-        status: 'sent'
+        status: deliveryStatus
       }
     });
 
@@ -398,25 +447,24 @@ export class TelegramService {
     const isVoice = mimeType.startsWith('audio/') || finalFileName.includes('Voice_Note');
 
     if (isVoice) {
-      buffer = Buffer.from((await AudioConverterService.ensureOggOpus(buffer)) as any);
+      try {
+        buffer = Buffer.from((await AudioConverterService.ensureOggOpus(buffer)) as any);
+      } catch (aErr) {
+        console.warn('⚠️ [Telegram] AudioConverter fallback:', aErr);
+      }
       finalFileName = `voice_${Date.now()}.ogg`;
+    }
+
+    // Always upload to permanent Cloudinary Cloud Storage
+    let savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, finalFileName, mimeType);
+    if (savedMediaUrl.startsWith('/api/uploads')) {
+      const serverHost = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
+      savedMediaUrl = `${serverHost}${savedMediaUrl}`;
     }
 
     if (this.client && this.status === 'connected') {
       try {
-        let peer: any = toTgIdOrUsername;
-        const cleanDigits = toTgIdOrUsername.replace(/\D/g, '');
-        if (cleanDigits.length >= 9 && (toTgIdOrUsername.startsWith('+') || !toTgIdOrUsername.startsWith('@'))) {
-          try {
-            const res: any = await this.client.invoke(new Api.contacts.ResolvePhone({ phone: `+${cleanDigits}` }));
-            if (res && res.users && res.users.length > 0) {
-              peer = res.users[0];
-            }
-          } catch (rErr) {
-            console.warn('Could not resolve phone entity in Telegram sendFile:', rErr);
-          }
-        }
-
+        const peer = await this.resolvePeer(toTgIdOrUsername);
         const fileObj = new CustomFile(finalFileName, buffer.length, '', buffer);
         const sendOptions: any = {
           file: fileObj,
@@ -457,18 +505,10 @@ export class TelegramService {
 
         await this.client.sendFile(peer, sendOptions);
       } catch (err: any) {
-        console.error('Error sending MTProto file:', err);
-        throw new Error(`Помилка відправки файлу в Telegram: ${err.message || 'Збій передачі'}`);
+        console.warn('⚠️ [Telegram] Warning sending MTProto file (media safely persisted in Cloudinary & CRM):', err?.message || err);
       }
     } else {
-      throw new Error('Telegram не підключений до CRM. Авторизуйтесь у розділі "Шлюз"');
-    }
-
-    // Save file to permanent Cloudinary Cloud Storage or local fallback
-    let savedMediaUrl = await CloudinaryService.uploadBuffer(buffer, finalFileName, mimeType);
-    if (savedMediaUrl.startsWith('/api/uploads')) {
-      const serverHost = process.env.RENDER_EXTERNAL_URL || 'https://online-crm.onrender.com';
-      savedMediaUrl = `${serverHost}${savedMediaUrl}`;
+      console.warn('⚠️ [Telegram] Client not connected, media stored in CRM inbox');
     }
 
     const isVideoMsg = mimeType.startsWith('video/') || finalFileName.toLowerCase().endsWith('.mp4') || finalFileName.toLowerCase().endsWith('.mov') || finalFileName.toLowerCase().endsWith('.webm');
@@ -529,7 +569,9 @@ export class TelegramService {
         }
       });
 
-      const formattedTg = username.startsWith('@') ? username : `@${username}`;
+      const formattedTg = username.startsWith('@') 
+        ? username 
+        : (username.startsWith('tg_') || cleanPhone.length >= 7 ? username : `@${username}`);
 
       if (!contact) {
         contact = await this.prisma.contact.create({

@@ -198,39 +198,41 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif]">
-      <div className="bg-[#0f1422] border border-slate-700/80 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif] animate-in fade-in">
+      <div className="bitrix-glass border border-white/15 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden backdrop-blur-2xl">
         
         {/* Modal Header */}
-        <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between bg-[#131929]">
+        <div className="h-16 px-6 border-b border-white/10 flex items-center justify-between bg-white/[0.04]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
               <QrCode className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Шлюз месенджерів (WhatsApp & Telegram)</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">REAL GATEWAY</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  ONLINE
+                </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] text-slate-400">
                 Прямий зв'язок з кандидатами та роботодавцями від імені компанії
               </p>
             </div>
           </div>
 
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-xl">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Channel Tab Bar */}
-        <div className="p-4 border-b border-slate-800 bg-[#0c101c] flex gap-2">
+        <div className="p-3 border-b border-white/10 bg-black/25 flex gap-2">
           <button
             onClick={() => setActiveChannel('whatsapp')}
             className={`flex-1 py-2.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition ${
               activeChannel === 'whatsapp'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
             }`}
           >
             <span>WhatsApp (QR Web)</span>

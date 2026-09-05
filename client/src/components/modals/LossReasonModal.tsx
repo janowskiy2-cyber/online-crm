@@ -36,21 +36,31 @@ export const LossReasonModal: React.FC<LossReasonModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#111827] border border-rose-500/40 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="h-14 px-5 border-b border-slate-800 flex items-center justify-between bg-[#171c2c]">
-          <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
-            <AlertOctagon className="w-4 h-4" />
-            <span>Причина закриття угоди</span>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif] select-none animate-in fade-in">
+      <div className="bitrix-glass border border-white/15 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden backdrop-blur-2xl">
+        <div className="h-16 px-6 border-b border-white/10 flex items-center justify-between bg-white/[0.04]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
+              <AlertOctagon className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Причина закриття угоди</span>
+                <span className="text-[10px] bg-rose-500/20 text-rose-300 font-extrabold px-2 py-0.5 rounded-full border border-rose-500/30">
+                  ВТРАТА
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-400">Фіксація аналітики та причин відмови клієнта</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-xl">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-xl transition hover:bg-white/10">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
-          <div>
-            <p className="text-slate-400 mb-1">Угода:</p>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+          <div className="p-3 bg-white/5 border border-white/10 rounded-2xl">
+            <p className="text-[11px] text-slate-400 font-medium mb-0.5">Угода:</p>
             <p className="text-white font-bold truncate text-sm">{dealTitle}</p>
           </div>
 
@@ -58,14 +68,14 @@ export const LossReasonModal: React.FC<LossReasonModalProps> = ({
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
               Оберіть причину відмови:
             </label>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {DEFAULT_LOSS_REASONS.map((r, idx) => (
                 <label
                   key={idx}
-                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition ${
+                  className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
                     selectedReason === r
-                      ? 'bg-rose-950/40 border-rose-500/60 text-white font-semibold'
-                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                      ? 'bg-rose-500/20 border-rose-500/60 text-white font-bold shadow-md shadow-rose-900/20'
+                      : 'bg-slate-900/50 border-white/10 text-slate-300 hover:bg-white/5 hover:border-white/20'
                   }`}
                 >
                   <input
@@ -73,7 +83,7 @@ export const LossReasonModal: React.FC<LossReasonModalProps> = ({
                     name="loss_reason"
                     checked={selectedReason === r}
                     onChange={() => setSelectedReason(r)}
-                    className="accent-rose-500"
+                    className="accent-rose-500 w-4 h-4"
                   />
                   <span>{r}</span>
                 </label>
@@ -83,7 +93,7 @@ export const LossReasonModal: React.FC<LossReasonModalProps> = ({
 
           {selectedReason.includes('Інша причина') && (
             <div>
-              <label className="text-[11px] font-semibold text-slate-400 block mb-1">
+              <label className="text-[11px] font-semibold text-slate-300 block mb-1">
                 Опишіть детальну причину:
               </label>
               <textarea
@@ -91,24 +101,24 @@ export const LossReasonModal: React.FC<LossReasonModalProps> = ({
                 value={customReason}
                 onChange={(e) => setCustomReason(e.target.value)}
                 placeholder="Вкажіть, що саме пішло не так..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                className="w-full bg-slate-900/80 border border-white/15 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 transition"
                 required
               />
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition"
+              className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 rounded-xl text-xs font-semibold transition border border-white/10"
             >
               Скасувати
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-rose-600/30"
+              className="px-5 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-rose-600/30 active:scale-95"
             >
               Зафіксувати відмову
             </button>

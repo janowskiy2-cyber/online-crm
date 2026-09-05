@@ -87,7 +87,10 @@ export class CloudinaryService {
     };
 
     if (mimeType.startsWith('audio/')) {
-      uploadOptions.format = 'mp3';
+      // Keep native format if OGG/Opus or WebM to prevent transcoding errors
+      if (!mimeType.includes('ogg') && !mimeType.includes('opus')) {
+        uploadOptions.format = 'mp3';
+      }
     } else if (resourceType === 'video') {
       // Downscale 4K / 1080p phone videos to 720p HD: reduces file size by 75-85% with zero visible loss
       uploadOptions.width = 1280;
@@ -121,6 +124,25 @@ export class CloudinaryService {
         return url;
       } catch (err: any) {
         console.warn(`⚠️ [Cloudinary Pool] Account "${acc.cloudName}" failed (${err?.message || 'Quota error'}). Trying next account...`);
+        // If format was set, retry once without format
+        if (uploadOptions.format) {
+          delete uploadOptions.format;
+          try {
+            const retryUrl = await new Promise<string>((resolve, reject) => {
+              const uploadStream = cloudinary.uploader.upload_stream(
+                uploadOptions,
+                (error, result) => {
+                  if (error || !result) reject(error || new Error('Retry without format failed'));
+                  else resolve(result.secure_url);
+                }
+              );
+              uploadStream.end(buffer);
+            });
+            this.activeAccountIndex = accIdx;
+            console.log(`✅ [Cloudinary Pool] Uploaded without format to "${acc.cloudName}":`, retryUrl);
+            return retryUrl;
+          } catch (rErr) {}
+        }
       }
     }
 

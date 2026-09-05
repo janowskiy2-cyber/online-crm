@@ -15,6 +15,7 @@ import {
   Download
 } from 'lucide-react';
 import { Deal, Pipeline, Stage } from '../../types';
+import { useNavigate } from 'react-router-dom';
 import { api, socket } from '../../services/api';
 import { LossReasonModal } from '../modals/LossReasonModal';
 import { AnalyticsDashboardModal } from '../analytics/AnalyticsDashboardModal';
@@ -42,6 +43,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onOpenDeal,
   openCreateDeal,
 }) => {
+  const navigate = useNavigate();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
@@ -211,6 +213,26 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper bg-slate-100/70 dark:bg-[#070b13]/80 p-3 sm:p-4 select-none transition-colors duration-200 font-['Inter',sans-serif]">
+      {/* Workspace guidance banner if candidate category is selected */}
+      {projectId === 'candidates' && (
+        <div className="mb-3 p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-3 text-xs text-white backdrop-blur-md shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <Globe2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <div>
+              <span className="font-bold text-emerald-300">Проєкт: Кандидати (Пул).</span>
+              <span className="text-slate-300 ml-1">Анкети, скринінг та закріплення працівників знаходяться в Базі кандидатів.</span>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/candidates')}
+            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition shadow-md active:scale-95 whitespace-nowrap"
+          >
+            <span>База кандидатів</span>
+            <TrendingUp className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Smart amoCRM & Speed-to-Lead Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3 px-0.5 flex-shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto text-xs font-medium p-1 bg-white/90 dark:bg-[#090d16]/90 border border-slate-200/80 dark:border-white/[0.08] rounded-xl shadow-sm backdrop-blur-md">

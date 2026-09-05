@@ -40,46 +40,49 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#111827] border border-slate-700/80 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif] select-none animate-in fade-in">
+      <div className="bitrix-glass border border-white/15 rounded-3xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden backdrop-blur-2xl">
         
         {/* Modal Header */}
-        <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between bg-[#141b2d] flex-shrink-0">
+        <div className="h-16 px-6 border-b border-white/10 flex items-center justify-between bg-white/[0.04] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">
-                Матрица прав и 20 предустановленных ролей (RBAC)
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Матриця прав та 20 ролей співробітників (RBAC)</span>
+                <span className="text-[10px] bg-purple-500/20 text-purple-300 font-extrabold px-2 py-0.5 rounded-full border border-purple-500/30">
+                  SECURITY
+                </span>
               </h2>
-              <p className="text-xs text-slate-400">
-                Переключайтесь между 20 пользователями для проверки прав доступа и видимости сделок
+              <p className="text-[11px] text-slate-400">
+                Перемикайтеся між користувачами для аудиту прав доступу та видимості угод
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition"
+            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Department Filter Tabs */}
-        <div className="p-3 border-b border-slate-800 bg-[#0f1523] flex gap-1.5 overflow-x-auto flex-shrink-0">
+        <div className="p-3 border-b border-white/10 bg-black/20 flex gap-1.5 overflow-x-auto flex-shrink-0">
           {departments.map((dept) => (
             <button
               key={dept}
               onClick={() => setSelectedDept(dept)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                 selectedDept === dept
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'bg-slate-800/60 text-slate-400 hover:text-white'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 font-bold'
+                  : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
               }`}
             >
-              {dept === 'all' ? 'Все 20 пользователей' : dept}
+              {dept === 'all' ? 'Всі 20 користувачів' : dept}
             </button>
           ))}
         </div>
@@ -94,10 +97,10 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ onClose })
               return (
                 <div
                   key={u.id}
-                  className={`p-4 rounded-2xl border transition ${
+                  className={`p-4 rounded-2xl border transition-all ${
                     isCurrent
-                      ? 'bg-purple-950/30 border-purple-500/80 shadow-lg shadow-purple-500/10'
-                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                      ? 'bg-purple-900/30 border-purple-500/80 shadow-lg shadow-purple-500/15'
+                      : 'bg-slate-900/60 border-white/10 hover:bg-white/5 hover:border-white/20'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">

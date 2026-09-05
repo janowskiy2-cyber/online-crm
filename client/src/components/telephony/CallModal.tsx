@@ -120,7 +120,7 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif] animate-in fade-in">
-      <div className="bg-[#0f1422] border border-slate-700/80 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden text-center p-6 space-y-5">
+      <div className="bitrix-glass border border-white/15 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden text-center p-6 space-y-5 backdrop-blur-2xl">
         
         {/* Top Channel Badge */}
         <div className="flex items-center justify-between">
