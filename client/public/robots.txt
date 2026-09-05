@@ -1,0 +1,18 @@
+﻿# robots.txt for Online CRM Pro
+User-agent: *
+Allow: /
+Allow: /manifest.json
+Allow: /icons/
+
+# Disallow private CRM routes
+Disallow: /api/
+Disallow: /deals/
+Disallow: /candidates/
+Disallow: /contacts/
+Disallow: /tasks/
+Disallow: /inbox/
+Disallow: /analytics/
+Disallow: /automation/
+Disallow: /integrations/
+
+Sitemap: https://online-crm-alpha.vercel.app/sitemap.xml

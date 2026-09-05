@@ -66,6 +66,48 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
+  // AI: Smart Message Draft in Deal Chat
+  router.post('/draft-reply', async (req, res) => {
+    try {
+      const { clientName, stageName, dealTitle, lastMessage, intent } = req.body;
+      const { text, modelUsed } = await GeminiService.draftMessageReply({
+        clientName,
+        stageName,
+        dealTitle,
+        lastMessage,
+        intent
+      });
+      res.json({ draft: text, modelUsed });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // AI: Deal Health & Win Probability Scoring
+  router.post('/deal-score', async (req, res) => {
+    try {
+      const { title, budget, stageName, daysSinceCreation, hasTasks, hasNotes } = req.body;
+      if (!title) return res.status(400).json({ error: 'title required' });
+      const { text, modelUsed } = await GeminiService.scoreDeal({
+        title,
+        budget,
+        stageName,
+        daysSinceCreation,
+        hasTasks,
+        hasNotes
+      });
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(text.replace(/```json/gi, '').replace(/```/g, '').trim());
+      } catch (err) {
+        parsed = { score: 75, temperature: '⚡ Перспективна', reason: text, nextAction: 'Узгодити наступний крок з клієнтом' };
+      }
+      res.json({ ...parsed, modelUsed });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // AI: Omnisearch — Global Synaptic Search Across CRM (Deals, Candidates, Companies, Tasks)
   router.get('/omnisearch', async (req, res) => {
     try {

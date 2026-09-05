@@ -131,6 +131,53 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [chatMessageText, setChatMessageText] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
 
+  // AI Smart Assistant states
+  const [isGeneratingAiDraft, setIsGeneratingAiDraft] = useState(false);
+  const [aiDealScore, setAiDealScore] = useState<{ score: number; temperature: string; reason: string; nextAction: string } | null>(null);
+  const [isScoringDeal, setIsScoringDeal] = useState(false);
+
+  const handleGenerateAiDraft = async (intent: 'followup' | 'kp_offer' | 'meeting' | 'polite_reminder' = 'followup') => {
+    if (!deal) return;
+    setIsGeneratingAiDraft(true);
+    try {
+      const res = await api.post('/ai/draft-reply', {
+        clientName: deal.contact?.name,
+        stageName: deal.stage?.name,
+        dealTitle: deal.title,
+        lastMessage: messages.length > 0 ? messages[messages.length - 1].text : undefined,
+        intent
+      });
+      if (res.data?.draft) {
+        setChatMessageText(res.data.draft);
+      }
+    } catch (e) {
+      console.warn('AI draft error:', e);
+    } finally {
+      setIsGeneratingAiDraft(false);
+    }
+  };
+
+  const handleScoreDeal = async () => {
+    if (!deal) return;
+    setIsScoringDeal(true);
+    try {
+      const daysSince = Math.max(1, Math.round((Date.now() - new Date(deal.createdAt).getTime()) / (1000 * 60 * 60 * 24)));
+      const res = await api.post('/ai/deal-score', {
+        title: deal.title,
+        budget: deal.budget,
+        stageName: deal.stage?.name,
+        daysSinceCreation: daysSince,
+        hasTasks: deal.tasks && deal.tasks.length > 0,
+        hasNotes: deal.notes && deal.notes.length > 0
+      });
+      setAiDealScore(res.data);
+    } catch (e) {
+      console.warn('AI deal score error:', e);
+    } finally {
+      setIsScoringDeal(false);
+    }
+  };
+
   useEffect(() => {
     const handleSoundChange = (e: any) => {
       setSoundEnabled(e.detail?.enabled ?? soundService.isEnabled());
@@ -966,6 +1013,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             >
               <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span className="hidden sm:inline">КП (PDF)</span>
+            </button>
+
+            <button
+              onClick={handleScoreDeal}
+              disabled={isScoringDeal}
+              className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 border ${
+                aiDealScore 
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+                  : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 border-purple-500/20'
+              }`}
+              title={aiDealScore ? `${aiDealScore.reason}. Наступна дія: ${aiDealScore.nextAction}` : "ШІ-оцінка здоров'я угоди та ймовірності виграшу"}
+            >
+              <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${isScoringDeal ? 'animate-spin' : ''}`} strokeWidth={1.75} />
+              <span>{aiDealScore ? `${aiDealScore.temperature} (${aiDealScore.score}%)` : (isScoringDeal ? 'Оцінка...' : 'ШІ-Скоринг')}</span>
             </button>
 
             {currentUser?.canDeleteDeals && (
@@ -2185,9 +2246,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Quick Response Snippets */}
+                  {/* Quick Response Snippets with AI Auto-Draft */}
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold flex-shrink-0">Шаблони:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateAiDraft('followup')}
+                      disabled={isGeneratingAiDraft}
+                      className="px-2.5 py-0.5 bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/50 hover:to-indigo-600/50 text-purple-300 border border-purple-500/40 rounded-lg transition flex items-center gap-1 flex-shrink-0 text-[10px] font-bold shadow-sm active:scale-95"
+                      title="Згенерувати персоналізовану відповідь за контекстом угоди через Gemini AI"
+                    >
+                      <Sparkles className={`w-3 h-3 text-purple-400 ${isGeneratingAiDraft ? 'animate-spin' : ''}`} />
+                      <span>{isGeneratingAiDraft ? 'Генерація...' : '✨ ШІ-чернетка'}</span>
+                    </button>
+
+                    <span className="text-[10px] text-slate-500 uppercase font-bold flex-shrink-0 ml-1">Шаблони:</span>
                     {[
                       { label: '📄 КП', text: 'Доброго дня! Підготували офіційну комерційну пропозицію щодо персоналу. Надіслати детальний розрахунок у PDF?' },
                       { label: '💳 4х25%', text: 'Оплата поетапна: 1) Договір (25%) ➔ 2) Затвердження кандидатів (25%) ➔ 3) Робоча віза (25%) ➔ 4) Вихід на підприємство (25%).' },

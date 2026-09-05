@@ -21,6 +21,7 @@ interface DealCardProps {
 }
 
 export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, stageColor = '#3b82f6' }) => {
+  const { currentUser, users } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
 
   const handleCopyLink = (e: React.MouseEvent) => {

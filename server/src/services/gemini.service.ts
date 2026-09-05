@@ -1,4 +1,4 @@
-﻿import { ModelRouterService } from './model-router.service';
+import { ModelRouterService } from './model-router.service';
 
 export class GeminiService {
   /**
@@ -61,6 +61,91 @@ export class GeminiService {
       prompt,
       () => GeminiService.fallbackObjectionAnswer(objectionText)
     );
+  }
+
+  /**
+   * AI Smart Message Draft in Deal Chat
+   */
+  public static async draftMessageReply(context: {
+    clientName?: string;
+    stageName?: string;
+    dealTitle?: string;
+    lastMessage?: string;
+    intent?: 'followup' | 'kp_offer' | 'meeting' | 'polite_reminder';
+  }): Promise<{ text: string; modelUsed: string }> {
+    const prompt = `Ти — кваліфікований менеджер CRM з B2B рекрутингу персоналу та контрактів.
+Склади коротке, ввічливе, ділове повідомлення для клієнта у WhatsApp/Telegram.
+Контекст:
+- Клієнт/Контакт: ${context.clientName || 'Клієнт'}
+- Поточний етап угоди: ${context.stageName || 'Переговори'}
+- Назва угоди: ${context.dealTitle || 'Заявка'}
+- Останній контекст/повідомлення: "${context.lastMessage || 'Очікуємо відповіді після первинного контакту'}"
+- Мета: ${context.intent === 'kp_offer' ? 'Запропонувати КП та приклад резюме кандидатів' : context.intent === 'meeting' ? 'Запропонувати короткий 10-хвилинний дзвінок' : 'Ввічливо нагадати про домовленість та запитати чи вдалося переглянути матеріали'}
+
+Вимоги:
+- Мова: українська.
+- До 3-4 речень, без зайвої води.
+- Заклик до дії наприкінці.
+- Поверни ТІЛЬКИ текст готового повідомлення без лапок і коментарів.`;
+
+    return ModelRouterService.generateContentWithFailover(
+      prompt,
+      () => GeminiService.fallbackDraftReply(context)
+    );
+  }
+
+  /**
+   * AI Deal Health & Win Probability Scoring
+   */
+  public static async scoreDeal(deal: {
+    title: string;
+    budget?: number;
+    stageName?: string;
+    daysSinceCreation?: number;
+    hasTasks?: boolean;
+    hasNotes?: boolean;
+  }): Promise<{ text: string; modelUsed: string }> {
+    const prompt = `Оціни здоров'я угоди в CRM (0-100%) та дай коротку рекомендацію для менеджера.
+Дані угоди:
+- Назва: ${deal.title}
+- Бюджет: ${deal.budget || 0} грн
+- Етап: ${deal.stageName || 'Нова'}
+- Днів у роботі: ${deal.daysSinceCreation || 1}
+- Наявність запланованих завдань: ${deal.hasTasks ? 'Так' : 'Ні (ризик втрати)'}
+- Активність/замітки: ${deal.hasNotes ? 'Є історія' : 'Немає активності'}
+
+Поверни валідний JSON у форматі:
+{
+  "score": 85,
+  "temperature": "🔥 Гаряча",
+  "reason": "Етап фіналізації, але необхідно поставити контроль дедлайну",
+  "nextAction": "Зателефонувати клієнту для узгодження дати підписання договору"
+}`;
+
+    return ModelRouterService.generateContentWithFailover(
+      prompt,
+      () => GeminiService.fallbackDealScore(deal)
+    );
+  }
+
+  private static fallbackDraftReply(ctx: any): string {
+    const name = ctx.clientName ? ctx.clientName.split(' ')[0] : 'Добрий день';
+    if (ctx.intent === 'kp_offer') {
+      return `Вітаю, ${name}! Підготували для вас розрахунок вартості та приклади перевірених кандидатів за вашою специфікацією. Надіслати комерційну пропозицію для ознайомлення?`;
+    }
+    if (ctx.intent === 'meeting') {
+      return `Вітаю, ${name}! Чи буде у вас 10 хвилин сьогодні для короткого дзвінка? Обговоримо терміни заїзду працівників та деталі проекту.`;
+    }
+    return `Вітаю, ${name}! Підкажіть, будь ласка, чи вдалося переглянути попередні матеріали? Будемо раді відповісти на будь-які запитання та узгодити наступний крок.`;
+  }
+
+  private static fallbackDealScore(deal: any): string {
+    const hasTasks = !!deal.hasTasks;
+    const score = hasTasks ? 80 : 45;
+    const temp = hasTasks ? '⚡ Перспективна' : '⚠️ Ризик втрати';
+    const reason = hasTasks ? 'Угода на активному етапі, є запланований контакт.' : 'Увага: у даної угоди немає запланованих завдань!';
+    const nextAction = hasTasks ? 'Провести заплановану дію вчасно.' : 'Обов’язково поставте завдання або призначте дзвінок.';
+    return JSON.stringify({ score, temperature: temp, reason, nextAction });
   }
 
   private static fallbackBriefAnalysis(text: string): string {
