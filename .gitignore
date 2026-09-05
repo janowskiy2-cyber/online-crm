@@ -23,3 +23,6 @@ qa-full-audit.js
 qa-audit-part2.js
 robot-*.js
 push-to-github.bat
+antigravity-bridge/config.json
+antigravity-bridge/temp_media/
+
