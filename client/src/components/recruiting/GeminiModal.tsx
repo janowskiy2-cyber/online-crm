@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Copy, Check, Send, FileText, ShieldAlert, Cpu, ChevronDown, ChevronUp, RefreshCw, Layers } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -152,7 +152,7 @@ export const GeminiModal: React.FC<GeminiModalProps> = ({
                 { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
                 { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
                 { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
-                { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
+                { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', rpdLimit: 1500, currentRpd: 0, rpmLimit: 15 },
                 { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Deep Reasoning)', rpdLimit: 50, currentRpd: 0, rpmLimit: 2 }
               ]).map((m: any) => {
                 const remaining = Math.max(0, m.rpdLimit - m.currentRpd);

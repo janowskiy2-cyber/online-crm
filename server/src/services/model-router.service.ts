@@ -1,4 +1,4 @@
-﻿import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface ModelQuotaState {
   id: string;
@@ -32,8 +32,10 @@ export class ModelRouterService {
     lastError?: string;
   }[] = [
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', rpmLimit: 15, rpdLimit: 1500, currentRpd: 0, rpmWindow: [], isExhausted: false },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', rpmLimit: 15, rpdLimit: 1500, currentRpd: 0, rpmWindow: [], isExhausted: false },
     { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', rpmLimit: 15, rpdLimit: 1500, currentRpd: 0, rpmWindow: [], isExhausted: false },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', rpmLimit: 15, rpdLimit: 1500, currentRpd: 0, rpmWindow: [], isExhausted: false },
+    { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', rpmLimit: 15, rpdLimit: 1500, currentRpd: 0, rpmWindow: [], isExhausted: false },
+    { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', rpmLimit: 15, rpdLimit: 1500, currentRpd: 0, rpmWindow: [], isExhausted: false },
     { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', rpmLimit: 2, rpdLimit: 50, currentRpd: 0, rpmWindow: [], isExhausted: false }
   ];
 
