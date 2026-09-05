@@ -26,6 +26,7 @@ const CandidatesView = lazy(() => import('./components/recruiting/CandidatesView
 const IntegrationsView = lazy(() => import('./components/integrations/IntegrationsView').then(m => ({ default: m.IntegrationsView })));
 const DealDetailModal = lazy(() => import('./components/deal-modal/DealDetailModal').then(m => ({ default: m.DealDetailModal })));
 const AdminPanelModal = lazy(() => import('./components/admin/AdminPanelModal').then(m => ({ default: m.AdminPanelModal })));
+const UserSwitcherModal = lazy(() => import('./components/modals/UserSwitcherModal').then(m => ({ default: m.UserSwitcherModal })));
 const RecruitingCalculatorModal = lazy(() => import('./components/recruiting/RecruitingCalculatorModal').then(m => ({ default: m.RecruitingCalculatorModal })));
 const ObjectionsCheatSheetModal = lazy(() => import('./components/recruiting/ObjectionsCheatSheetModal').then(m => ({ default: m.ObjectionsCheatSheetModal })));
 
@@ -54,6 +55,7 @@ export function App() {
   const [isQROpen, setIsQROpen] = useState(false);
   const [qrChannel, setQrChannel] = useState<'whatsapp' | 'telegram'>('whatsapp');
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [isUserSwitcherOpen, setIsUserSwitcherOpen] = useState(false);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [isObjectionsOpen, setIsObjectionsOpen] = useState(false);
 
@@ -140,6 +142,11 @@ export function App() {
     setIsQROpen(true);
   };
 
+  // Secure Auth Guard: Gate entire CRM behind modern enterprise Login Screen
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bitrix-wallpaper bg-[#070a12] text-slate-100 font-['Inter',sans-serif]">
       {/* Sidebar Navigation */}
@@ -147,7 +154,7 @@ export function App() {
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
         openQRModal={handleOpenQRModal}
-        openUserSwitcher={() => {}}
+        openUserSwitcher={() => setIsUserSwitcherOpen(true)}
         openCalculator={() => setIsCalcOpen(true)}
         openObjections={() => setIsObjectionsOpen(true)}
         openAdminPanel={() => setIsAdminPanelOpen(true)}
@@ -167,6 +174,7 @@ export function App() {
           openCreateDeal={() => setIsCreateDealOpen(true)}
           openQRModal={handleOpenQRModal}
           openAdminPanel={() => setIsAdminPanelOpen(true)}
+          openUserSwitcher={() => setIsUserSwitcherOpen(true)}
           openObjections={() => setIsObjectionsOpen(true)}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -362,6 +370,15 @@ export function App() {
         <Suspense fallback={null}>
           <AdminPanelModal
             onClose={() => setIsAdminPanelOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* User Switcher / RBAC Security Matrix Modal */}
+      {isUserSwitcherOpen && (
+        <Suspense fallback={null}>
+          <UserSwitcherModal
+            onClose={() => setIsUserSwitcherOpen(false)}
           />
         </Suspense>
       )}

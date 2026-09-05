@@ -27,6 +27,8 @@ interface AuthContextType {
   loginWithCredentials: (email: string, pass: string) => Promise<void>;
   logout: () => void;
   refreshUsers: () => Promise<void>;
+  switchUser: (userId: string) => Promise<void>;
+  updateUserPermissions: (userId: string, partial: Partial<User>) => Promise<void>;
   updateUserAvatar: (userId: string, base64Avatar: string) => Promise<boolean>;
 }
 
@@ -118,6 +120,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
   };
 
+  const switchUser = async (userId: string) => {
+    try {
+      const res = await api.post(`/auth/switch-user/${userId}`);
+      if (res.data?.user && res.data?.token) {
+        const user = res.data.user;
+        const token = res.data.token;
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        setAuthToken(token, user.id);
+        localStorage.setItem('crm_active_user', JSON.stringify(user));
+        return;
+      }
+    } catch (e) {
+      console.warn('switchUser backend error:', e);
+    }
+    // Fallback: local switch from user list
+    const found = users.find(u => u.id === userId);
+    if (found) {
+      setCurrentUser(found);
+      setAuthHeader(found.id);
+      localStorage.setItem('crm_active_user', JSON.stringify(found));
+    }
+  };
+
+  const updateUserPermissions = async (userId: string, partial: Partial<User>) => {
+    try {
+      const res = await api.put(`/users/${userId}`, partial);
+      if (res.data) {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...res.data } : u));
+        if (currentUser?.id === userId) {
+          const fresh = { ...currentUser, ...res.data };
+          setCurrentUser(fresh);
+          localStorage.setItem('crm_active_user', JSON.stringify(fresh));
+        }
+      }
+    } catch (e) {
+      console.error('updateUserPermissions error:', e);
+    }
+  };
+
   const updateUserAvatar = async (userId: string, base64Avatar: string): Promise<boolean> => {
     try {
       const res = await api.put(`/users/${userId}/avatar`, { avatar: base64Avatar });
@@ -147,6 +189,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginWithCredentials,
       logout,
       refreshUsers: fetchUsers,
+      switchUser,
+      updateUserPermissions,
       updateUserAvatar
     }}>
       {children}

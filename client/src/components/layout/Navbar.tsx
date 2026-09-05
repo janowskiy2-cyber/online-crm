@@ -22,7 +22,8 @@ import {
   LogOut,
   UserCheck,
   Camera,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from 'lucide-react';
 import { Pipeline, ProjectCategory, ProjectInfo } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -77,6 +78,7 @@ interface NavbarProps {
   openCreateDeal: () => void;
   openQRModal: (channel?: 'whatsapp' | 'telegram') => void;
   openAdminPanel: () => void;
+  openUserSwitcher?: () => void;
   openObjections?: () => void;
   onToggleMobileSidebar?: () => void;
 }
@@ -92,6 +94,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   openCreateDeal,
   openQRModal,
   openAdminPanel,
+  openUserSwitcher,
   openObjections,
   onToggleMobileSidebar
 }) => {
@@ -394,6 +397,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>Панель адміністратора</span>
+                  </button>
+
+                  <button
+                    onClick={() => { if (openUserSwitcher) openUserSwitcher(); setIsProfileMenuOpen(false); }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-purple-400 hover:bg-purple-500/10 transition font-semibold"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>Матриця прав / Зміна користувача (RBAC)</span>
                   </button>
 
                   <button

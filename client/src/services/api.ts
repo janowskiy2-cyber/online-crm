@@ -43,6 +43,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401 && !error?.config?.url?.includes('/auth/login')) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('crm_auth_token');
+        localStorage.removeItem('crm_active_user');
+        delete api.defaults.headers.common['Authorization'];
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const socket: Socket = io(API_SERVER, {
   autoConnect: true,
   transports: ['websocket', 'polling']
