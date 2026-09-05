@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { CloudinaryService } from '../services/cloudinary.service';
 
 export function createContactRouter(prisma: PrismaClient) {
   const router = Router();
@@ -328,6 +329,140 @@ export function createContactRouter(prisma: PrismaClient) {
       res.json({ success: true, count: result.count });
     } catch (e) {
       res.status(500).json({ error: 'Failed to batch delete contacts' });
+    }
+  });
+
+  // Upload Candidate File / Document / Video with Cloudinary compression & DB persistence
+  router.post('/:id/files', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { fileName, fileBase64, mimeType, category } = req.body;
+
+      if (!fileBase64 || !fileName) {
+        return res.status(400).json({ error: 'fileBase64 and fileName are required' });
+      }
+
+      const contact = await prisma.contact.findUnique({ where: { id } });
+      if (!contact) {
+        return res.status(404).json({ error: 'Кандидата не знайдено' });
+      }
+
+      // Convert base64 to buffer
+      const base64Data = fileBase64.replace(/^data:.*?;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      // Upload through CloudinaryService with auto compression & 720p HD downscaling
+      const url = await CloudinaryService.uploadBuffer(buffer, fileName, mimeType || 'application/octet-stream');
+
+      let currentDocs: any[] = [];
+      try {
+        if (contact.documents) {
+          currentDocs = JSON.parse(contact.documents);
+        }
+      } catch (e) {
+        currentDocs = [];
+      }
+
+      const newDoc = {
+        id: `doc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: fileName,
+        url,
+        type: mimeType || 'application/octet-stream',
+        category: category || (mimeType?.startsWith('video/') ? 'video' : 'document'),
+        size: buffer.length,
+        uploadedAt: new Date().toISOString()
+      };
+
+      currentDocs.push(newDoc);
+
+      const updateData: any = {
+        documents: JSON.stringify(currentDocs)
+      };
+
+      if (category === 'video' || (mimeType && mimeType.startsWith('video/'))) {
+        updateData.videoUrl = url;
+      }
+      if (category === 'resume' || fileName.toLowerCase().includes('резюме') || fileName.toLowerCase().includes('cv')) {
+        updateData.resumeUrl = url;
+      }
+
+      const updated = await prisma.contact.update({
+        where: { id },
+        data: updateData,
+        include: { company: true }
+      });
+
+      res.status(201).json({ success: true, contact: updated, file: newDoc });
+    } catch (e: any) {
+      console.error('Contact file upload error:', e);
+      res.status(500).json({ error: e.message || 'Помилка завантаження файлу кандидата' });
+    }
+  });
+
+  // Delete Candidate File / Document
+  router.delete('/:id/files/:fileId', async (req, res) => {
+    try {
+      const { id, fileId } = req.params;
+      const contact = await prisma.contact.findUnique({ where: { id } });
+      if (!contact) {
+        return res.status(404).json({ error: 'Кандидата не знайдено' });
+      }
+
+      let currentDocs: any[] = [];
+      try {
+        if (contact.documents) {
+          currentDocs = JSON.parse(contact.documents);
+        }
+      } catch (e) {
+        currentDocs = [];
+      }
+
+      const targetDoc = currentDocs.find((d: any) => d.id === fileId);
+      if (targetDoc && targetDoc.url) {
+        CloudinaryService.deleteAsset(targetDoc.url).catch(() => {});
+      }
+
+      const filteredDocs = currentDocs.filter((d: any) => d.id !== fileId);
+
+      const updateData: any = {
+        documents: JSON.stringify(filteredDocs)
+      };
+
+      if (targetDoc && contact.videoUrl === targetDoc.url) {
+        updateData.videoUrl = null;
+      }
+      if (targetDoc && contact.resumeUrl === targetDoc.url) {
+        updateData.resumeUrl = null;
+      }
+
+      const updated = await prisma.contact.update({
+        where: { id },
+        data: updateData,
+        include: { company: true }
+      });
+
+      res.json({ success: true, contact: updated });
+    } catch (e: any) {
+      console.error('Contact file delete error:', e);
+      res.status(500).json({ error: e.message || 'Помилка видалення файлу' });
+    }
+  });
+
+  // Set / Update Candidate Video URL directly
+  router.put('/:id/video', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { videoUrl } = req.body;
+
+      const updated = await prisma.contact.update({
+        where: { id },
+        data: { videoUrl },
+        include: { company: true }
+      });
+
+      res.json({ success: true, contact: updated });
+    } catch (e: any) {
+      res.status(500).json({ error: 'Помилка оновлення відеовізитівки' });
     }
   });
 

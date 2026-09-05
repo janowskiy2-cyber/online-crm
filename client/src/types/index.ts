@@ -46,6 +46,16 @@ export interface Pipeline {
   stages: Stage[];
 }
 
+export interface CandidateDocument {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  category?: 'resume' | 'video' | 'passport' | 'certificate' | 'contract' | 'document';
+  size?: number;
+  uploadedAt: string;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -56,8 +66,13 @@ export interface Contact {
   position?: string;
   companyId?: string;
   company?: Company;
-  type?: 'employer' | 'candidate' | 'agency_partner' | 'logistician';
+  type?: 'employer' | 'candidate' | 'agency_partner' | 'logistician' | string;
   country?: string;
+  profession?: string;
+  status?: string;
+  videoUrl?: string;
+  resumeUrl?: string;
+  documents?: string | CandidateDocument[];
 }
 
 export interface Company {

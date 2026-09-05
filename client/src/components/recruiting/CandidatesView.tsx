@@ -32,6 +32,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { Contact, Company } from '../../types';
 import { ImportCsvModal } from '../modals/ImportCsvModal';
+import { ResumeImportModal } from '../modals/ResumeImportModal';
+import { CandidateFilesModal } from '../modals/CandidateFilesModal';
 
 export const CandidatesView: React.FC = () => {
   const navigate = useNavigate();
@@ -42,8 +44,16 @@ export const CandidatesView: React.FC = () => {
   const [filterCountry, setFilterCountry] = useState('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [activeVideoModal, setActiveVideoModal] = useState<string | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [selectedCandidateForFiles, setSelectedCandidateForFiles] = useState<Contact | null>(null);
+
+  const handleUpdateCandidate = (updated: Contact) => {
+    setCandidates(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+    if (selectedCandidateForFiles?.id === updated.id) {
+      setSelectedCandidateForFiles(updated);
+    }
+  };
 
   // Batch Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -313,6 +323,15 @@ export const CandidatesView: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setIsResumeModalOpen(true)}
+                className="px-3.5 py-2 bg-gradient-to-r from-purple-600/25 to-indigo-600/25 hover:from-purple-600/40 hover:to-indigo-600/40 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-purple-600/20"
+                title="Автоматично розпізнати кандидата з тексту резюме або файлу PDF"
+              >
+                <Sparkles className="w-4 h-4 text-purple-300" />
+                <span>Імпорт через Резюме</span>
+              </button>
+
+              <button
                 onClick={() => setIsCreateOpen(true)}
                 className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 active:scale-95"
               >
@@ -554,59 +573,36 @@ export const CandidatesView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Card Footer: Video / Action */}
+                {/* Card Footer: Status, Video & Files */}
                 <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                    ● Активний
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                      ● {cand.status || 'Активний'}
+                    </span>
+                    {cand.videoUrl && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                        <Play className="w-2.5 h-2.5 fill-purple-300" /> Відео
+                      </span>
+                    )}
+                  </div>
 
                   <button
-                    onClick={() => setActiveVideoModal(cand.name)}
-                    className="px-2.5 py-1 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 hover:text-white border border-purple-500/30 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+                    onClick={() => setSelectedCandidateForFiles(cand)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border ${
+                      cand.videoUrl 
+                        ? 'bg-purple-600/25 hover:bg-purple-600/40 text-purple-200 border-purple-500/40 shadow-sm'
+                        : 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-300 border-white/10'
+                    }`}
+                    title="Переглянути відеовізитівку та завантажені документи"
                   >
                     <Video className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Відеовізитівка</span>
+                    <span>Відео & Файли</span>
                   </button>
                 </div>
               </div>
             ))
           )}
         </div>
-
-        {/* Modal: Video Presentation Viewer */}
-        {activeVideoModal && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bitrix-glass w-full max-w-md rounded-2xl p-6 border border-white/15 shadow-2xl space-y-4 animate-in fade-in">
-              <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <Video className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-bold text-white text-sm">Відеовізитівка: {activeVideoModal}</h3>
-                </div>
-                <button
-                  onClick={() => setActiveVideoModal(null)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="aspect-video bg-slate-950 rounded-xl flex flex-col items-center justify-center border border-white/10 p-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-400 mb-2">
-                  <Play className="w-6 h-6 ml-0.5" />
-                </div>
-                <p className="text-xs text-slate-300 font-semibold">Відеоінтерв'ю та презентація навичок</p>
-                <p className="text-[10px] text-slate-500 mt-1">Кандидат готовий до презентації роботодавцю</p>
-              </div>
-
-              <button
-                onClick={() => setActiveVideoModal(null)}
-                className="w-full py-2 bg-white/10 hover:bg-white/15 text-slate-200 rounded-xl text-xs font-semibold transition"
-              >
-                Закрити
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Modal: Create Candidate */}
         {isCreateOpen && (
@@ -830,6 +826,22 @@ export const CandidatesView: React.FC = () => {
         type="candidates"
         onSuccess={fetchCandidates}
       />
+
+      <ResumeImportModal
+        isOpen={isResumeModalOpen}
+        onClose={() => setIsResumeModalOpen(false)}
+        companies={companies}
+        onSuccess={fetchCandidates}
+      />
+
+      {selectedCandidateForFiles && (
+        <CandidateFilesModal
+          isOpen={!!selectedCandidateForFiles}
+          onClose={() => setSelectedCandidateForFiles(null)}
+          candidate={selectedCandidateForFiles}
+          onUpdateCandidate={handleUpdateCandidate}
+        />
+      )}
     </div>
   );
 };

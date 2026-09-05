@@ -2,6 +2,30 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { hashPassword, generateSecurePassword } from '../utils/security';
 import { adminRequired, AuthRequest } from '../middleware/auth.middleware';
+import { CloudinaryService } from '../services/cloudinary.service';
+
+async function processAvatar(avatar: string | undefined | null, userId: string, oldAvatar?: string | null): Promise<string | undefined> {
+  if (!avatar) return undefined;
+  if (avatar.startsWith('data:image/')) {
+    try {
+      const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
+      const mimeMatch = avatar.match(/^data:(image\/\w+);base64,/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const buffer = Buffer.from(base64Data, 'base64');
+      const ext = mimeType.split('/')[1] || 'jpg';
+      const fileName = `avatar_${userId}_${Date.now()}.${ext}`;
+      const url = await CloudinaryService.uploadBuffer(buffer, fileName, mimeType);
+      if (oldAvatar && oldAvatar.includes('cloudinary.com') && oldAvatar !== url) {
+        CloudinaryService.deleteAsset(oldAvatar).catch(() => {});
+      }
+      return url;
+    } catch (err) {
+      console.warn('Avatar upload to Cloudinary failed, fallback:', err);
+      return avatar;
+    }
+  }
+  return avatar;
+}
 
 const userSafeSelect = {
   id: true,
@@ -143,6 +167,7 @@ export function createUsersRouter(prisma: PrismaClient) {
 
       const plainPassword = password || generateSecurePassword();
       const hashedPassword = hashPassword(plainPassword);
+      const processedAvatar = await processAvatar(avatar, 'user_' + Date.now());
 
       const newUser = await prisma.user.create({
         data: {
@@ -152,7 +177,7 @@ export function createUsersRouter(prisma: PrismaClient) {
           role: role || 'sales_rep',
           department: department || 'Відділ продажів B2B',
           phone: phone || '+380',
-          avatar: avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          avatar: processedAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
           isActive: true,
           canViewAllDeals: canViewAllDeals ?? false,
           canViewDeptDeals: canViewDeptDeals ?? true,
@@ -179,13 +204,19 @@ export function createUsersRouter(prisma: PrismaClient) {
       const { id } = req.params;
       const data = req.body;
 
+      const existingUser = await prisma.user.findUnique({ where: { id } });
+      let processedAvatar = data.avatar;
+      if (data.avatar && data.avatar.startsWith('data:image/')) {
+        processedAvatar = await processAvatar(data.avatar, id, existingUser?.avatar);
+      }
+
       const updateData: any = {
         name: data.name,
         email: data.email?.toLowerCase(),
         role: data.role,
         department: data.department,
         phone: data.phone,
-        avatar: data.avatar,
+        avatar: processedAvatar,
         isActive: data.isActive,
         canViewAllDeals: data.canViewAllDeals,
         canViewDeptDeals: data.canViewDeptDeals,
@@ -257,7 +288,7 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
-  // Update Avatar directly in DB (Base64 data URI stored in PostgreSQL)
+  // Update Avatar with Cloudinary CDN / file storage compression & persistence
   router.put('/:id/avatar', async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
@@ -276,9 +307,16 @@ export function createUsersRouter(prisma: PrismaClient) {
         return res.status(400).json({ error: 'Недійсні дані аватарки' });
       }
 
+      const targetUser = await prisma.user.findUnique({ where: { id } });
+      if (!targetUser) {
+        return res.status(404).json({ error: 'Користувача не знайдено' });
+      }
+
+      const uploadedUrl = await processAvatar(avatar, id, targetUser.avatar);
+
       const updated = await prisma.user.update({
         where: { id },
-        data: { avatar },
+        data: { avatar: uploadedUrl || avatar },
         select: userSafeSelect
       });
 

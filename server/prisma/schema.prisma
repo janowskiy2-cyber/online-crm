@@ -112,6 +112,8 @@ model Contact {
   telegram    String?
   position    String?
   avatar      String?
+  documents   String?   // JSON array: [{ id, name, url, type, size, uploadedAt }]
+  resumeUrl   String?
   isDeleted   Boolean   @default(false)
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
