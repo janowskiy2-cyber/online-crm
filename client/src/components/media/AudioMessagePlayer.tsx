@@ -56,7 +56,7 @@ export const AudioMessagePlayer: React.FC<AudioMessagePlayerProps> = ({
   };
 
   return (
-    <div className={`rounded-2xl p-3 space-y-2 select-none ${
+    <div className={`rounded-2xl p-3 space-y-2 ${
       isOutgoing 
         ? 'bg-blue-700/80 text-white border border-blue-400/30' 
         : 'bg-[#182238] text-slate-100 border border-slate-700/80'
@@ -133,7 +133,7 @@ export const AudioMessagePlayer: React.FC<AudioMessagePlayerProps> = ({
 
       {/* Auto-transcription box */}
       {showTranscription && transcription && (
-        <div className="p-2.5 bg-black/30 rounded-xl text-[11px] leading-relaxed italic border border-white/10 text-slate-200 animate-in fade-in">
+        <div className="p-2.5 bg-black/30 rounded-xl text-[11px] leading-relaxed italic border border-white/10 text-slate-200 animate-in fade-in select-text cursor-text">
           "{transcription}"
         </div>
       )}

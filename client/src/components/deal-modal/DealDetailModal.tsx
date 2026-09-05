@@ -96,6 +96,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     setIsCopiedLink(true);
     setTimeout(() => setIsCopiedLink(false), 2500);
   };
+
+  const [copiedItemTextId, setCopiedItemTextId] = useState<string | null>(null);
+  const handleCopyText = (id: string, text: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedItemTextId(id);
+    setTimeout(() => setCopiedItemTextId(null), 2000);
+  };
   
   // Modals state
   const [isKPModalOpen, setIsKPModalOpen] = useState(false);
@@ -931,7 +939,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const currentStages = pipeline?.stages || [];
 
   return (
-    <div className={`fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-2 sm:p-4'} select-none font-['Inter',sans-serif]`}>
+    <div className={`fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-2 sm:p-4'} font-['Inter',sans-serif]`}>
       <div className={`bg-white dark:bg-[#0c111d] border border-slate-200 dark:border-white/[0.1] flex flex-col shadow-2xl overflow-hidden transition-all duration-200 ${
         isFullscreen ? 'w-full h-full rounded-none' : 'rounded-2xl w-full max-w-6xl h-[94vh] sm:h-[92vh] animate-in fade-in zoom-in-95 duration-150'
       }`}>
@@ -2017,24 +2025,34 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                               <img src={resolveMediaUrl(item.mediaUrl)} alt="Зображення" className="w-full object-cover max-h-48" />
                             </div>
                           ) : (
-                            <div
-                              onClick={() => {
-                                if (isFile) {
-                                  setViewingMedia({
-                                    url: resolveMediaUrl(item.mediaUrl) || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-                                    type: 'pdf',
-                                    title: item.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
-                                  });
-                                }
-                              }}
-                              className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed ${
-                                isOutgoing
-                                  ? 'bg-blue-600 text-white rounded-tr-none shadow-md'
-                                  : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-none'
-                              } ${isFile ? 'border-2 border-amber-400/50 cursor-pointer hover:bg-slate-700/80 transition flex items-center gap-2' : ''}`}
-                            >
-                              {isFile && <FileText className="w-4 h-4 text-amber-400 flex-shrink-0" />}
-                              <span>{item.text}</span>
+                            <div className={`flex items-center gap-1.5 max-w-[88%] sm:max-w-md ${isOutgoing ? 'flex-row-reverse' : 'flex-row'}`}>
+                              <div
+                                onClick={() => {
+                                  if (isFile) {
+                                    setViewingMedia({
+                                      url: resolveMediaUrl(item.mediaUrl) || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                                      type: 'pdf',
+                                      title: item.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
+                                    });
+                                  }
+                                }}
+                                className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed select-text cursor-text ${
+                                  isOutgoing
+                                    ? 'bg-blue-600 text-white rounded-tr-none shadow-md'
+                                    : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-none'
+                                } ${isFile ? 'border-2 border-amber-400/50 cursor-pointer hover:bg-slate-700/80 transition flex items-center gap-2' : ''}`}
+                              >
+                                {isFile && <FileText className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+                                <span className="select-text whitespace-pre-wrap">{item.text}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => handleCopyText(item.id, item.text, e)}
+                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white transition shadow-sm flex-shrink-0"
+                                title={copiedItemTextId === item.id ? "Скопійовано!" : "Скопіювати текст"}
+                              >
+                                {copiedItemTextId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
                             </div>
                           )}
                         </div>
@@ -2046,7 +2064,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     return (
                       <div
                         key={item.id}
-                        className={`rounded-2xl p-3 text-xs space-y-1.5 transition ${
+                        className={`rounded-2xl p-3 text-xs space-y-1.5 transition select-text cursor-text group/note relative ${
                           isAudit
                             ? 'bg-indigo-950/30 border border-indigo-500/30'
                             : 'bg-slate-900/80 border border-slate-800'
@@ -2065,12 +2083,22 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-slate-500">
-                            {new Date(item.createdAt).toLocaleString('uk-UA')}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-500">
+                              {new Date(item.createdAt).toLocaleString('uk-UA')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyText(item.id, item.text || item.content || '', e)}
+                              className="opacity-0 group-hover/note:opacity-100 p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                              title={copiedItemTextId === item.id ? "Скопійовано!" : "Скопіювати замітку"}
+                            >
+                              {copiedItemTextId === item.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
                         </div>
-                        <p className={`leading-relaxed whitespace-pre-line ${isAudit ? 'text-indigo-200 font-medium' : 'text-slate-300'}`}>
-                          {item.content}
+                        <p className={`leading-relaxed whitespace-pre-line select-text ${isAudit ? 'text-indigo-200 font-medium' : 'text-slate-300'}`}>
+                          {item.text || item.content}
                         </p>
                       </div>
                     );

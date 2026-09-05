@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Phone, PhoneOff, MessageSquare, Building2, User as UserIcon, X, ExternalLink } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -105,7 +105,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   const cleanPhone = (call.callerPhone || '').replace(/\D/g, '');
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in select-none font-['Inter',sans-serif]">
+    <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in font-['Inter',sans-serif]">
       <div className="bg-[#0b101b] border-2 border-emerald-500/50 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(16,185,129,0.25)] overflow-hidden text-center p-6 space-y-5 animate-pulse-border">
         {/* Header Tag */}
         <div className="flex items-center justify-between">

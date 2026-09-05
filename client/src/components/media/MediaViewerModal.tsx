@@ -42,7 +42,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
   const handleRotate = () => setRotation(prev => (prev + 90) % 360);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col justify-between p-4 select-none font-['Inter',sans-serif] animate-in fade-in">
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col justify-between p-4 font-['Inter',sans-serif] animate-in fade-in">
       
       {/* Top Toolbar */}
       <div className="h-14 px-6 bg-[#0e1320]/90 border border-slate-800 rounded-2xl flex items-center justify-between text-white flex-shrink-0 mb-3 shadow-2xl">

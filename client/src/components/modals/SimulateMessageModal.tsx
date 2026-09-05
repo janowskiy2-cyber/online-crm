@@ -34,7 +34,7 @@ export const SimulateMessageModal: React.FC<SimulateMessageModalProps> = ({ onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif] select-none animate-in fade-in">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif] animate-in fade-in">
       <div className="bitrix-glass border border-white/15 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden backdrop-blur-2xl">
         <div className="h-16 px-6 border-b border-white/10 flex items-center justify-between bg-white/[0.04]">
           <div className="flex items-center gap-3">

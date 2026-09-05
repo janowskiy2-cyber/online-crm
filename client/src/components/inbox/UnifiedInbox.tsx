@@ -28,7 +28,9 @@ import {
   Video,
   Maximize2,
   Eye,
-  Bot
+  Bot,
+  Copy,
+  Check
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { soundService } from '../../services/sound.service';
@@ -80,6 +82,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   // Sound notification state
   const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
+
+  // Message copying state
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+
+  const handleCopyMessage = (id: string, text: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedMsgId(id);
+    setTimeout(() => setCopiedMsgId(null), 2000);
+  };
 
   // AI Copilot state & actions
   const [isGeneratingAiDraft, setIsGeneratingAiDraft] = useState(false);
@@ -433,7 +445,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const currentPipeline = pipelines.find(p => p.id === activeDeal?.pipelineId) || pipelines[0];
 
   return (
-    <div className="flex-1 flex overflow-hidden bitrix-wallpaper bg-[#080c14]/80 select-none font-['Inter',sans-serif] w-full">
+    <div className="flex-1 flex overflow-hidden bitrix-wallpaper bg-[#080c14]/80 font-['Inter',sans-serif] w-full">
       
       {/* Dialogs List (Hidden on mobile if chat is active) */}
       <div className={`
@@ -671,13 +683,23 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               {activeDialog.messages.map((m) => {
                 if (m.channel === 'internal') {
                   return (
-                    <div key={m.id} className="w-full flex justify-center my-2">
-                      <div className="max-w-md w-full bg-amber-950/30 border border-amber-500/40 rounded-2xl p-3 text-xs text-amber-200 space-y-1 shadow-md">
+                    <div key={m.id} className="w-full flex justify-center my-2 group/msg">
+                      <div className="max-w-md w-full bg-amber-950/30 border border-amber-500/40 rounded-2xl p-3 text-xs text-amber-200 space-y-1 shadow-md select-text cursor-text">
                         <div className="flex items-center justify-between text-[10px] text-amber-400">
                           <span className="font-bold flex items-center gap-1">🔒 Внутрішня замітка команди ({m.senderName || 'Команда'})</span>
-                          <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyMessage(m.id, m.text, e)}
+                              className="opacity-0 group-hover/msg:opacity-100 p-1 rounded bg-amber-900/40 hover:bg-amber-800 text-amber-300 transition"
+                              title={copiedMsgId === m.id ? "Скопійовано!" : "Скопіювати замітку"}
+                            >
+                              {copiedMsgId === m.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
                         </div>
-                        <p className="whitespace-pre-line text-amber-100 font-medium">{m.text}</p>
+                        <p className="whitespace-pre-line text-amber-100 font-medium select-text">{m.text}</p>
                       </div>
                     </div>
                   );
@@ -692,7 +714,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 return (
                   <div
                     key={m.id}
-                    className={`flex flex-col ${isOut ? 'items-end' : 'items-start'}`}
+                    className={`flex flex-col group/msg ${isOut ? 'items-end' : 'items-start'}`}
                   >
                     <div className="flex items-center gap-1.5 mb-1 text-[10px] text-slate-500">
                       <span>{isOut ? 'Менеджер' : (m.senderName || activeDialog.senderName)}</span>
@@ -740,24 +762,34 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         <img src={m.mediaUrl} alt="Зображення" className="w-full object-cover max-h-48" />
                       </div>
                     ) : (
-                      <div
-                        onClick={() => {
-                          if (isFile) {
-                            setViewingMedia({
-                              url: m.mediaUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-                              type: 'pdf',
-                              title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
-                            });
-                          }
-                        }}
-                        className={`max-w-[85%] sm:max-w-lg p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed ${
-                          isOut
-                            ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/20'
-                            : 'bg-[#141b2d] text-slate-100 border border-slate-800 rounded-tl-none'
-                        } ${isFile ? 'border-2 border-amber-400/40 font-semibold cursor-pointer hover:bg-slate-800/80 transition flex items-center gap-2' : ''}`}
-                      >
-                        {isFile && <FileText className="w-4 h-4 text-amber-400 flex-shrink-0" />}
-                        <span>{m.text}</span>
+                      <div className={`flex items-center gap-1.5 max-w-[88%] sm:max-w-xl ${isOut ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div
+                          onClick={() => {
+                            if (isFile) {
+                              setViewingMedia({
+                                url: m.mediaUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                                type: 'pdf',
+                                title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
+                              });
+                            }
+                          }}
+                          className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed select-text cursor-text ${
+                            isOut
+                              ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/20'
+                              : 'bg-[#141b2d] text-slate-100 border border-slate-800 rounded-tl-none'
+                          } ${isFile ? 'border-2 border-amber-400/40 font-semibold cursor-pointer hover:bg-slate-800/80 transition flex items-center gap-2' : ''}`}
+                        >
+                          {isFile && <FileText className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+                          <span className="select-text whitespace-pre-wrap">{m.text}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyMessage(m.id, m.text, e)}
+                          className="opacity-0 group-hover/msg:opacity-100 p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white transition shadow-sm flex-shrink-0"
+                          title={copiedMsgId === m.id ? "Скопійовано!" : "Скопіювати текст повідомлення"}
+                        >
+                          {copiedMsgId === m.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
                       </div>
                     )}
                   </div>

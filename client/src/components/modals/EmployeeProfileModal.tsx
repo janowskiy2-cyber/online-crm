@@ -76,7 +76,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="bg-[#0e1424]/95 border border-white/15 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden backdrop-blur-2xl text-white select-none animate-in zoom-in-95 duration-200"
+        className="bg-[#0e1424]/95 border border-white/15 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden backdrop-blur-2xl text-white animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cover Banner with Bitrix24 Glass Accent */}

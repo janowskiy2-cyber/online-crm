@@ -64,7 +64,7 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, stageColor = 
     <div
       onClick={onClick}
       style={{ borderLeftColor: stageColor }}
-      className="group relative bg-white dark:bg-[#0f1422] hover:bg-slate-50/90 dark:hover:bg-[#141b2e] border border-slate-200/90 dark:border-white/[0.08] border-l-[3.5px] rounded-xl p-3 shadow-sm hover:shadow-card-hover transition-all duration-150 cursor-pointer select-none"
+      className="group relative bg-white dark:bg-[#0f1422] hover:bg-slate-50/90 dark:hover:bg-[#141b2e] border border-slate-200/90 dark:border-white/[0.08] border-l-[3.5px] rounded-xl p-3 shadow-sm hover:shadow-card-hover transition-all duration-150 cursor-pointer"
     >
       {/* Top Header: Title & Direct Link Copy Button */}
       <div className="flex items-start justify-between gap-2 mb-1.5">

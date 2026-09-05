@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-slate-50 dark:bg-[#070b13] flex items-center justify-center p-4 select-none font-['Inter',sans-serif] relative overflow-hidden transition-colors duration-200">
+    <div className="min-h-screen w-screen bg-slate-50 dark:bg-[#070b13] flex items-center justify-center p-4 font-['Inter',sans-serif] relative overflow-hidden transition-colors duration-200">
       {/* High-End Ambient Mesh Glow (Linear / Stripe style) */}
       <div className="absolute w-[600px] h-[600px] bg-blue-500/[0.08] dark:bg-blue-600/[0.08] rounded-full blur-[140px] pointer-events-none -top-40 -left-40" />
       <div className="absolute w-[500px] h-[500px] bg-indigo-500/[0.06] dark:bg-indigo-600/[0.06] rounded-full blur-[130px] pointer-events-none -bottom-32 -right-32" />

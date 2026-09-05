@@ -209,7 +209,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none font-['Inter',sans-serif] animate-in fade-in"
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif] animate-in fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bitrix-glass border border-white/15 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden backdrop-blur-2xl">

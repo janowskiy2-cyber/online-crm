@@ -119,7 +119,7 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
   const currentAnnounce = announcements[announcementIndex] || announcements[0];
 
   return (
-    <aside className="w-72 2xl:w-80 flex flex-col gap-3 p-3 overflow-y-auto select-none flex-shrink-0 font-['Inter',sans-serif]">
+    <aside className="w-72 2xl:w-80 flex flex-col gap-3 p-3 overflow-y-auto flex-shrink-0 font-['Inter',sans-serif]">
       
       {/* 1. Quick Action: Invite Colleague Button (Bitrix Cyan Style) */}
       <button

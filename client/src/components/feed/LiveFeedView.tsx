@@ -209,7 +209,7 @@ export const LiveFeedView: React.FC = () => {
   const availableEmojis = ['👍', '❤️', '😆', '😮', '😢', '😡', '🎉', '🔥'];
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-['Inter',sans-serif] select-none text-slate-100">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-['Inter',sans-serif] text-slate-100">
       
       {/* Top Publisher Canvas (Bitrix24 Live Feed Header) */}
       <div className="bitrix-widget-card shadow-2xl overflow-hidden">

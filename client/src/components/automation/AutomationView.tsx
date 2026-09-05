@@ -79,7 +79,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ pipelines }) => 
   const pipelineRules = rules.filter(r => r.pipelineId === selectedPipelineId);
 
   return (
-    <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bitrix-wallpaper font-['Inter',sans-serif] select-none">
+    <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bitrix-wallpaper font-['Inter',sans-serif]">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Header (Bitrix24 Glassmorphism) */}

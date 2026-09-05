@@ -249,7 +249,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper bg-slate-100/70 dark:bg-[#070b13]/80 p-3 sm:p-4 select-none transition-colors duration-200 font-['Inter',sans-serif]">
+    <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper bg-slate-100/70 dark:bg-[#070b13]/80 p-3 sm:p-4 transition-colors duration-200 font-['Inter',sans-serif]">
       {/* Workspace guidance banner if candidate category is selected */}
       {projectId === 'candidates' && (
         <div className="mb-3 p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-3 text-xs text-white backdrop-blur-md shadow-lg animate-in fade-in">
