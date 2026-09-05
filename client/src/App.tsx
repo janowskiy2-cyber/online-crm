@@ -38,7 +38,7 @@ const ViewLoader = () => (
 );
 
 export function App() {
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, currentUser, users } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 

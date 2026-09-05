@@ -50,7 +50,7 @@ const CRM_PROJECT_REGISTRY = {
 
   const context = await browser.newContext({
     viewport: { width: 1536, height: 960 },
-    permissions: ['microphone']
+    permissions: ['microphone', 'clipboard-read', 'clipboard-write']
   });
 
   const page = await context.newPage();
