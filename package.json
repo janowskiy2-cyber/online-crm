@@ -1,0 +1,17 @@
+{
+  "name": "online-crm-system",
+  "version": "1.0.0",
+  "description": "Enterprise-grade CRM system with amoCRM design, 20 roles, WhatsApp & Telegram QR integrations, Realtime Pipeline and Omnichannel inbox.",
+  "scripts": {
+    "build": "npm --prefix client install && npm --prefix client run build",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
+    "seed": "cd server && npm run seed"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

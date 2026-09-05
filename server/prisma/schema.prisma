@@ -1,0 +1,343 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  name        String
+  avatar      String?
+  role        String   // super_admin, sales_director, senior_sales_rep, sales_rep, lead_gen_sdr, account_manager, support_agent, etc.
+  department  String   // Руководство, B2B Продажи, B2C Продажи, Лидогенерация, Сопровождение (LTV), Поддержка, Маркетинг, Финансы, Аудит
+  phone       String?
+  birthday    String?
+  isActive    Boolean  @default(true)
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Permissions config
+  canViewAllDeals     Boolean @default(false)
+  canViewDeptDeals    Boolean @default(false)
+  canEditDeals        Boolean @default(true)
+  canDeleteDeals      Boolean @default(false)
+  canExportData       Boolean @default(false)
+  canManageUsers      Boolean @default(false)
+  canManageIntegrations Boolean @default(false)
+
+  // Relations
+  deals         Deal[]        @relation("ResponsibleUser")
+  tasks         Task[]        @relation("ResponsibleUser")
+  createdTasks  Task[]        @relation("CreatedByUser")
+  notes         DealNote[]
+  auditLogs     AuditLog[]
+  feedPosts     FeedPost[]    @relation("FeedAuthor")
+  feedComments  FeedComment[] @relation("FeedCommentAuthor")
+  workShifts    WorkShift[]
+
+  @@index([isDeleted])
+  @@index([email])
+}
+
+model Pipeline {
+  id          String   @id @default(uuid())
+  name        String
+  isDefault   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stages      Stage[]
+  deals       Deal[]
+  automations AutomationRule[]
+}
+
+model Stage {
+  id          String   @id @default(uuid())
+  pipelineId  String
+  name        String
+  color       String   @default("#3b82f6")
+  sortOrder   Int      @default(0)
+  isWon       Boolean  @default(false)
+  isLost      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals       Deal[]
+
+  @@index([pipelineId])
+  @@index([sortOrder])
+}
+
+model Company {
+  id          String    @id @default(uuid())
+  name        String
+  phone       String?
+  email       String?
+  website     String?
+  address     String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  contacts    Contact[]
+  deals       Deal[]
+
+  @@index([name])
+  @@index([isDeleted])
+}
+
+model Contact {
+  id          String    @id @default(uuid())
+  companyId   String?
+  name        String
+  type        String    @default("b2b_contact") // "b2b_contact" | "candidate"
+  country     String?
+  profession  String?
+  status      String?   @default("screening")
+  videoUrl    String?
+  phone       String?
+  phone2      String?
+  email       String?
+  whatsapp    String?
+  telegram    String?
+  position    String?
+  avatar      String?
+  documents   String?   // JSON array: [{ id, name, url, type, size, uploadedAt }]
+  resumeUrl   String?
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals       Deal[]
+  messages    ChatMessage[]
+
+  @@index([companyId])
+  @@index([type])
+  @@index([phone])
+  @@index([whatsapp])
+  @@index([telegram])
+  @@index([email])
+  @@index([isDeleted])
+}
+
+model Deal {
+  id            String    @id @default(uuid())
+  title         String
+  budget        Float     @default(0)
+  pipelineId    String
+  stageId       String
+  projectId     String?   @default("employers") // "employers" | "candidates" | "agencies" | "legal_logistics"
+  responsibleId String
+  contactId     String?
+  companyId     String?
+  lossReason    String?
+  tags          String?   // JSON array or comma-separated tags
+  customFields  String?   // JSON string of custom fields
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  closedAt      DateTime?
+
+  pipeline      Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Restrict)
+  stage         Stage     @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  responsible   User      @relation("ResponsibleUser", fields: [responsibleId], references: [id], onDelete: Restrict)
+  contact       Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company       Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  tasks         Task[]
+  notes         DealNote[]
+  messages      ChatMessage[]
+
+  @@index([pipelineId])
+  @@index([projectId])
+  @@index([stageId])
+  @@index([responsibleId])
+  @@index([contactId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([isDeleted])
+}
+
+model Task {
+  id            String    @id @default(uuid())
+  dealId        String?
+  responsibleId String
+  createdById   String
+  type          String    // call, meeting, email, invoice, presentation, follow_up, other
+  text          String
+  dueDate       DateTime
+  isCompleted   Boolean   @default(false)
+  resultText    String?
+  completedAt   DateTime?
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  deal          Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  responsible   User      @relation("ResponsibleUser", fields: [responsibleId], references: [id], onDelete: Restrict)
+  createdBy     User      @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([dealId])
+  @@index([responsibleId])
+  @@index([createdById])
+  @@index([dueDate])
+  @@index([isCompleted])
+  @@index([isDeleted])
+}
+
+model DealNote {
+  id          String   @id @default(uuid())
+  dealId      String
+  userId      String
+  type        String   @default("comment") // comment, system, status_change, call_record
+  content     String
+  metadata    String?  // JSON for extra info like duration, oldStage, newStage
+  createdAt   DateTime @default(now())
+
+  deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([dealId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ChatMessage {
+  id          String   @id @default(uuid())
+  channel     String   // whatsapp, telegram, internal
+  direction   String   // incoming, outgoing
+  dealId      String?
+  contactId   String?
+  senderName  String?
+  senderPhone String?
+  senderTgId  String?
+  text        String
+  mediaUrl    String?
+  mediaType   String?
+  status      String   @default("sent") // sent, delivered, read, error
+  externalMsgId String?
+  createdAt   DateTime @default(now())
+
+  deal        Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
+  @@index([contactId])
+  @@index([channel])
+  @@index([createdAt])
+}
+
+model MessengerSession {
+  id             String   @id @default(uuid())
+  channel        String   @unique // whatsapp, telegram
+  status         String   @default("disconnected") // qr_ready, connecting, connected, disconnected
+  qrCodeData     String?  // Base64 QR Image or raw QR string
+  sessionPayload String?  // Serialized auth keys/files for WhatsApp or Telegram MTProto session
+  accountName    String?
+  phone          String?
+  updatedAt      DateTime @updatedAt
+}
+
+model AutomationRule {
+  id          String   @id @default(uuid())
+  pipelineId  String
+  stageId     String?
+  triggerType String   // on_stage_enter, on_incoming_message, on_deal_created, on_task_overdue
+  actionType  String   // send_whatsapp, send_telegram, create_task, change_responsible, set_tag, webhook
+  actionData  String   // JSON config for action (template text, task duration, assignee, url)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@index([pipelineId])
+  @@index([stageId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String   // login, create_deal, update_deal, delete_deal, change_stage, export_data, etc.
+  entityType  String
+  entityId    String?
+  details     String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model FeedPost {
+  id          String        @id @default(uuid())
+  authorId    String
+  recipient   String        @default("Всім співробітникам")
+  type        String        @default("message") // message, task, event, poll, file
+  text        String
+  fileData    String?       // JSON: { name, size, dataUrl/url }
+  reactions   String?       // JSON array: [{ type, count, users: string[] }]
+  views       Int           @default(1)
+  isPinned    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  author      User          @relation("FeedAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  comments    FeedComment[]
+
+  @@index([createdAt])
+  @@index([isPinned])
+  @@index([authorId])
+}
+
+model FeedComment {
+  id        String   @id @default(uuid())
+  postId    String
+  authorId  String
+  text      String
+  fileData  String?
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User     @relation("FeedCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model WorkShift {
+  id           String    @id @default(uuid())
+  userId       String
+  startTime    DateTime  @default(now())
+  endTime      DateTime?
+  breakMinutes Int       @default(0)
+  status       String    @default("working") // working, break, stopped
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startTime])
+}
+

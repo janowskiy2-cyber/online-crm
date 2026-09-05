@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: online-crm-backend
+    env: node
+    plan: free
+    buildCommand: cd server && npm install && npx prisma generate && npx prisma db push
+    startCommand: cd server && npx tsx src/index.ts
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: online-crm-frontend
+    env: static
+    plan: free
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: online-crm-backend
+          property: host
