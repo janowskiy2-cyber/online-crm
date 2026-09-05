@@ -7,7 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
 import { authRequired } from './middleware/auth.middleware';
-import { authLimiter, apiLimiter } from './middleware/rate-limit.middleware';
+import { authLimiter, apiLimiter, webhookLimiter } from './middleware/rate-limit.middleware';
 import { LeadDistributionService } from './services/lead-distribution.service';
 import { WhatsAppService } from './services/whatsapp.service';
 import { TelegramService } from './services/telegram.service';
@@ -52,9 +52,29 @@ waService.setSocketIO(io);
 tgService.setSocketIO(io);
 automationService.setSocketIO(io);
 
-// Dynamic CORS to ensure Vercel preview URLs, production URLs, and local dev never trigger Network Error
+// Secure CORS whitelist: restricts cross-origin access to Vercel production/previews and local dev
+const allowedOrigins = [
+  'https://online-crm-alpha.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
+];
+
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    // Allow non-browser requests (tools, server-to-server, health checks)
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.includes(origin) || 
+      origin.endsWith('.vercel.app') || 
+      Boolean(process.env.ALLOWED_ORIGIN && origin === process.env.ALLOWED_ORIGIN);
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy: Access denied from this origin.'));
+    }
+  },
   credentials: true
 }));
 
@@ -76,7 +96,7 @@ app.use('/api/users/verify-admin-pin', authLimiter);
 
 // ── Public routes (no auth required) ──
 app.use('/api/auth', createAuthRouter(prisma));
-app.use('/api/webhooks', createWebhookRouter(prisma, leadDistributionService, io));
+app.use('/api/webhooks', webhookLimiter, createWebhookRouter(prisma, leadDistributionService, io));
 app.use('/api/telephony', createTelephonyRouter(prisma, () => io));
 
 // Health check

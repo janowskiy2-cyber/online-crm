@@ -11,12 +11,26 @@ export function createExportRouter(prisma: PrismaClient) {
     return `"${str}"`;
   };
 
+  const checkExportPermission = async (req: any): Promise<boolean> => {
+    const userId = req.userId;
+    const userRole = req.userRole;
+    if (userRole === 'super_admin' || userRole === 'sales_director') return true;
+    if (!userId) return false;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return user?.canExportData === true || user?.role === 'super_admin';
+  };
+
   /**
    * GET /api/export/candidates
    * Export all candidates or filtered candidates to Excel-compatible CSV (UTF-8 with BOM)
    */
   router.get('/candidates', async (req, res) => {
     try {
+      const hasPerm = await checkExportPermission(req);
+      if (!hasPerm) {
+        return res.status(403).json({ error: 'Недостатньо прав для експорту бази даних (потрібен дозвіл canExportData)' });
+      }
+
       const { country, status } = req.query;
       const where: any = { isDeleted: false, type: 'candidate' };
       if (country && country !== 'all') where.country = String(country);
@@ -75,6 +89,11 @@ export function createExportRouter(prisma: PrismaClient) {
    */
   router.get('/employers', async (req, res) => {
     try {
+      const hasPerm = await checkExportPermission(req);
+      if (!hasPerm) {
+        return res.status(403).json({ error: 'Недостатньо прав для експорту бази даних (потрібен дозвіл canExportData)' });
+      }
+
       const companies = await prisma.company.findMany({
         where: { isDeleted: false },
         include: {
@@ -130,6 +149,11 @@ export function createExportRouter(prisma: PrismaClient) {
    */
   router.get('/deals', async (req, res) => {
     try {
+      const hasPerm = await checkExportPermission(req);
+      if (!hasPerm) {
+        return res.status(403).json({ error: 'Недостатньо прав для експорту бази даних (потрібен дозвіл canExportData)' });
+      }
+
       const { projectId, pipelineId } = req.query;
       const where: any = { isDeleted: false };
       if (projectId) where.projectId = String(projectId);

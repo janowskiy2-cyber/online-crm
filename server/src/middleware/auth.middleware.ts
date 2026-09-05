@@ -76,11 +76,5 @@ export function adminRequired(req: AuthRequest, res: Response, next: NextFunctio
     return next();
   }
 
-  // 4. Fallback for root admin user ID
-  if (req.headers['x-user-id'] === 'usr-admin') {
-    req.userRole = 'super_admin';
-    return next();
-  }
-
   return res.status(403).json({ error: 'Недостатньо прав доступу (потрібні права адміністратора)' });
 }

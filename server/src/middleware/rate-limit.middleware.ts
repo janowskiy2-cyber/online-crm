@@ -22,3 +22,14 @@ export const apiLimiter = rateLimit({
     error: 'Перевищено ліміт запитів до API. Спробуйте пізніше.'
   }
 });
+
+export const webhookLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 30, // Limit to 30 leads/minute per IP to prevent spam and DB bloating
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    error: 'Забагато запитів лідогенерації. Спробуйте пізніше.'
+  }
+});

@@ -2,17 +2,21 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { verifyPassword, hashPassword } from '../utils/security';
-import { authRequired, AuthRequest } from '../middleware/auth.middleware';
+import { authRequired, adminRequired, AuthRequest } from '../middleware/auth.middleware';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'crm_super_secret_jwt_key_2026';
 
-// Select fields for User — NEVER include password
 const userSafeSelect = {
   id: true, email: true, name: true, avatar: true, role: true,
   department: true, phone: true, isActive: true, isDeleted: true, createdAt: true, updatedAt: true,
   canViewAllDeals: true, canViewDeptDeals: true, canEditDeals: true,
   canDeleteDeals: true, canExportData: true, canManageUsers: true,
   canManageIntegrations: true
+};
+
+// Public select for login picker — NEVER leaks phone numbers or personal emails
+const userPublicSelect = {
+  id: true, name: true, role: true, department: true, avatar: true
 };
 
 const DEFAULT_TEAM = [
@@ -145,13 +149,14 @@ async function ensureDefaultTeamProvisioned(prisma: PrismaClient) {
 export function createAuthRouter(prisma: PrismaClient) {
   const router = Router();
 
-  // Get all users for list / quick switcher (supports optional auth or public during initial boot)
+  // Get all users for login picker or full list for authenticated users
   router.get('/users', async (req, res) => {
     try {
       await ensureDefaultTeamProvisioned(prisma);
+      const isAuth = req.headers.authorization?.startsWith('Bearer ');
       const users = await prisma.user.findMany({
         where: { isActive: true, isDeleted: false },
-        select: userSafeSelect,
+        select: isAuth ? userSafeSelect : userPublicSelect,
         orderBy: { name: 'asc' }
       });
       res.json(users);
@@ -160,8 +165,8 @@ export function createAuthRouter(prisma: PrismaClient) {
     }
   });
 
-  // Switch / Impersonate User for RBAC Audit & Testing
-  router.post('/switch-user/:id', async (req, res) => {
+  // Switch / Impersonate User for RBAC Audit & Testing (Admin only - strictly protected)
+  router.post('/switch-user/:id', adminRequired, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
       const targetUser = await prisma.user.findUnique({

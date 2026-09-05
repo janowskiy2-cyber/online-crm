@@ -395,13 +395,29 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     }
   });
 
-  // Soft-Delete Deal (Archive with 30-day recovery window)
+  // Soft-Delete Deal (Archive with 30-day recovery window - Enforces RBAC)
   router.delete('/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      const userId = (req as any).userId;
+      const userRole = (req as any).userRole;
+
       const deal = await prisma.deal.findUnique({ where: { id } });
       if (!deal) {
         return res.status(404).json({ error: 'Угоду не знайдено' });
+      }
+
+      // Check RBAC permissions: super_admin, sales_director, user with canDeleteDeals, or deal owner
+      let canDelete = userRole === 'super_admin' || userRole === 'sales_director' || userRole === 'admin';
+      if (!canDelete && userId) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (user?.canDeleteDeals || (user?.canEditDeals && deal.responsibleId === userId)) {
+          canDelete = true;
+        }
+      }
+
+      if (!canDelete) {
+        return res.status(403).json({ error: 'Недостатньо прав для видалення цієї угоди (потрібен дозвіл canDeleteDeals)' });
       }
 
       const archived = await prisma.deal.update({
