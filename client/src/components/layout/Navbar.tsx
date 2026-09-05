@@ -107,6 +107,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const [currentTime, setCurrentTime] = useState<string>('09:51');
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = React.useRef<HTMLDivElement>(null);
   
   // Database Avatar Upload State
   const { updateUserAvatar } = useAuth();
@@ -128,10 +129,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         alert('Помилка збереження аватарки в базу даних');
       }
     } catch (err: any) {
-      alert(err.message || 'Помилка обробки фото');
+      alert('Помилка обробки фотографії');
     } finally {
       setIsUploadingAvatar(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   };
 
@@ -157,14 +157,23 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   useEffect(() => {
     if (!isProfileMenuOpen && !isShiftMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsProfileMenuOpen(false);
         setIsShiftMenuOpen(false);
       }
     };
+    document.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isProfileMenuOpen, isShiftMenuOpen]);
 
   useEffect(() => {
@@ -351,7 +360,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           />
 
           {/* User Profile Capsule (Bitrix Оксана Черезова Style) */}
-          <div className="relative">
+          <div className="relative" ref={profileMenuRef}>
             <button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               className="flex items-center gap-2 py-1 px-2 rounded-xl hover:bg-white/10 transition"
@@ -369,12 +378,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Profile Dropdown Menu */}
             {isProfileMenuOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40 bg-transparent" 
-                  onClick={() => setIsProfileMenuOpen(false)} 
-                />
-                <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-2 z-50 animate-in fade-in zoom-in-95">
+              <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-2 z-50 animate-in fade-in zoom-in-95">
                 <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
                   <div>
                     <div className="font-bold text-xs text-white">{currentUser?.name || 'Головний Адміністратор'}</div>
@@ -452,7 +456,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 </div>
               </div>
-              </>
             )}
           </div>
 
