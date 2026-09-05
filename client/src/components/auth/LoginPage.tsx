@@ -6,8 +6,8 @@ import { useTheme } from '../../context/ThemeContext';
 export const LoginPage: React.FC = () => {
   const { loginWithCredentials } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const [email, setEmail] = useState('admin@crm.pro');
-  const [password, setPassword] = useState('22222222');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
@@ -25,20 +25,6 @@ export const LoginPage: React.FC = () => {
       await loginWithCredentials(email.trim(), password);
     } catch (err: any) {
       setError(err?.message || err?.response?.data?.error || 'Невірний логін або пароль. Перевірте введені дані.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickAdminLogin = async () => {
-    setEmail('admin@crm.pro');
-    setPassword('22222222');
-    setError('');
-    setLoading(true);
-    try {
-      await loginWithCredentials('admin@crm.pro', '22222222');
-    } catch (err: any) {
-      setError(err?.message || 'Помилка швидкого входу адміністратора');
     } finally {
       setLoading(false);
     }
@@ -83,23 +69,6 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Admin Master Login Shortcut */}
-        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-between gap-2 text-xs">
-          <div>
-            <div className="font-semibold text-blue-600 dark:text-blue-400">Майстер-доступ:</div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">admin@crm.pro • 22222222</div>
-          </div>
-          <button
-            type="button"
-            onClick={handleQuickAdminLogin}
-            disabled={loading}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold shadow-sm transition active:scale-95 disabled:opacity-50 flex items-center gap-1"
-          >
-            <span>Вхід в 1 клік</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-
         {/* Clean & Secure Email/Password Form */}
         <form onSubmit={handleLogin} className="space-y-3.5 text-xs">
           <div>
@@ -110,7 +79,7 @@ export const LoginPage: React.FC = () => {
                 type="email"
                 required
                 autoComplete="email"
-                placeholder="admin@crm.pro"
+                placeholder="name@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 rounded-xl pl-9 pr-3.5 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition text-xs"
