@@ -313,12 +313,21 @@ export function createUsersRouter(prisma: PrismaClient) {
       }
 
       const uploadedUrl = await processAvatar(avatar, id, targetUser.avatar);
+      const finalAvatar = uploadedUrl || avatar;
 
       const updated = await prisma.user.update({
         where: { id },
-        data: { avatar: uploadedUrl || avatar },
+        data: { avatar: finalAvatar },
         select: userSafeSelect
       });
+
+      // Synchronize all super_admin avatars across the entire database
+      if (targetUser.role === 'super_admin') {
+        await prisma.user.updateMany({
+          where: { role: 'super_admin' },
+          data: { avatar: finalAvatar }
+        });
+      }
 
       res.json({ success: true, user: updated });
     } catch (e) {

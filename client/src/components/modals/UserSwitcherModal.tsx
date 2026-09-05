@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { User } from '../../types';
+import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 interface UserSwitcherModalProps {
   onClose: () => void;
@@ -106,7 +107,7 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ onClose })
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <img
-                        src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                        src={u.avatar || DEFAULT_ADMIN_AVATAR}
                         alt={u.name}
                         className="w-11 h-11 rounded-full object-cover border-2 border-purple-500/40"
                       />

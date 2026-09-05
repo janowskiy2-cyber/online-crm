@@ -29,6 +29,7 @@ import { User } from '../../types';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { compressImageToBase64 } from '../../utils/imageUtils';
+import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 interface AdminPanelModalProps {
   onClose: () => void;
@@ -529,7 +530,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               <img
-                                src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                                src={u.avatar || DEFAULT_ADMIN_AVATAR}
                                 alt={u.name}
                                 className="w-10 h-10 rounded-full object-cover border border-amber-500/40 opacity-70 flex-shrink-0"
                               />
@@ -581,7 +582,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                               title="Натисніть, щоб змінити фото в базі даних"
                             >
                               <img
-                                src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                                src={u.avatar || DEFAULT_ADMIN_AVATAR}
                                 alt={u.name}
                                 className="w-10 h-10 rounded-full object-cover border border-slate-700 group-hover/av:border-cyan-400 transition"
                               />
@@ -695,7 +696,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
                     </label>
                     <div className="flex items-center gap-3 p-2.5 bg-slate-900 border border-slate-800 rounded-xl">
                       <img
-                        src={formData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                        src={formData.avatar || DEFAULT_ADMIN_AVATAR}
                         alt="Preview"
                         className="w-12 h-12 rounded-full object-cover border-2 border-cyan-400 flex-shrink-0"
                       />

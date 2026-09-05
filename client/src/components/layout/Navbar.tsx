@@ -31,6 +31,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, socket } from '../../services/api';
 import { compressImageToBase64 } from '../../utils/imageUtils';
+import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 export const PROJECTS_CONFIG: ProjectInfo[] = [
   {
@@ -344,12 +345,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex items-center gap-2 py-1 px-2 rounded-xl hover:bg-white/10 transition"
             >
               <img
-                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face'}
+                src={currentUser?.avatar || DEFAULT_ADMIN_AVATAR}
                 alt="Профіль"
                 className="w-8 h-8 rounded-full object-cover border border-white/30"
               />
               <span className="text-xs font-bold text-white hidden md:inline">
-                {currentUser?.name || 'Оксана Черезова'}
+                {currentUser?.name || 'Головний Адміністратор'}
               </span>
               <ChevronDown className="w-3 h-3 text-white/70" />
             </button>
@@ -359,11 +360,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl p-2 z-50 animate-in fade-in zoom-in-95">
                 <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
                   <div>
-                    <div className="font-bold text-xs text-white">{currentUser?.name || 'Оксана Черезова'}</div>
-                    <div className="text-[10px] text-slate-400">{currentUser?.email || 'admin@crm.com'}</div>
+                    <div className="font-bold text-xs text-white">{currentUser?.name || 'Головний Адміністратор'}</div>
+                    <div className="text-[10px] text-slate-400">{currentUser?.email || 'admin@crm.pro'}</div>
                   </div>
                   <img
-                    src={currentUser?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face'}
+                    src={currentUser?.avatar || DEFAULT_ADMIN_AVATAR}
                     alt="Аватар"
                     className="w-9 h-9 rounded-full object-cover border-2 border-cyan-400"
                   />

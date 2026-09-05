@@ -11,6 +11,7 @@ import {
   Shield, 
   Sparkles 
 } from 'lucide-react';
+import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 interface EmployeeProfileModalProps {
   colleague: {
@@ -92,7 +93,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           <div className="relative -mt-14 mb-4 flex justify-between items-end">
             <div className="relative">
               <img 
-                src={colleague.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=face'} 
+                src={colleague.avatar || DEFAULT_ADMIN_AVATAR} 
                 alt={colleague.name}
                 className="w-24 h-24 rounded-2xl object-cover border-4 border-[#0e1424] shadow-xl ring-2 ring-white/10"
               />

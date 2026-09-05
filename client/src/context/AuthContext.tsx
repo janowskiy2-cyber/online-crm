@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { api, setAuthHeader, setAuthToken } from '../services/api';
+import { DEFAULT_ADMIN_AVATAR } from '../constants/defaultAvatar';
 
 const defaultRootUser: User = {
   id: 'usr-admin',
@@ -9,7 +10,7 @@ const defaultRootUser: User = {
   role: 'super_admin',
   department: 'Керівництво',
   phone: '+380 (73) 427-71-74',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  avatar: DEFAULT_ADMIN_AVATAR,
   canViewAllDeals: true,
   canViewDeptDeals: true,
   canEditDeals: true,
@@ -69,10 +70,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.data && res.data.length > 0) {
         setUsers(res.data);
         if (currentUser) {
-          const fresh = res.data.find((u: User) => u.id === currentUser.id);
+          const fresh = res.data.find((u: User) => 
+            u.id === currentUser.id || 
+            (currentUser.role === 'super_admin' && u.role === 'super_admin') ||
+            (currentUser.email && u.email && currentUser.email.toLowerCase() === u.email.toLowerCase())
+          );
           if (fresh) {
-            setCurrentUser(fresh);
-            setAuthHeader(fresh.id);
+            const merged = { ...currentUser, ...fresh };
+            setCurrentUser(merged);
+            setAuthHeader(merged.id);
+            localStorage.setItem('crm_active_user', JSON.stringify(merged));
           }
         }
       }
@@ -165,12 +172,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await api.put(`/users/${userId}/avatar`, { avatar: base64Avatar });
       if (res.data?.success && res.data?.user) {
         const updatedUser = res.data.user;
-        if (currentUser && currentUser.id === userId) {
+        if (currentUser && (currentUser.id === userId || (currentUser.role === 'super_admin' && updatedUser.role === 'super_admin'))) {
           const fresh = { ...currentUser, avatar: updatedUser.avatar };
           setCurrentUser(fresh);
           localStorage.setItem('crm_active_user', JSON.stringify(fresh));
         }
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, avatar: updatedUser.avatar } : u));
+        setUsers(prev => prev.map(u => 
+          (u.id === userId || (u.role === 'super_admin' && updatedUser.role === 'super_admin')) 
+            ? { ...u, avatar: updatedUser.avatar } 
+            : u
+        ));
         return true;
       }
       return false;

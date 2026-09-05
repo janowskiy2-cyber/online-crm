@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 interface RightWidgetSidebarProps {
   onOpenTasks?: () => void;
@@ -41,7 +42,7 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
       date: 'Сьогодні, 10:15',
       title: 'У середу оновлення шлюзу WhatsApp',
       text: 'Прохання перевірити всі термінові діалоги до 18:00 у зв\'язку з плановим оновленням сесій.',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'
+      avatar: DEFAULT_ADMIN_AVATAR
     }
   ]);
 
@@ -182,7 +183,7 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
         <div className="p-3.5 bg-slate-900/90 space-y-3 text-xs">
           <div className="flex items-center gap-2.5">
             <img 
-              src={currentAnnounce.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'} 
+              src={currentAnnounce.avatar || DEFAULT_ADMIN_AVATAR} 
               alt={currentAnnounce.author}
               className="w-10 h-10 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
             />

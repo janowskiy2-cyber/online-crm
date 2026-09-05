@@ -9,6 +9,7 @@ import {
   Sparkles 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 interface RightQuickDockProps {
   onQuickCall: () => void;
@@ -23,18 +24,21 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
 }) => {
   const { currentUser, users } = useAuth();
 
-  // Load real colleagues from DB users
+  // Load real colleagues from DB users (excluding current user and duplicate root admin)
   const activeColleagues = users && users.length > 1
-    ? users.filter(u => u.id !== currentUser?.id).slice(0, 6).map(u => ({
-        id: u.id,
-        name: u.name,
-        role: u.role,
-        department: u.department,
-        email: u.email,
-        phone: u.phone || '+380',
-        status: (u.isActive ? 'online' : 'busy') as 'online' | 'busy' | 'offline',
-        avatar: u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'
-      }))
+    ? users
+        .filter(u => u.id !== currentUser?.id && (currentUser?.role !== 'super_admin' || u.role !== 'super_admin'))
+        .slice(0, 6)
+        .map(u => ({
+          id: u.id,
+          name: u.name,
+          role: u.role,
+          department: u.department,
+          email: u.email,
+          phone: u.phone || '+380',
+          status: (u.isActive ? 'online' : 'busy') as 'online' | 'busy' | 'offline',
+          avatar: u.avatar || DEFAULT_ADMIN_AVATAR
+        }))
     : [
         { id: '1', name: 'Олег Строкатий', role: 'Керівник', department: 'Керівництво', email: 'oleg@crm.pro', phone: '+380671112233', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face' },
         { id: '2', name: 'Катерина Шеленкова', role: 'HR Скринінг', department: 'Відділ найму', email: 'katerina@crm.pro', phone: '+380682223344', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face' },

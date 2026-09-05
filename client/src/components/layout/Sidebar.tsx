@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PWAInstallButton } from '../common/PWAInstallButton';
+import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 interface SidebarProps {
   currentTab: string;
@@ -165,8 +166,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          <div className="pt-0.5">
-            <PWAInstallButton />
+          {/* Administrator / Current User Profile Capsule */}
+          <div 
+            onClick={openAdminPanel}
+            className="p-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 rounded-2xl flex items-center gap-2.5 cursor-pointer transition select-none group"
+            title="Профіль та налаштування адміністратора"
+          >
+            <div className="relative flex-shrink-0">
+              <img
+                src={currentUser?.avatar || DEFAULT_ADMIN_AVATAR}
+                alt={currentUser?.name || 'Адміністратор'}
+                className="w-9 h-9 rounded-xl object-cover border border-white/20 group-hover:border-blue-400 transition"
+              />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0e1320]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-white truncate group-hover:text-blue-400 transition">
+                {currentUser?.name || 'Головний Адміністратор'}
+              </div>
+              <div className="text-[10px] text-blue-400/90 font-medium truncate">
+                {currentUser?.role === 'super_admin' ? 'Суперадміністратор' : (currentUser?.department || 'Керівництво')}
+              </div>
+            </div>
+            <Settings className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition flex-shrink-0" />
           </div>
 
           <button
