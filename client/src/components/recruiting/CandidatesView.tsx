@@ -598,6 +598,19 @@ export const CandidatesView: React.FC = () => {
                         <Play className="w-2.5 h-2.5 fill-purple-300" /> Відео
                       </span>
                     )}
+                    {cand.resumeUrl && (
+                      <a
+                        href={cand.resumeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 flex items-center gap-1 transition"
+                        title="Відкрити оригінал резюме (PDF/Файл)"
+                      >
+                        <FileText className="w-2.5 h-2.5 text-purple-300" />
+                        <span>Резюме</span>
+                      </a>
+                    )}
                   </div>
 
                   <button

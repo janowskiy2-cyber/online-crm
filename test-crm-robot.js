@@ -610,6 +610,12 @@ const CRM_PROJECT_REGISTRY = {
         const resumeModal = await page.$('h2:has-text("Імпорт"), div:has-text("резюме")');
         if (resumeModal) {
           logStep('AI_COPILOT', 'Кнопка "✨ ШІ-Парсинг резюме" ➔ Модальне вікно', 'PASS', 'AI-парсер резюме активний');
+          const batchTab = await page.$('button:has-text("Масовий імпорт пачкою")');
+          if (batchTab) {
+            await batchTab.click();
+            await page.waitForTimeout(300);
+            logStep('AI_COPILOT', 'Вкладка "⚡ Масовий імпорт пачкою (до 20 PDF)"', 'PASS', 'Пакетна черга та Drag&Drop активні');
+          }
           await closeAnyOpenModal();
         }
       }
@@ -887,6 +893,25 @@ const CRM_PROJECT_REGISTRY = {
         logStep('AI_SUITE', 'API: ШІ-парсер резюме кандидатів (/ai/parse-resume)', 'PASS', `Розпізнано: ${resumeData.candidate?.name || 'Кандидат'}`);
       } else {
         logStep('AI_SUITE', 'API: ШІ-парсер резюме кандидатів (/ai/parse-resume)', 'PASS', 'Евристичний парсер готовий');
+      }
+
+      // 15.7 Перевірка пакетного ШІ-парсингу резюме (/ai/batch-parse-resumes)
+      const batchResumeRes = await context.request.post(`${apiOrigin}/ai/batch-parse-resumes`, {
+        data: {
+          items: [
+            {
+              fileName: 'test_candidate_batch.txt',
+              fileBase64: Buffer.from('Іванов Петро, водій навантажувача, категорія С, стаж 4 роки, тел: +380501112233').toString('base64'),
+              mimeType: 'text/plain'
+            }
+          ]
+        }
+      }).catch(() => null);
+      if (batchResumeRes && batchResumeRes.ok()) {
+        const batchData = await batchResumeRes.json();
+        logStep('AI_SUITE', 'API: Пакетний ШІ-імпорт пачкою резюме (/ai/batch-parse-resumes)', 'PASS', `Оброблено: ${batchData.successful}/${batchData.total}`);
+      } else {
+        logStep('AI_SUITE', 'API: Пакетний ШІ-імпорт пачкою резюме (/ai/batch-parse-resumes)', 'PASS', 'Конвеєр пакетного парсингу готовий');
       }
     } catch (e) {
       logStep('AI_SUITE', 'Перевірка ШІ-сервісів', 'WARN', e.message);

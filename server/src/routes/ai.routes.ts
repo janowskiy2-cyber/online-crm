@@ -206,6 +206,90 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
+  // AI: Batch Multi-Resume Parser & Automatic Candidate Creator
+  router.post('/batch-parse-resumes', async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'items array is required' });
+      }
+
+      const results = [];
+
+      for (const item of items) {
+        try {
+          let resumeUrl = null;
+          let docItem = null;
+
+          // 1. Upload resume to Cloudinary storage if fileBase64 provided
+          if (item.fileBase64 && item.fileName) {
+            const base64Data = item.fileBase64.replace(/^data:.*?,/, '').replace(/^data:.*?;base64,/, '');
+            const buffer = Buffer.from(base64Data, 'base64');
+            resumeUrl = await CloudinaryService.uploadBuffer(buffer, item.fileName, item.mimeType || 'application/pdf');
+
+            docItem = {
+              id: `doc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+              name: item.fileName,
+              url: resumeUrl,
+              type: item.mimeType || 'application/pdf',
+              category: 'resume',
+              size: buffer.length,
+              uploadedAt: new Date().toISOString()
+            };
+          }
+
+          // 2. Parse candidate text with Gemini AI
+          const textToParse = (item.textContent && item.textContent.trim().length > 10)
+            ? item.textContent
+            : (item.fileName ? `Резюме кандидата: ${item.fileName.replace(/\.[^/.]+$/, '').replace(/[_.-]/g, ' ')}` : 'Кандидат');
+
+          const parsed = await ResumeParserService.parseResumeText(textToParse);
+
+          // 3. Create candidate contact in database
+          const candidate = await prisma.contact.create({
+            data: {
+              name: parsed.name || 'Новий Кандидат',
+              type: 'candidate',
+              phone: parsed.phone || null,
+              whatsapp: parsed.phone || null,
+              country: parsed.country || 'Узбекистан',
+              profession: parsed.profession || 'Спеціаліст',
+              position: parsed.profession || 'Спеціаліст',
+              status: parsed.status || 'screening',
+              companyId: item.companyId || null,
+              resumeUrl: resumeUrl,
+              documents: docItem ? JSON.stringify([docItem]) : null
+            },
+            include: { company: true }
+          });
+
+          results.push({
+            success: true,
+            candidate,
+            fileName: item.fileName,
+            resumeUrl
+          });
+        } catch (itemErr: any) {
+          console.error('Batch resume item error:', itemErr);
+          results.push({
+            success: false,
+            fileName: item.fileName || 'Невідомий файл',
+            error: itemErr.message || 'Помилка обробки файлу'
+          });
+        }
+      }
+
+      res.json({
+        total: items.length,
+        successful: results.filter(r => r.success).length,
+        results
+      });
+    } catch (e: any) {
+      console.error('Batch resume parsing error:', e);
+      res.status(500).json({ error: e.message || 'Batch parsing failed' });
+    }
+  });
+
   // Attach Document / Contract to Deal with Cloudinary CDN compression
   router.post('/deal-document/:dealId', async (req, res) => {
     try {
