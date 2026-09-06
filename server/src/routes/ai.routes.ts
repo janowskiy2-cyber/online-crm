@@ -32,6 +32,21 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
+  // AI: Parse employer job requisition & candidate requirements
+  router.post('/parse-requisition', async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({ error: 'Текст заявки обов’язковий' });
+      }
+      const result = await GeminiService.parseEmployerRequisition(text.trim());
+      res.json(result);
+    } catch (e: any) {
+      console.error('Error parsing employer requisition:', e);
+      res.status(500).json({ error: e.message || 'Помилка розпізнавання заявки' });
+    }
+  });
+
   // AI: Generate Candidate Pitch for factory director
   router.post('/pitch-candidate', async (req, res) => {
     try {

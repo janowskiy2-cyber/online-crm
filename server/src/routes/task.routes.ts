@@ -170,14 +170,17 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
   router.put('/:id', async (req, res) => {
     try {
       const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
-      const { isCompleted, resultText } = req.body;
+      const { isCompleted, resultText, dueDate, text, type } = req.body;
 
       const task = await prisma.task.update({
         where: { id: req.params.id },
         data: {
           isCompleted: isCompleted !== undefined ? Boolean(isCompleted) : undefined,
           resultText: resultText !== undefined ? resultText : undefined,
-          completedAt: isCompleted ? new Date() : null
+          completedAt: isCompleted ? new Date() : (isCompleted === false ? null : undefined),
+          dueDate: dueDate ? new Date(dueDate) : undefined,
+          text: text !== undefined ? String(text).trim() : undefined,
+          type: type !== undefined ? String(type) : undefined
         },
         include: {
           responsible: true,
@@ -206,6 +209,23 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
       res.json(task);
     } catch (e) {
       res.status(500).json({ error: 'Failed to update task' });
+    }
+  });
+
+  // Soft-delete task (Zero Data Loss compliant)
+  router.delete('/:id', async (req, res) => {
+    try {
+      const task = await prisma.task.update({
+        where: { id: req.params.id },
+        data: { isDeleted: true }
+      });
+
+      const io = getIo();
+      if (io) io.emit('task_deleted', { id: req.params.id });
+
+      res.json({ success: true, id: req.params.id });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to delete task' });
     }
   });
 

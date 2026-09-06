@@ -28,16 +28,18 @@ import {
   Square,
   Layers
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api, resolveMediaUrl } from '../../services/api';
 import { Contact, Company } from '../../types';
 import { ImportCsvModal } from '../modals/ImportCsvModal';
 import { ResumeImportModal } from '../modals/ResumeImportModal';
 import { CandidateFilesModal } from '../modals/CandidateFilesModal';
 import { CandidateDetailModal } from './CandidateDetailModal';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 
 export const CandidatesView: React.FC = () => {
   const navigate = useNavigate();
+  const { candidateId } = useParams<{ candidateId?: string }>();
   const [candidates, setCandidates] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [search, setSearch] = useState('');
@@ -62,6 +64,19 @@ export const CandidatesView: React.FC = () => {
       setSelectedCandidateForDetail(updated);
     }
   };
+
+  // Deep linking: Automatically open candidate if candidateId in URL
+  useEffect(() => {
+    if (!candidateId) return;
+    const found = candidates.find(c => c.id === candidateId);
+    if (found) {
+      setSelectedCandidateForDetail(found);
+    } else {
+      api.get(`/contacts/${candidateId}`).then(res => {
+        if (res.data) setSelectedCandidateForDetail(res.data);
+      }).catch(() => {});
+    }
+  }, [candidateId, candidates]);
 
   // Batch Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1080,18 +1095,29 @@ export const CandidatesView: React.FC = () => {
       )}
 
       {selectedCandidateForDetail && (
-        <CandidateDetailModal
-          isOpen={!!selectedCandidateForDetail}
-          onClose={() => setSelectedCandidateForDetail(null)}
-          candidate={selectedCandidateForDetail}
-          companies={companies}
-          onUpdateCandidate={handleUpdateCandidate}
-          initialTab={candidateDetailTab}
-          onOpenFilesModal={(c) => {
+        <ErrorBoundary 
+          fallbackTitle="Помилка відкриття анкети кандидата" 
+          onClose={() => {
             setSelectedCandidateForDetail(null);
-            setSelectedCandidateForFiles(c);
+            if (candidateId) navigate('/candidates');
           }}
-        />
+        >
+          <CandidateDetailModal
+            isOpen={!!selectedCandidateForDetail}
+            onClose={() => {
+              setSelectedCandidateForDetail(null);
+              if (candidateId) navigate('/candidates');
+            }}
+            candidate={selectedCandidateForDetail}
+            companies={companies}
+            onUpdateCandidate={handleUpdateCandidate}
+            initialTab={candidateDetailTab}
+            onOpenFilesModal={(c) => {
+              setSelectedCandidateForDetail(null);
+              setSelectedCandidateForFiles(c);
+            }}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );

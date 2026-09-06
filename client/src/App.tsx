@@ -24,6 +24,7 @@ const AnalyticsView = lazy(() => import('./components/analytics/AnalyticsView').
 const AutomationView = lazy(() => import('./components/automation/AutomationView').then(m => ({ default: m.AutomationView })));
 const CandidatesView = lazy(() => import('./components/recruiting/CandidatesView').then(m => ({ default: m.CandidatesView })));
 const IntegrationsView = lazy(() => import('./components/integrations/IntegrationsView').then(m => ({ default: m.IntegrationsView })));
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 const DealDetailModal = lazy(() => import('./components/deal-modal/DealDetailModal').then(m => ({ default: m.DealDetailModal })));
 const AdminPanelModal = lazy(() => import('./components/admin/AdminPanelModal').then(m => ({ default: m.AdminPanelModal })));
 const UserSwitcherModal = lazy(() => import('./components/modals/UserSwitcherModal').then(m => ({ default: m.UserSwitcherModal })));
@@ -102,7 +103,11 @@ export function App() {
   const handleCloseDeal = () => {
     setSelectedDealId(null);
     if (dealMatch) {
-      navigate('/deals');
+      if (window.history.length > 2 && (window.history.state?.idx ?? 0) > 0) {
+        navigate(-1);
+      } else {
+        navigate('/deals');
+      }
     }
   };
 
@@ -257,6 +262,7 @@ export function App() {
                 } />
 
                 <Route path="/candidates" element={<CandidatesView />} />
+                <Route path="/candidates/:candidateId" element={<CandidatesView />} />
                 <Route path="/integrations" element={<IntegrationsView />} />
 
                 <Route path="/tasks" element={
@@ -368,18 +374,20 @@ export function App() {
 
       {/* Deal Detail Modal — Deep Linking & Direct URL Support */}
       {activeDealId && (
-        <Suspense fallback={null}>
-          <DealDetailModal
-            dealId={activeDealId}
-            pipeline={activePipeline}
-            onClose={handleCloseDeal}
-            onDealUpdated={() => setRefreshTrigger(prev => prev + 1)}
-            onDealDeleted={() => {
-              handleCloseDeal();
-              setRefreshTrigger(prev => prev + 1);
-            }}
-          />
-        </Suspense>
+        <ErrorBoundary fallbackTitle="Помилка відкриття картки клієнта" onClose={handleCloseDeal}>
+          <Suspense fallback={null}>
+            <DealDetailModal
+              dealId={activeDealId}
+              pipeline={activePipeline}
+              onClose={handleCloseDeal}
+              onDealUpdated={() => setRefreshTrigger(prev => prev + 1)}
+              onDealDeleted={() => {
+                handleCloseDeal();
+                setRefreshTrigger(prev => prev + 1);
+              }}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {/* Create Deal Modal */}

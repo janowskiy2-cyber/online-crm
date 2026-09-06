@@ -314,6 +314,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   // Sidebar Documents category
   const [sidebarDocCategory, setSidebarDocCategory] = useState<'Договір з підприємством' | 'Заявка на персонал' | 'Акт виконаних робіт' | 'Інше'>('Договір з підприємством');
 
+  // Requisition AI Parser & Document Slots state
+  const [isAiRequisitionModalOpen, setIsAiRequisitionModalOpen] = useState(false);
+  const [aiRequisitionInputText, setAiRequisitionInputText] = useState('');
+  const [isParsingRequisition, setIsParsingRequisition] = useState(false);
+  const [isUploadingSlotDoc, setIsUploadingSlotDoc] = useState<string | null>(null);
+  const reqFileInputRef = useRef<HTMLInputElement | null>(null);
+  const contractFileInputRef = useRef<HTMLInputElement | null>(null);
+  const receiptFileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   const checkMessengers = async (phone: string) => {
     if (!phone) return;
@@ -739,6 +748,225 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       alert(err?.response?.data?.error || 'Помилка збереження замовлення');
     } finally {
       setIsSavingOrder(false);
+    }
+  };
+
+  const handleUpdateContractStatus = async (status: string) => {
+    if (!deal) return;
+    const newCustomFields = { ...customFieldsObj, contractStatus: status };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+      const label = 
+        status === 'sent_unsigned' ? 'Надіслано клієнту (Очікує підпису)' :
+        status === 'signed_unpaid' ? 'Підписано клієнтом (Очікує оплати)' :
+        status === 'signed_active' ? 'Підписано та діє' : 'Не надіслано';
+      await api.post(`/deals/${deal.id}/notes`, {
+        content: `⚖️ Статус договору змінено на: "${label}"`,
+        type: 'status_change'
+      }).catch(() => {});
+    } catch (err) {
+      console.error('Failed to update contract status:', err);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (status: string) => {
+    if (!deal) return;
+    const newCustomFields = { ...customFieldsObj, paymentStatus: status };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+      const label = status === 'paid' ? 'Оплачено (Підтверджено)' : 'Очікує оплати';
+      await api.post(`/deals/${deal.id}/notes`, {
+        content: `💳 Статус оплати змінено на: "${label}"`,
+        type: 'status_change'
+      }).catch(() => {});
+    } catch (err) {
+      console.error('Failed to update payment status:', err);
+    }
+  };
+
+  const handleUploadSlotDoc = async (category: 'requisition' | 'contract' | 'receipt', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !deal) return;
+
+    setIsUploadingSlotDoc(category);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadRes = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const catLabel = 
+        category === 'requisition' ? 'Заявка на персонал (Бриф)' :
+        category === 'contract' ? 'Договір з підприємством' :
+        'Чек / Підтвердження оплати';
+
+      const newDoc: DocumentItem = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        url: uploadRes.data.url,
+        category: catLabel,
+        mimeType: file.type || 'application/pdf',
+        sizeKb: uploadRes.data.sizeKb || Math.round(file.size / 1024),
+        uploadedAt: uploadRes.data.uploadedAt || new Date().toISOString()
+      };
+
+      const updatedDocs = [newDoc, ...documentsList];
+      const newCustomFields: any = { 
+        ...customFieldsObj, 
+        documents: updatedDocs,
+        [`${category}Doc`]: newDoc
+      };
+
+      if (category === 'contract' && !newCustomFields.contractStatus) {
+        newCustomFields.contractStatus = 'sent_unsigned';
+      }
+      if (category === 'receipt') {
+        newCustomFields.paymentStatus = 'paid';
+      }
+
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+
+      await api.post(`/deals/${deal.id}/notes`, {
+        content: `📎 Завантажено документ [${catLabel}]: "${file.name}"`,
+        type: 'system'
+      }).catch(() => {});
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка завантаження файлу');
+    } finally {
+      setIsUploadingSlotDoc(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleParseRequisitionSubmit = async (text?: string) => {
+    const textToAnalyze = text || aiRequisitionInputText;
+    if (!textToAnalyze.trim()) {
+      alert('Будь ласка, введіть або вставте текст заявки роботодавця');
+      return;
+    }
+
+    if (!deal) return;
+    setIsParsingRequisition(true);
+    try {
+      const res = await api.post('/ai/parse-requisition', { text: textToAnalyze.trim() });
+      const parsed = res.data;
+      if (parsed) {
+        const updatedOrder = {
+          position: parsed.positions || editOrderPosition || '',
+          count: parsed.headcount ? String(parsed.headcount) : editOrderCount || '',
+          salary: parsed.salary || editOrderSalary || '',
+          housing: parsed.housing || editOrderHousing || '',
+          location: parsed.location || editOrderLocation || '',
+          requirements: parsed.requirements || ''
+        };
+
+        let companyUpdate: any = {};
+        if (parsed.companyName && !deal.company && !deal.companyId) {
+          try {
+            const compRes = await api.post('/companies', {
+              name: parsed.companyName,
+              address: parsed.location,
+              notes: `Галузь: ${parsed.industry || '-'}. Створено через ШІ-парсинг заявки.`
+            });
+            if (compRes.data?.id) {
+              companyUpdate.companyId = compRes.data.id;
+            }
+          } catch (compErr) {}
+        }
+
+        const newCustomFields = {
+          ...customFieldsObj,
+          orderInfo: updatedOrder,
+          requisitionSummary: parsed.summary || ''
+        };
+
+        const updatePayload: any = {
+          customFields: newCustomFields,
+          ...companyUpdate
+        };
+
+        if (parsed.positions && (!deal.title || deal.title.startsWith('Угода') || deal.title.startsWith('Нова'))) {
+          updatePayload.title = `${parsed.positions} (${parsed.headcount || 1} чол.)`;
+        }
+
+        const resDeal = await api.put(`/deals/${deal.id}`, updatePayload);
+        setDeal(resDeal.data);
+        onDealUpdated(resDeal.data);
+
+        setEditOrderPosition(updatedOrder.position);
+        setEditOrderCount(updatedOrder.count);
+        setEditOrderSalary(updatedOrder.salary);
+        setEditOrderHousing(updatedOrder.housing);
+        setEditOrderLocation(updatedOrder.location);
+
+        setIsAiRequisitionModalOpen(false);
+        setAiRequisitionInputText('');
+
+        await api.post(`/deals/${deal.id}/notes`, {
+          content: `✨ ШІ успішно розпізнав заявку роботодавця:\n• Посади: ${parsed.positions}\n• Кількість: ${parsed.headcount} чол.\n• Ставка: ${parsed.salary}\n• Житло: ${parsed.housing}\n• Локація: ${parsed.location}`,
+          type: 'system'
+        }).catch(() => {});
+
+        alert(`✨ ШІ успішно розпізнав заявку та оновив параметри угоди!`);
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка при розпізнаванні заявки');
+    } finally {
+      setIsParsingRequisition(false);
+    }
+  };
+
+  const handlePromoteDealToCompany = async () => {
+    if (!deal) return;
+    const ord = (customFieldsObj as any)?.orderInfo || {};
+    const compName = deal.company?.name || editCompanyName || deal.contact?.name || deal.title;
+    if (!compName) {
+      alert('Вкажіть назву підприємства перед внесенням до бази');
+      return;
+    }
+
+    try {
+      let compId = deal.companyId;
+      if (!compId) {
+        const compRes = await api.post('/companies', {
+          name: compName,
+          address: ord.location || deal.company?.address || undefined,
+          phone: deal.contact?.phone || undefined,
+          email: deal.contact?.email || undefined,
+          notes: `Потреба: ${ord.position || '-'}, ${ord.count || '-'} чол., ставка ${ord.salary || '-'}. Офіційно внесено після підтвердження оплати.`
+        });
+        compId = compRes.data?.id;
+      }
+
+      const newCustomFields = {
+        ...customFieldsObj,
+        paymentStatus: 'paid',
+        contractStatus: (customFieldsObj as any).contractStatus === 'not_sent' ? 'signed_active' : ((customFieldsObj as any).contractStatus || 'signed_active')
+      };
+
+      const res = await api.put(`/deals/${deal.id}`, {
+        companyId: compId,
+        customFields: newCustomFields
+      });
+
+      setDeal(res.data);
+      onDealUpdated(res.data);
+
+      await api.post(`/deals/${deal.id}/notes`, {
+        content: `💎 Підприємство "${compName}" офіційно підтверджено та внесено до реєстру після підтвердження оплати.`,
+        type: 'status_change'
+      }).catch(() => {});
+
+      alert(`💎 Підприємство "${compName}" успішно внесено до офіційного реєстру роботодавців!`);
+    } catch (e: any) {
+      alert(e?.response?.data?.error || 'Не вдалося внести підприємство');
     }
   };
 
@@ -1293,7 +1521,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-            <span className="truncate">Чат ({messages.length})</span>
+            <span className="truncate">Чат ({(deal?.messages || []).length})</span>
           </button>
           <button
             type="button"
@@ -1317,7 +1545,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             }`}
           >
             <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
-            <span className="truncate">Задачі ({tasks.length})</span>
+            <span className="truncate">Задачі ({(deal?.tasks || []).length})</span>
           </button>
         </div>
 
@@ -1803,6 +2031,245 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Dedicated Documents & Contract Execution Block */}
+            <div className="space-y-2.5 p-3.5 bg-slate-900/90 border border-blue-500/25 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-extrabold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Документи та оформлення</span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-semibold">3 ключові слоти</span>
+              </div>
+
+              {/* Slot 1: Employer Requisition (Заявка / Бриф) */}
+              <div className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-white flex items-center gap-1">
+                      <span>📋 Заявка / Бриф роботодавця</span>
+                    </span>
+                  </div>
+                  {((customFieldsObj as any).requisitionDoc || documentsList.find(d => d.category.includes('Заявка'))) ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-0.5">
+                      <Check className="w-2.5 h-2.5" /> Прикріплено
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-700/60 text-slate-400">
+                      Не прикріплено
+                    </span>
+                  )}
+                </div>
+
+                {/* Attached file link if exists */}
+                {(() => {
+                  const reqDoc = (customFieldsObj as any).requisitionDoc || documentsList.find(d => d.category.includes('Заявка'));
+                  if (!reqDoc) return null;
+                  return (
+                    <div className="p-2 bg-slate-900/90 border border-slate-700/60 rounded-lg flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span className="font-semibold text-slate-200 truncate">{reqDoc.name}</span>
+                        <span className="text-[10px] text-slate-500">({reqDoc.sizeKb} KB)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={resolveMediaUrl(reqDoc.url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2 py-0.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 text-[10px] font-bold rounded flex items-center gap-1 transition"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Файл</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Action buttons for Requisition */}
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <label className="flex-1 cursor-pointer py-1.5 px-2 bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-semibold text-center transition flex items-center justify-center gap-1">
+                    <UploadCloud className="w-3 h-3 text-blue-400" />
+                    <span>{isUploadingSlotDoc === 'requisition' ? 'Завантаження...' : '+ Файл заявки'}</span>
+                    <input
+                      ref={reqFileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => handleUploadSlotDoc('requisition', e)}
+                      disabled={isUploadingSlotDoc === 'requisition'}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAiRequisitionModalOpen(true)}
+                    className="flex-1 py-1.5 px-2 bg-gradient-to-r from-purple-600/30 to-blue-600/30 hover:from-purple-600/40 hover:to-blue-600/40 border border-purple-500/40 text-purple-200 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 active:scale-95 shadow-sm"
+                    title="ШІ автоматично розпізнає посади, кількість людей, ставку та локацію"
+                  >
+                    <Sparkles className="w-3 h-3 text-purple-400" />
+                    <span>✨ ШІ-парсинг</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Slot 2: Cooperation Contract (Договір) */}
+              <div className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-white flex items-center gap-1">
+                    <span>⚖️ Договір про співпрацю</span>
+                  </span>
+                  {/* Status Badge */}
+                  {(() => {
+                    const st = (customFieldsObj as any).contractStatus || 'not_sent';
+                    if (st === 'signed_active') {
+                      return <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 Підписано та діє</span>;
+                    }
+                    if (st === 'signed_unpaid') {
+                      return <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">🔵 Підписано (Очікує оплати)</span>;
+                    }
+                    if (st === 'sent_unsigned') {
+                      return <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🟡 Надіслано (Очікує)</span>;
+                    }
+                    return <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-700/60 text-slate-400">⚪ Не надіслано</span>;
+                  })()}
+                </div>
+
+                {/* Attached Contract file */}
+                {(() => {
+                  const contractDoc = (customFieldsObj as any).contractDoc || documentsList.find(d => d.category.includes('Договір'));
+                  if (!contractDoc) return null;
+                  return (
+                    <div className="p-2 bg-slate-900/90 border border-slate-700/60 rounded-lg flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                        <span className="font-semibold text-slate-200 truncate">{contractDoc.name}</span>
+                        <span className="text-[10px] text-slate-500">({contractDoc.sizeKb} KB)</span>
+                      </div>
+                      <a
+                        href={resolveMediaUrl(contractDoc.url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 text-[10px] font-bold rounded flex items-center gap-1 transition shrink-0"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Файл</span>
+                      </a>
+                    </div>
+                  );
+                })()}
+
+                {/* Controls: Change status & Upload contract */}
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                  <select
+                    value={(customFieldsObj as any).contractStatus || 'not_sent'}
+                    onChange={(e) => handleUpdateContractStatus(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] font-bold text-purple-300 focus:outline-none cursor-pointer"
+                  >
+                    <option value="not_sent">⚪ Не надіслано</option>
+                    <option value="sent_unsigned">🟡 Надіслано клієнту</option>
+                    <option value="signed_unpaid">🔵 Підписано (Без оплати)</option>
+                    <option value="signed_active">🟢 Підписано та діє</option>
+                  </select>
+
+                  <label className="cursor-pointer py-1.5 px-2 bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-semibold text-center transition flex items-center justify-center gap-1">
+                    <UploadCloud className="w-3 h-3 text-purple-400" />
+                    <span>{isUploadingSlotDoc === 'contract' ? 'Завантаження...' : '+ Файл договору'}</span>
+                    <input
+                      ref={contractFileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => handleUploadSlotDoc('contract', e)}
+                      disabled={isUploadingSlotDoc === 'contract'}
+                      accept=".pdf,.doc,.docx"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Slot 3: Payment Receipt / Check (Чек / Оплата) */}
+              <div className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-white flex items-center gap-1">
+                    <span>💳 Чек / Підтвердження оплати</span>
+                  </span>
+                  {/* Status Badge */}
+                  {(() => {
+                    const isPaid = (customFieldsObj as any).paymentStatus === 'paid';
+                    return isPaid ? (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        🟢 Оплачено
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                        ⚪ Очікує оплати
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* Attached Receipt file */}
+                {(() => {
+                  const receiptDoc = (customFieldsObj as any).receiptDoc || documentsList.find(d => d.category.includes('Чек') || d.category.includes('Рахунок'));
+                  if (!receiptDoc) return null;
+                  return (
+                    <div className="p-2 bg-slate-900/90 border border-slate-700/60 rounded-lg flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <CreditCard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span className="font-semibold text-slate-200 truncate">{receiptDoc.name}</span>
+                        <span className="text-[10px] text-slate-500">({receiptDoc.sizeKb} KB)</span>
+                      </div>
+                      <a
+                        href={resolveMediaUrl(receiptDoc.url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-[10px] font-bold rounded flex items-center gap-1 transition shrink-0"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Чек</span>
+                      </a>
+                    </div>
+                  );
+                })()}
+
+                {/* Upload receipt button + Status toggle */}
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                  <select
+                    value={(customFieldsObj as any).paymentStatus || 'unpaid'}
+                    onChange={(e) => handleUpdatePaymentStatus(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] font-bold text-emerald-300 focus:outline-none cursor-pointer"
+                  >
+                    <option value="unpaid">⚪ Очікує оплати</option>
+                    <option value="paid">🟢 Оплачено (Підтверджено)</option>
+                  </select>
+
+                  <label className="cursor-pointer py-1.5 px-2 bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-semibold text-center transition flex items-center justify-center gap-1">
+                    <UploadCloud className="w-3 h-3 text-emerald-400" />
+                    <span>{isUploadingSlotDoc === 'receipt' ? 'Завантаження...' : '+ Додати чек'}</span>
+                    <input
+                      ref={receiptFileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => handleUploadSlotDoc('receipt', e)}
+                      disabled={isUploadingSlotDoc === 'receipt'}
+                      accept=".pdf,.png,.jpg,.jpeg,.doc"
+                    />
+                  </label>
+                </div>
+
+                {/* Official Company Promotion Button */}
+                <button
+                  type="button"
+                  onClick={handlePromoteDealToCompany}
+                  className="w-full mt-1.5 py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 active:scale-95"
+                  title="Офіційно створити або підтвердити підприємство в каталозі роботодавців"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>💎 Внести в офіційні підприємства (Оплачено)</span>
+                </button>
+              </div>
             </div>
 
             {/* Tags */}
@@ -3372,6 +3839,90 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             }
           }}
         />
+      )}
+
+      {/* Modal: AI Employer Requisition Parser */}
+      {isAiRequisitionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-['Inter',sans-serif]">
+          <div className="bg-[#101726] border border-purple-500/40 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 animate-in fade-in zoom-in-95 text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">ШІ-парсинг заявки роботодавця</h3>
+                  <p className="text-[11px] text-slate-400">Автоматичне розпізнавання посади, кількості людей, зарплати та житла</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAiRequisitionModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl transition hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  Текст заявки або повідомлення від клієнта в месенджері:
+                </label>
+                <textarea
+                  rows={6}
+                  placeholder="Вставте сюди текст, який прислав роботодавець, наприклад:
+Потрібно 10 зварювальників MIG/MAG у Вроцлав на завод металоконструкцій. Ставка 26 зл/год на руки, житло надаємо безкоштовно. Досвід від 1 року..."
+                  value={aiRequisitionInputText}
+                  onChange={(e) => setAiRequisitionInputText(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition resize-none leading-relaxed"
+                />
+              </div>
+
+              {/* Preset from deal chat button if messages exist */}
+              {deal.messages && deal.messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const clientMsgs = (deal.messages || [])
+                      .filter(m => !m.isOutgoing && m.text)
+                      .map(m => m.text)
+                      .slice(-8)
+                      .join('\n');
+                    if (clientMsgs) {
+                      setAiRequisitionInputText(clientMsgs);
+                    } else {
+                      alert('Немає вхідних повідомлень від клієнта');
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-purple-300 border border-purple-500/20 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Вставити останні повідомлення з чату угоди</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsAiRequisitionModalOpen(false)}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white rounded-xl transition font-medium"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                onClick={() => handleParseRequisitionSubmit()}
+                disabled={isParsingRequisition || !aiRequisitionInputText.trim()}
+                className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/30 flex items-center gap-2"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isParsingRequisition ? 'animate-spin' : ''}`} />
+                <span>{isParsingRequisition ? 'Розпізнавання ШІ...' : '✨ Заповнити картку через ШІ'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

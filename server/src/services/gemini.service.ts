@@ -22,6 +22,66 @@ export class GeminiService {
   }
 
   /**
+   * AI Requisition Parser: extracts structured employer hiring need
+   */
+  public static async parseEmployerRequisition(text: string): Promise<{
+    companyName: string;
+    industry: string;
+    positions: string;
+    headcount: number | string;
+    salary: string;
+    housing: string;
+    location: string;
+    requirements: string;
+    urgency: string;
+    summary: string;
+    modelUsed: string;
+  }> {
+    const prompt = `Ти — рекрутинговий аналітик CRM. Проаналізуй заявку роботодавця або текст повідомлення в месенджері та поверни виключно JSON об'єкт за схемою:
+{
+  "companyName": "Назва компанії або пустий рядок якщо не вказано",
+  "industry": "Галузь (наприклад: Виробництво, Будівництво, Логістика, Склад, Агро)",
+  "positions": "Потрібні спеціальності/посади (наприклад: Зварювальники MIG/MAG, Арматурники)",
+  "headcount": 5,
+  "salary": "Ставка/зарплата (наприклад: 24-28 PLN/год або 4500-5000 EUR)",
+  "housing": "Умови житла (наприклад: Надається безкоштовно або 400 зл/міс)",
+  "location": "Місто та країна (наприклад: Вроцлав, Польща)",
+  "requirements": "Вимоги (досвід, знання мови, документи)",
+  "urgency": "Терміновість (наприклад: Терміново / протягом місяця)",
+  "summary": "Короткий опис заявки в 1-2 реченнях"
+}
+
+Текст заявки:
+"${text}"`;
+
+    const { text: resultText, modelUsed } = await ModelRouterService.generateContentWithFailover(
+      prompt,
+      () => JSON.stringify(GeminiService.fallbackParseRequisition(text))
+    );
+
+    try {
+      const cleaned = resultText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      return {
+        companyName: parsed.companyName || '',
+        industry: parsed.industry || 'Виробництво / Склад',
+        positions: parsed.positions || 'Спеціалісти / Робітники',
+        headcount: parsed.headcount || 1,
+        salary: parsed.salary || 'За домовленістю',
+        housing: parsed.housing || 'Надається роботодавцем',
+        location: parsed.location || 'Польща / ЄС',
+        requirements: parsed.requirements || 'Досвід роботи або готовність до навчання',
+        urgency: parsed.urgency || 'Стандартний набір',
+        summary: parsed.summary || 'Заявка на підбір персоналу для підприємства',
+        modelUsed
+      };
+    } catch (e) {
+      const fallback = GeminiService.fallbackParseRequisition(text);
+      return { ...fallback, modelUsed: 'deterministic-fallback' };
+    }
+  }
+
+  /**
    * Generate high-converting candidate pitch for plant director with multi-model failover
    */
   public static async generateCandidatePitch(
@@ -173,5 +233,83 @@ export class GeminiService {
       `1. Оплата розбита на 4 безпечні транші по 25%, і фінальний розрахунок відбувається лише тоді, коли людина вже відпрацювала перші зміни у вашому цеху.\n` +
       `2. Якщо кандидат з будь-якої причини не підійде — ми робимо повну безкоштовну заміну з резервного пулу протягом 5 робочих днів.\n\n` +
       `Пропоную зафіксувати специфікацію вакансії, і ми підберемо перші резюме для ознайомлення без жодних зобов'язань!»`;
+  }
+
+  private static fallbackParseRequisition(text: string): {
+    companyName: string;
+    industry: string;
+    positions: string;
+    headcount: number | string;
+    salary: string;
+    housing: string;
+    location: string;
+    requirements: string;
+    urgency: string;
+    summary: string;
+  } {
+    // Deterministic keyword and regex extraction
+    const lower = text.toLowerCase();
+
+    // Headcount regex (e.g. 10 чол, 5 человек, 20 людей, 15 позиций, 5 працівників)
+    let headcount: number | string = 1;
+    const countMatch = text.match(/(\d+)\s*(?:чол|чоловік|людей|человек|працівник|спеціаліст|позиц)/i);
+    if (countMatch) {
+      headcount = parseInt(countMatch[1], 10);
+    }
+
+    // Salary regex (e.g. 24-28 зл, 25 pln, 1200 eur, 45000 грн)
+    let salary = 'За домовленістю';
+    const salaryMatch = text.match(/(\d+[\s\d]*(?:[-–—]\s*\d+[\s\d]*)?\s*(?:pln|зл|zł|eur|євро|usd|\$|грн|uah)(?:\/(?:год|час|міс|мес))?)/i);
+    if (salaryMatch) {
+      salary = salaryMatch[1].trim();
+    }
+
+    // Positions detection
+    let positions = 'Робітники / Спеціалісти';
+    const positionKeywords = [
+      'зварювальник', 'сварщик', 'арматурник', 'бетоняр', 'монтажник',
+      'електрик', 'слюсар', 'карщик', 'водій', 'водитель', 'оператор',
+      'токар', 'фрезерувальник', 'плиточник', 'гіпсокартонник', 'муляр',
+      'пакувальник', 'фасувальник', 'комплектувальник', 'різноробочий'
+    ];
+    const foundPositions = positionKeywords.filter(k => lower.includes(k));
+    if (foundPositions.length > 0) {
+      positions = foundPositions.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ');
+    }
+
+    // Housing detection
+    let housing = 'Надається роботодавцем';
+    if (lower.includes('безкоштовн') || lower.includes('бесплатн')) {
+      housing = 'Безкоштовне проживання';
+    } else if (lower.includes('хостел') || lower.includes('гуртожиток') || lower.includes('комфортне житло')) {
+      housing = 'Житло надається (комфортний хостел/квартира)';
+    }
+
+    // Location detection
+    let location = 'Польща / ЄС';
+    const cities = ['вроцлав', 'варшава', 'гданськ', 'краків', 'познань', 'катовіце', 'щецин', 'люблін', 'прага', 'брюнн', 'берлін', 'вільнюс', 'рига'];
+    const foundCity = cities.find(c => lower.includes(c));
+    if (foundCity) {
+      location = `${foundCity.charAt(0).toUpperCase() + foundCity.slice(1)}, ЄС`;
+    }
+
+    // Urgency
+    let urgency = 'Стандартний термін';
+    if (lower.includes('терміново') || lower.includes('срочно') || lower.includes('горить') || lower.includes('якнайшвидше')) {
+      urgency = '🔥 Терміново';
+    }
+
+    return {
+      companyName: '',
+      industry: 'Виробництво та логістика',
+      positions,
+      headcount,
+      salary,
+      housing,
+      location,
+      requirements: 'Досвід за фахом від 1 року, висока відповідальність',
+      urgency,
+      summary: `Потреба: ${positions} (${headcount} чол.), оплата ${salary}, локація ${location}`
+    };
   }
 }

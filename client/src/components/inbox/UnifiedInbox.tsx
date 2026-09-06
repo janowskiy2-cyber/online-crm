@@ -44,6 +44,7 @@ import {
 import { api, socket } from '../../services/api';
 import { soundService } from '../../services/sound.service';
 import { ChatMessage, Deal, Pipeline, Company, Task } from '../../types';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 import { DealDetailModal } from '../deal-modal/DealDetailModal';
 import { MediaViewerModal } from '../media/MediaViewerModal';
 import { AudioMessagePlayer } from '../media/AudioMessagePlayer';
@@ -115,6 +116,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [editEmployerSalary, setEditEmployerSalary] = useState('');
   const [isPromotingCompany, setIsPromotingCompany] = useState(false);
   const [companyPromoteSuccess, setCompanyPromoteSuccess] = useState<string | null>(null);
+  const [isParsingRequisition, setIsParsingRequisition] = useState(false);
 
   // Quick notes state
   const [dealNoteInput, setDealNoteInput] = useState('');
@@ -634,6 +636,40 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       alert('Помилка збереження картки угоди');
     } finally {
       setIsSavingDeal(false);
+    }
+  };
+
+  const handleAiParseRequisitionFromChat = async () => {
+    if (!activeDialog) return;
+    const clientMsgs = (activeDialog.messages || [])
+      .filter(m => !m.isOutgoing && m.text)
+      .map(m => m.text)
+      .slice(-10)
+      .join('\n');
+
+    const textToParse = clientMsgs || activeDialog.lastMessage?.text;
+    if (!textToParse) {
+      alert('Не знайдено тексту повідомлень від клієнта для аналізу. Клієнт ще не написав вимоги.');
+      return;
+    }
+
+    setIsParsingRequisition(true);
+    try {
+      const res = await api.post('/ai/parse-requisition', { text: textToParse });
+      const data = res.data;
+      if (data) {
+        if (data.companyName && !editEmployerName) setEditEmployerName(data.companyName);
+        if (data.industry) setEditEmployerIndustry(data.industry);
+        if (data.headcount) setEditEmployerHeadcount(String(data.headcount));
+        if (data.positions) setEditEmployerPositions(data.positions);
+        if (data.location) setEditEmployerLocation(data.location);
+        if (data.salary) setEditEmployerSalary(data.salary);
+        alert(`✨ ШІ-парсинг успішно заповнив картку:\n• Посади: ${data.positions || '-'}\n• Кількість: ${data.headcount || '-'}\n• Оплата: ${data.salary || '-'}\n• Локація: ${data.location || '-'}`);
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка розпізнавання заявки');
+    } finally {
+      setIsParsingRequisition(false);
     }
   };
 
@@ -1622,6 +1658,18 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                           )}
                         </div>
 
+                        {/* 1-Click AI Requisition Auto-Parser from Chat messages */}
+                        <button
+                          type="button"
+                          onClick={handleAiParseRequisitionFromChat}
+                          disabled={isParsingRequisition}
+                          className="w-full py-1.5 px-3 bg-gradient-to-r from-purple-600/30 to-blue-600/30 hover:from-purple-600/40 hover:to-blue-600/40 border border-purple-500/40 rounded-xl text-[11px] font-bold text-purple-200 flex items-center justify-center gap-1.5 transition shadow-sm active:scale-95 disabled:opacity-50"
+                          title="Автоматично витягнути з листування вакансії, кількість людей, зарплату та умови"
+                        >
+                          <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${isParsingRequisition ? 'animate-spin' : ''}`} />
+                          <span>{isParsingRequisition ? 'ШІ аналізує листування...' : '✨ ШІ-парсинг заявки з листування'}</span>
+                        </button>
+
                         {companyPromoteSuccess && (
                           <div className="p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-bold animate-in fade-in">
                             ✅ {companyPromoteSuccess}
@@ -1961,23 +2009,25 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
       {/* In-App Deal Detail Modal Overlay (stay in chat while viewing/editing full deal) */}
       {modalDealId && (
-        <DealDetailModal
-          dealId={modalDealId}
-          pipeline={currentPipeline || pipelines[0] || { id: 'default', name: 'Воронка', stages: [] }}
-          onClose={() => {
-            setModalDealId(null);
-            if (activeDeal?.id) {
-              api.get(`/deals/${activeDeal.id}`).then(res => res.data && setActiveDeal(res.data)).catch(() => {});
-            }
-          }}
-          onDealUpdated={(updated) => {
-            setActiveDeal(updated);
-          }}
-          onDealDeleted={() => {
-            setModalDealId(null);
-            setActiveDeal(null);
-          }}
-        />
+        <ErrorBoundary fallbackTitle="Помилка відкриття картки клієнта" onClose={() => setModalDealId(null)}>
+          <DealDetailModal
+            dealId={modalDealId}
+            pipeline={currentPipeline || pipelines[0] || { id: 'default', name: 'Воронка', stages: [] }}
+            onClose={() => {
+              setModalDealId(null);
+              if (activeDeal?.id) {
+                api.get(`/deals/${activeDeal.id}`).then(res => res.data && setActiveDeal(res.data)).catch(() => {});
+              }
+            }}
+            onDealUpdated={(updated) => {
+              setActiveDeal(updated);
+            }}
+            onDealDeleted={() => {
+              setModalDealId(null);
+              setActiveDeal(null);
+            }}
+          />
+        </ErrorBoundary>
       )}
 
       {/* In-App Media Viewer Lightbox & PDF Viewer Modal */}
