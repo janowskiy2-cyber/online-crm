@@ -12,6 +12,17 @@ export const api = axios.create({
   baseURL: `${API_SERVER}/api`,
 });
 
+/** Resolves any relative media/document URL to a fully qualified absolute URL pointing to the active backend/CDN */
+export const resolveMediaUrl = (url?: string): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const baseUrl = API_SERVER.replace(/\/api\/?$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${baseUrl}${cleanPath}`;
+};
+
 export const setAuthToken = (token: string, userId?: string) => {
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;

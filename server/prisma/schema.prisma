@@ -114,6 +114,14 @@ model Contact {
   avatar      String?
   documents   String?   // JSON array: [{ id, name, url, type, size, uploadedAt }]
   resumeUrl   String?
+  experienceYears   Int?
+  salaryExpectation String?
+  skills            String?   // JSON array or comma-separated
+  languages         String?
+  driverLicense     String?
+  bio               String?
+  birthDate         String?
+  citizenship       String?
   isDeleted   Boolean   @default(false)
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())

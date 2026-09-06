@@ -73,6 +73,14 @@ export interface Contact {
   videoUrl?: string;
   resumeUrl?: string;
   documents?: string | CandidateDocument[];
+  experienceYears?: number;
+  salaryExpectation?: string;
+  skills?: string | string[];
+  languages?: string;
+  driverLicense?: string;
+  bio?: string;
+  birthDate?: string;
+  citizenship?: string;
 }
 
 export interface Company {

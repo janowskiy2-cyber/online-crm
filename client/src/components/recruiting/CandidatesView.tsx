@@ -29,11 +29,12 @@ import {
   Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 import { Contact, Company } from '../../types';
 import { ImportCsvModal } from '../modals/ImportCsvModal';
 import { ResumeImportModal } from '../modals/ResumeImportModal';
 import { CandidateFilesModal } from '../modals/CandidateFilesModal';
+import { CandidateDetailModal } from './CandidateDetailModal';
 
 export const CandidatesView: React.FC = () => {
   const navigate = useNavigate();
@@ -47,11 +48,15 @@ export const CandidatesView: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
   const [selectedCandidateForFiles, setSelectedCandidateForFiles] = useState<Contact | null>(null);
+  const [selectedCandidateForDetail, setSelectedCandidateForDetail] = useState<Contact | null>(null);
 
   const handleUpdateCandidate = (updated: Contact) => {
     setCandidates(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
     if (selectedCandidateForFiles?.id === updated.id) {
       setSelectedCandidateForFiles(updated);
+    }
+    if (selectedCandidateForDetail?.id === updated.id) {
+      setSelectedCandidateForDetail(updated);
     }
   };
 
@@ -76,18 +81,19 @@ export const CandidatesView: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!isCreateOpen && !isImportModalOpen && !isResumeModalOpen && !selectedCandidateForFiles) return;
+    if (!isCreateOpen && !isImportModalOpen && !isResumeModalOpen && !selectedCandidateForFiles && !selectedCandidateForDetail) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsCreateOpen(false);
         setIsImportModalOpen(false);
         setIsResumeModalOpen(false);
         setSelectedCandidateForFiles(null);
+        setSelectedCandidateForDetail(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCreateOpen, isImportModalOpen, isResumeModalOpen, selectedCandidateForFiles]);
+  }, [isCreateOpen, isImportModalOpen, isResumeModalOpen, selectedCandidateForFiles, selectedCandidateForDetail]);
 
   const fetchCompanies = async () => {
     try {
@@ -481,153 +487,256 @@ export const CandidatesView: React.FC = () => {
               </button>
             </div>
           ) : (
-            filteredCandidates.map((cand) => (
-              <div
-                key={cand.id}
-                className={`bitrix-glass rounded-2xl p-5 border transition-all duration-200 shadow-xl flex flex-col justify-between group ${
-                  selectedIds.has(cand.id)
-                    ? 'border-emerald-500/80 bg-emerald-950/20 ring-1 ring-emerald-500/30'
-                    : 'border-white/10 hover:border-emerald-500/40'
-                }`}
-              >
-                <div>
-                  {/* Card Header: Checkbox, Avatar & Info */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => toggleSelectCandidate(cand.id)}
-                        className="p-1 -ml-1 text-slate-400 hover:text-emerald-400 transition"
-                        title={selectedIds.has(cand.id) ? 'Зняти позначку' : 'Вибрати кандидата'}
-                      >
-                        {selectedIds.has(cand.id) ? (
-                          <CheckSquare className="w-5 h-5 text-emerald-400" />
-                        ) : (
-                          <Square className="w-5 h-5 text-slate-500" />
-                        )}
-                      </button>
+            filteredCandidates.map((cand) => {
+              let parsedSkills: string[] = [];
+              if (Array.isArray(cand.skills)) {
+                parsedSkills = cand.skills;
+              } else if (typeof cand.skills === 'string' && cand.skills.trim()) {
+                try {
+                  if (cand.skills.startsWith('[')) {
+                    parsedSkills = JSON.parse(cand.skills);
+                  } else {
+                    parsedSkills = cand.skills.split(',').map(s => s.trim()).filter(Boolean);
+                  }
+                } catch {
+                  parsedSkills = cand.skills.split(',').map(s => s.trim()).filter(Boolean);
+                }
+              }
 
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-600/30 to-teal-600/30 border border-emerald-500/30 flex items-center justify-center text-emerald-300 font-black text-base shadow-inner flex-shrink-0">
-                        {cand.name.charAt(0)}
+              return (
+                <div
+                  key={cand.id}
+                  onClick={() => setSelectedCandidateForDetail(cand)}
+                  className={`bitrix-glass rounded-2xl p-5 border transition-all duration-200 shadow-xl flex flex-col justify-between group cursor-pointer hover:border-emerald-500/60 hover:shadow-emerald-950/20 hover:scale-[1.01] ${
+                    selectedIds.has(cand.id)
+                      ? 'border-emerald-500/80 bg-emerald-950/25 ring-1 ring-emerald-500/40'
+                      : 'border-white/10'
+                  }`}
+                  title="Натисніть, щоб відкрити повну анкету та резюме кандидата"
+                >
+                  <div>
+                    {/* Card Header: Checkbox, Avatar & Info */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelectCandidate(cand.id);
+                          }}
+                          className="p-1 -ml-1 text-slate-400 hover:text-emerald-400 transition"
+                          title={selectedIds.has(cand.id) ? 'Зняти позначку' : 'Вибрати кандидата'}
+                        >
+                          {selectedIds.has(cand.id) ? (
+                            <CheckSquare className="w-5 h-5 text-emerald-400" />
+                          ) : (
+                            <Square className="w-5 h-5 text-slate-500" />
+                          )}
+                        </button>
+
+                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-600/30 to-teal-600/30 border border-emerald-500/30 flex items-center justify-center text-emerald-300 font-black text-base shadow-inner flex-shrink-0">
+                          {cand.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h3 className="font-extrabold text-sm text-white group-hover:text-emerald-400 transition tracking-tight">
+                              {cand.name}
+                            </h3>
+                            {cand.country && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-white/10 font-semibold">
+                                {cand.country}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-emerald-400 font-medium mt-0.5">
+                            {cand.profession || cand.position || 'Пошукач роботи'}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-extrabold text-sm text-white group-hover:text-emerald-400 transition tracking-tight">
-                          {cand.name}
-                        </h3>
-                        <p className="text-xs text-slate-400 font-medium">
-                          {cand.position || 'Пошукач роботи'}
-                        </p>
-                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCandidate(cand.id, cand.name);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-500 hover:text-rose-400 transition"
+                        title="Видалити"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleDeleteCandidate(cand.id, cand.name)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-500 hover:text-rose-400 transition"
-                      title="Видалити"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Contact Links */}
-                  <div className="mt-3.5 space-y-1.5 text-xs text-slate-300 pt-3 border-t border-white/10">
-                    {cand.phone && (
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                        <span>{cand.phone}</span>
-                      </div>
-                    )}
-                    {cand.whatsapp && (
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <span className="text-[10px] font-bold text-emerald-400">WA:</span>
-                        <span>{cand.whatsapp}</span>
-                      </div>
-                    )}
-                    {cand.telegram && (
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <span className="text-[10px] font-bold text-sky-400">TG:</span>
-                        <span>{cand.telegram}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Assigned Employer (Crucial Business Model Requirement) */}
-                  <div className="mt-4 p-3 rounded-xl bg-slate-900/80 border border-white/5 space-y-2">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400 font-semibold flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-blue-400" />
-                        <span>Роботодавець:</span>
-                      </span>
-                      {cand.company ? (
-                        <span className="font-bold text-blue-400 truncate max-w-[130px]">
-                          {cand.company.name}
+                    {/* Rich Badges: Experience, Salary, Driver's License */}
+                    <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-white/5 text-[11px]">
+                      {cand.experienceYears !== undefined && cand.experienceYears !== null && (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold">
+                          ⏳ {cand.experienceYears} {cand.experienceYears === 1 ? 'рік' : (cand.experienceYears < 5 ? 'роки' : 'років')} досвіду
                         </span>
-                      ) : (
-                        <span className="font-semibold text-amber-400 text-[10px]">
-                          В резерві
+                      )}
+                      {cand.salaryExpectation && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold">
+                          💵 {cand.salaryExpectation}
+                        </span>
+                      )}
+                      {cand.driverLicense && (
+                        <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium truncate max-w-[170px]" title={cand.driverLicense}>
+                          🚗 {cand.driverLicense}
+                        </span>
+                      )}
+                      {cand.languages && (
+                        <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 font-medium truncate max-w-[170px]" title={cand.languages}>
+                          🗣️ {cand.languages}
                         </span>
                       )}
                     </div>
 
-                    {/* Quick Select / Reassign Employer */}
-                    <div className="pt-1.5 border-t border-white/5">
-                      <select
-                        value={cand.companyId || ''}
-                        onChange={(e) => handleAssignEmployer(cand.id, e.target.value)}
-                        className="w-full bg-slate-800/90 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
-                      >
-                        <option value="">-- Призначити роботодавця --</option>
-                        {companies.map(c => (
-                          <option key={c.id} value={c.id}>
-                            🏢 {c.name}
-                          </option>
+                    {/* Skills Chips */}
+                    {parsedSkills.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2.5">
+                        {parsedSkills.slice(0, 3).map((skill, sIdx) => (
+                          <span
+                            key={sIdx}
+                            className="text-[10px] px-2 py-0.5 bg-slate-800/90 text-slate-300 rounded-md border border-white/5 font-medium"
+                          >
+                            ✓ {skill}
+                          </span>
                         ))}
-                      </select>
+                        {parsedSkills.length > 3 && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-slate-800/50 text-slate-400 rounded-md">
+                            +{parsedSkills.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Contact Links */}
+                    <div className="mt-3 space-y-1.5 text-xs text-slate-300 pt-2.5 border-t border-white/5">
+                      {cand.phone && (
+                        <div className="flex items-center gap-2 text-slate-300">
+                          <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                          <a
+                            href={`tel:${cand.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:text-emerald-400 transition"
+                          >
+                            {cand.phone}
+                          </a>
+                        </div>
+                      )}
+                      {cand.whatsapp && (
+                        <div className="flex items-center gap-2 text-slate-300">
+                          <span className="text-[10px] font-bold text-emerald-400">WA:</span>
+                          <a
+                            href={`https://wa.me/${cand.whatsapp.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:text-emerald-400 transition"
+                          >
+                            {cand.whatsapp}
+                          </a>
+                        </div>
+                      )}
+                      {cand.telegram && (
+                        <div className="flex items-center gap-2 text-slate-300">
+                          <span className="text-[10px] font-bold text-sky-400">TG:</span>
+                          <a
+                            href={`tg://resolve?phone=${cand.phone || cand.telegram}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:text-sky-400 transition"
+                          >
+                            {cand.telegram}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Assigned Employer */}
+                    <div 
+                      className="mt-3.5 p-2.5 rounded-xl bg-slate-900/80 border border-white/5 space-y-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-semibold flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Роботодавець:</span>
+                        </span>
+                        {cand.company ? (
+                          <span className="font-bold text-blue-400 truncate max-w-[130px]">
+                            {cand.company.name}
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-amber-400 text-[10px]">
+                            В резерві
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Quick Select / Reassign Employer */}
+                      <div className="pt-1 border-t border-white/5">
+                        <select
+                          value={cand.companyId || ''}
+                          onChange={(e) => handleAssignEmployer(cand.id, e.target.value)}
+                          className="w-full bg-slate-800/90 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="">-- Призначити роботодавця --</option>
+                          {companies.map(c => (
+                            <option key={c.id} value={c.id}>
+                              🏢 {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Card Footer: Status, Video & Files */}
-                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                      ● {cand.status || 'Активний'}
-                    </span>
-                    {cand.videoUrl && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                        <Play className="w-2.5 h-2.5 fill-purple-300" /> Відео
+                  {/* Card Footer: Status, Video & Files */}
+                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                        ● {cand.status || 'Активний'}
                       </span>
-                    )}
-                    {cand.resumeUrl && (
-                      <a
-                        href={cand.resumeUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 flex items-center gap-1 transition"
-                        title="Відкрити оригінал резюме (PDF/Файл)"
+                      {cand.videoUrl && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                          <Play className="w-2.5 h-2.5 fill-purple-300" /> Відео
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCandidateForDetail(cand);
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/35 flex items-center gap-1 transition"
+                        title="Переглянути оригінал резюме (PDF)"
                       >
                         <FileText className="w-2.5 h-2.5 text-purple-300" />
                         <span>Резюме</span>
-                      </a>
-                    )}
-                  </div>
+                      </button>
+                    </div>
 
-                  <button
-                    onClick={() => setSelectedCandidateForFiles(cand)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border ${
-                      cand.videoUrl 
-                        ? 'bg-purple-600/25 hover:bg-purple-600/40 text-purple-200 border-purple-500/40 shadow-sm'
-                        : 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-300 border-white/10'
-                    }`}
-                    title="Переглянути відеовізитівку та завантажені документи"
-                  >
-                    <Video className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Відео & Файли</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCandidateForFiles(cand);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border ${
+                        cand.videoUrl 
+                          ? 'bg-purple-600/25 hover:bg-purple-600/40 text-purple-200 border-purple-500/40 shadow-sm'
+                          : 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-300 border-white/10'
+                      }`}
+                      title="Переглянути відеовізитівку та завантажені документи"
+                    >
+                      <Video className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Відео & Файли</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -875,6 +984,20 @@ export const CandidatesView: React.FC = () => {
           onClose={() => setSelectedCandidateForFiles(null)}
           candidate={selectedCandidateForFiles}
           onUpdateCandidate={handleUpdateCandidate}
+        />
+      )}
+
+      {selectedCandidateForDetail && (
+        <CandidateDetailModal
+          isOpen={!!selectedCandidateForDetail}
+          onClose={() => setSelectedCandidateForDetail(null)}
+          candidate={selectedCandidateForDetail}
+          companies={companies}
+          onUpdateCandidate={handleUpdateCandidate}
+          onOpenFilesModal={(c) => {
+            setSelectedCandidateForDetail(null);
+            setSelectedCandidateForFiles(c);
+          }}
         />
       )}
     </div>

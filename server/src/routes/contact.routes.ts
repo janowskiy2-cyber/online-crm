@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { CloudinaryService } from '../services/cloudinary.service';
 import { SemanticSearchService } from '../services/semantic-search.service';
+import { ResumePdfService } from '../services/resume-pdf.service';
 
 export function createContactRouter(prisma: PrismaClient) {
   const router = Router();
@@ -115,7 +116,17 @@ export function createContactRouter(prisma: PrismaClient) {
         country,
         profession,
         status,
-        videoUrl
+        videoUrl,
+        experienceYears,
+        salaryExpectation,
+        skills,
+        languages,
+        driverLicense,
+        bio,
+        birthDate,
+        citizenship,
+        resumeUrl,
+        documents
       } = req.body;
 
       const inferredType = type || (country || profession || position?.toLowerCase().includes('оператор') ? 'candidate' : 'b2b_contact');
@@ -134,7 +145,17 @@ export function createContactRouter(prisma: PrismaClient) {
           country: country || null,
           profession: profession || position || null,
           status: status || 'screening',
-          videoUrl: videoUrl || null
+          videoUrl: videoUrl || null,
+          experienceYears: experienceYears !== undefined ? (experienceYears ? Number(experienceYears) : null) : null,
+          salaryExpectation: salaryExpectation || null,
+          skills: skills ? (typeof skills === 'object' ? JSON.stringify(skills) : String(skills)) : null,
+          languages: languages || null,
+          driverLicense: driverLicense || null,
+          bio: bio || null,
+          birthDate: birthDate || null,
+          citizenship: citizenship || country || null,
+          resumeUrl: resumeUrl || null,
+          documents: documents ? (typeof documents === 'object' ? JSON.stringify(documents) : String(documents)) : null
         },
         include: { company: true }
       });
@@ -250,7 +271,17 @@ export function createContactRouter(prisma: PrismaClient) {
         country,
         profession,
         status,
-        videoUrl
+        videoUrl,
+        experienceYears,
+        salaryExpectation,
+        skills,
+        languages,
+        driverLicense,
+        bio,
+        birthDate,
+        citizenship,
+        resumeUrl,
+        documents
       } = req.body;
       const updated = await prisma.contact.update({
         where: { id },
@@ -267,7 +298,17 @@ export function createContactRouter(prisma: PrismaClient) {
           country: country !== undefined ? country : undefined,
           profession: profession !== undefined ? profession : undefined,
           status: status !== undefined ? status : undefined,
-          videoUrl: videoUrl !== undefined ? videoUrl : undefined
+          videoUrl: videoUrl !== undefined ? videoUrl : undefined,
+          experienceYears: experienceYears !== undefined ? (experienceYears ? Number(experienceYears) : null) : undefined,
+          salaryExpectation: salaryExpectation !== undefined ? salaryExpectation : undefined,
+          skills: skills !== undefined ? (typeof skills === 'object' ? JSON.stringify(skills) : String(skills)) : undefined,
+          languages: languages !== undefined ? languages : undefined,
+          driverLicense: driverLicense !== undefined ? driverLicense : undefined,
+          bio: bio !== undefined ? bio : undefined,
+          birthDate: birthDate !== undefined ? birthDate : undefined,
+          citizenship: citizenship !== undefined ? citizenship : undefined,
+          resumeUrl: resumeUrl !== undefined ? resumeUrl : undefined,
+          documents: documents !== undefined ? (typeof documents === 'object' ? JSON.stringify(documents) : String(documents)) : undefined
         },
         include: { company: true }
       });
@@ -359,6 +400,61 @@ export function createContactRouter(prisma: PrismaClient) {
       res.json({ success: true, count: result.count });
     } catch (e) {
       res.status(500).json({ error: 'Failed to batch delete contacts' });
+    }
+  });
+
+  // Dynamic A4 PDF Resume generation & preview
+  router.get('/:id/resume.pdf', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const contact = await prisma.contact.findUnique({
+        where: { id },
+        include: { company: true }
+      });
+
+      if (!contact) {
+        return res.status(404).json({ error: 'Кандидата не знайдено' });
+      }
+
+      let parsedSkills: string[] = [];
+      if (contact.skills) {
+        try {
+          if (contact.skills.startsWith('[')) {
+            parsedSkills = JSON.parse(contact.skills);
+          } else {
+            parsedSkills = contact.skills.split(',').map(s => s.trim()).filter(Boolean);
+          }
+        } catch (e) {
+          parsedSkills = contact.skills.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+
+      const pdfBuffer = await ResumePdfService.generateResumeBuffer({
+        name: contact.name,
+        profession: contact.profession || contact.position || 'Кандидат / Фахівець',
+        country: contact.country || 'Україна',
+        citizenship: contact.citizenship || contact.country || 'Україна',
+        birthDate: contact.birthDate || undefined,
+        phone: contact.phone || undefined,
+        email: contact.email || undefined,
+        whatsapp: contact.whatsapp || undefined,
+        telegram: contact.telegram || undefined,
+        experienceYears: contact.experienceYears || undefined,
+        salaryExpectation: contact.salaryExpectation || undefined,
+        languages: contact.languages || undefined,
+        driverLicense: contact.driverLicense || undefined,
+        bio: contact.bio || undefined,
+        skills: parsedSkills.length > 0 ? parsedSkills : undefined
+      });
+
+      const safeName = contact.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="CV_${safeName}.pdf"`);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(pdfBuffer);
+    } catch (e: any) {
+      console.error('Failed to generate candidate resume PDF:', e);
+      res.status(500).json({ error: 'Помилка генерації PDF резюме' });
     }
   });
 
