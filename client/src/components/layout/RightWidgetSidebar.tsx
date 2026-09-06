@@ -5,7 +5,10 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Activity, 
-  Cake, 
+  Flame, 
+  Building2,
+  Briefcase,
+  Users,
   UserPlus, 
   Plus,
   Phone, 
@@ -21,13 +24,15 @@ interface RightWidgetSidebarProps {
   onOpenFeed?: () => void;
   onCallUser?: (name: string, phone: string) => void;
   onInviteColleagues?: () => void;
+  onOpenDeal?: (dealId: string) => void;
 }
 
 export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
   onOpenTasks,
   onOpenFeed,
   onCallUser,
-  onInviteColleagues
+  onInviteColleagues,
+  onOpenDeal
 }) => {
   const { currentUser } = useAuth();
   
@@ -58,8 +63,8 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
     observingNew: 0
   });
 
-  // Birthdays State (Live from DB)
-  const [birthdays, setBirthdays] = useState<any[]>([]);
+  // Hot Employer Orders & Requisitions State (Live from DB)
+  const [hotOrders, setHotOrders] = useState<any[]>([]);
 
   useEffect(() => {
     // 1. Fetch Real Announcements
@@ -89,11 +94,12 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
       })
       .catch(() => {});
 
-    // 4. Fetch Birthdays
-    api.get('/users/birthdays/list')
+    // 4. Fetch Hot Employer Requisitions & Deals
+    api.get('/deals')
       .then(res => {
         if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-          setBirthdays(res.data);
+          const sorted = [...res.data].sort((a, b) => (b.budget || 0) - (a.budget || 0));
+          setHotOrders(sorted.slice(0, 4));
         }
       })
       .catch(() => {});
@@ -269,29 +275,65 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
         </div>
       </div>
 
-      {/* 5. Birthdays Widget (Bitrix24 Style) */}
-      {birthdays.length > 0 && (
-        <div className="bitrix-widget-card">
-          <div className="bg-[#e49e3d] px-3.5 py-1.5 text-white text-[11px] font-bold uppercase tracking-wider">
-            Дни рождения
+      {/* 5. Hot Employer Orders & Requisitions Widget (B2B Recruiting Priority) */}
+      <div className="bitrix-widget-card">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-3.5 py-1.5 text-white flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Flame className="w-3.5 h-3.5 text-amber-200 fill-amber-200 animate-pulse" />
+            <span className="text-[11px] font-extrabold uppercase tracking-wider">Гарячі заявки</span>
           </div>
-          <div className="divide-y divide-white/5 bg-slate-900/90">
-            {birthdays.slice(0, 3).map((b) => (
-              <div key={b.id} className="p-3 flex items-center gap-3">
-                <img
-                  src={b.avatar || DEFAULT_ADMIN_AVATAR}
-                  alt={b.name}
-                  className="w-9 h-9 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className="font-bold text-sky-400 text-xs truncate">{b.name}</div>
-                  <div className="text-slate-400 text-[11px]">{b.birthday || b.dateStr}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <span className="text-[10px] font-mono bg-white/25 px-1.5 py-0.2 rounded font-bold">
+            {hotOrders.length}
+          </span>
         </div>
-      )}
+        <div className="divide-y divide-white/5 bg-slate-900/90">
+          {hotOrders.length > 0 ? (
+            hotOrders.map((order) => {
+              let cf: any = {};
+              try {
+                cf = typeof order.customFields === 'string' ? JSON.parse(order.customFields) : (order.customFields || {});
+              } catch (e) { cf = {}; }
+              const emp = cf.employerOrder || {};
+              const compName = order.company?.name || emp.companyName || order.title;
+              const needText = emp.headcount ? `${emp.headcount} чол.` : (emp.positions || 'Терміновий підбір');
+
+              return (
+                <div 
+                  key={order.id}
+                  onClick={() => onOpenDeal ? onOpenDeal(order.id) : (typeof window !== 'undefined' && (window.location.href = `/deals/${order.id}`))}
+                  className="p-3 hover:bg-white/5 cursor-pointer transition space-y-1 group"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-xs text-white group-hover:text-amber-300 transition truncate flex items-center gap-1.5">
+                      <Building2 className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                      <span className="truncate">{compName}</span>
+                    </span>
+                    <span className="text-emerald-400 font-mono font-bold text-[11px] flex-shrink-0">
+                      €{order.budget || 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                    <span className="text-slate-300 flex items-center gap-1 truncate">
+                      <Users className="w-3 h-3 text-cyan-400 flex-shrink-0" />
+                      <span className="truncate">{needText}</span>
+                    </span>
+                    {order.stage?.name && (
+                      <span className="px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-300 border border-blue-500/20 text-[9px] font-semibold flex-shrink-0">
+                        {order.stage.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-4 text-center text-xs text-slate-400 space-y-1">
+              <Briefcase className="w-5 h-5 text-slate-500 mx-auto" />
+              <p>Всі заявки в роботі</p>
+            </div>
+          )}
+        </div>
+      </div>
 
     </aside>
   );

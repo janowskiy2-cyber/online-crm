@@ -284,6 +284,7 @@ export function App() {
               onOpenTasks={() => navigate('/tasks')}
               onOpenFeed={() => navigate('/feed')}
               onInviteColleagues={() => setIsAdminPanelOpen(true)}
+              onOpenDeal={(dealId) => handleOpenDeal(dealId)}
               onCallUser={(name, phone) => {
                 const found = (users || []).find(u => u && (u.name === name || u.phone === phone));
                 if (found) {

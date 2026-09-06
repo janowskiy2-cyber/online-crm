@@ -37,7 +37,8 @@ import {
   Minimize2,
   Link2,
   Copy,
-  CheckSquare
+  CheckSquare,
+  Loader2
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -825,15 +826,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   };
 
   // Safe parsing of customFields and tags
-  let customFieldsObj: Record<string, string> = {};
+  let customFieldsObj: Record<string, any> = {};
   try {
-    customFieldsObj = typeof deal.customFields === 'string' ? JSON.parse(deal.customFields) : (deal.customFields || {});
+    customFieldsObj = typeof deal?.customFields === 'string' ? JSON.parse(deal.customFields) : (deal?.customFields || {});
   } catch (e) {
     customFieldsObj = {};
   }
 
   const visibleCustomFields = Object.entries(customFieldsObj).filter(
-    ([k]) => k !== 'candidates' && k !== 'paidMilestones' && k !== 'orderInfo' && k !== 'documents'
+    ([k]) => k !== 'candidates' && k !== 'paidMilestones' && k !== 'orderInfo' && k !== 'documents' && k !== 'employerOrder'
   );
 
   const handleSaveCustomField = async (e: React.FormEvent) => {
@@ -870,14 +871,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
   let tagsList: string[] = [];
   try {
-    tagsList = Array.isArray(deal.tags) ? deal.tags : (typeof deal.tags === 'string' ? JSON.parse(deal.tags) : []);
+    tagsList = Array.isArray(deal?.tags) ? deal.tags : (typeof deal?.tags === 'string' ? JSON.parse(deal.tags) : []);
   } catch (e) {
     tagsList = [];
   }
 
   const timelineItems = [
-    ...(deal.notes || []).map((n: any) => ({ ...n, itemType: 'note', timestamp: new Date(n.createdAt).getTime() })),
-    ...(deal.messages || []).map((m: any) => ({ ...m, itemType: 'message', timestamp: new Date(m.createdAt).getTime() }))
+    ...(deal?.notes || []).map((n: any) => ({ ...n, itemType: 'note', timestamp: new Date(n.createdAt).getTime() })),
+    ...(deal?.messages || []).map((m: any) => ({ ...m, itemType: 'message', timestamp: new Date(m.createdAt).getTime() }))
   ].sort((a, b) => a.timestamp - b.timestamp);
 
   interface CandidateItem {
@@ -1092,6 +1093,29 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   };
 
   const currentStages = pipeline?.stages || [];
+
+  if (!deal) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif]">
+        <div className="bg-slate-900 border border-white/15 rounded-3xl p-8 flex flex-col items-center gap-4 text-white shadow-2xl max-w-sm w-full animate-in fade-in zoom-in-95">
+          <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
+            <Loader2 className="w-7 h-7 text-blue-400 animate-spin" />
+          </div>
+          <div className="text-center space-y-1">
+            <h3 className="font-bold text-base text-white">Картка клієнта</h3>
+            <p className="text-xs text-slate-400">Синхронізація даних угоди та підприємства...</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full mt-2 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-xl border border-white/10 transition"
+          >
+            Закрити
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>

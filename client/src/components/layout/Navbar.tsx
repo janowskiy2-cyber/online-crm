@@ -213,7 +213,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }));
+      setCurrentTime(now.toLocaleTimeString('uk-UA', { 
+        timeZone: 'Europe/Kyiv', 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      }));
     };
     updateClock();
     const interval = setInterval(updateClock, 1000);
@@ -583,10 +588,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* Bitrix24 Large Digital Clock: 09:51 */}
+          {/* Bitrix24 Large Digital Clock: Kyiv Ukraine */}
           <div className="flex items-center gap-3">
-            <div className="text-2xl sm:text-3xl font-light text-white font-mono tracking-wider drop-shadow">
-              {currentTime}
+            <div className="flex flex-col items-end">
+              <div className="text-2xl sm:text-3xl font-light text-white font-mono tracking-wider drop-shadow leading-none">
+                {currentTime}
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[10px] font-bold text-amber-300 tracking-wider uppercase font-mono">
+                  🇺🇦 Київ
+                </span>
+              </div>
             </div>
 
             {/* Bitrix24 Workday Status Capsule */}

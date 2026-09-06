@@ -106,6 +106,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [isSavingDeal, setIsSavingDeal] = useState(false);
   const [saveDealSuccess, setSaveDealSuccess] = useState(false);
 
+  // Prospect employer requisition state (before official catalog promotion upon payment)
+  const [editEmployerName, setEditEmployerName] = useState('');
+  const [editEmployerIndustry, setEditEmployerIndustry] = useState('');
+  const [editEmployerHeadcount, setEditEmployerHeadcount] = useState('');
+  const [editEmployerPositions, setEditEmployerPositions] = useState('');
+  const [editEmployerLocation, setEditEmployerLocation] = useState('');
+  const [editEmployerSalary, setEditEmployerSalary] = useState('');
+  const [isPromotingCompany, setIsPromotingCompany] = useState(false);
+  const [companyPromoteSuccess, setCompanyPromoteSuccess] = useState<string | null>(null);
+
   // Quick notes state
   const [dealNoteInput, setDealNoteInput] = useState('');
   const [isAddingDealNote, setIsAddingDealNote] = useState(false);
@@ -406,6 +416,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       setEditContactPhone(activeDeal.contact?.phone || activeDialog?.phoneOrId || '');
       setEditContactEmail(activeDeal.contact?.email || '');
       setEditCompanyId(activeDeal.companyId || '');
+
+      let cf: any = {};
+      try {
+        cf = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields) : (activeDeal.customFields || {});
+      } catch (e) { cf = {}; }
+
+      const emp = cf.employerOrder || {};
+      setEditEmployerName(emp.companyName || activeDeal.company?.name || '');
+      setEditEmployerIndustry(emp.industry || '');
+      setEditEmployerHeadcount(emp.headcount || '');
+      setEditEmployerPositions(emp.positions || '');
+      setEditEmployerLocation(emp.location || activeDeal.company?.address || '');
+      setEditEmployerSalary(emp.salary || '');
     } else if (activeDialog) {
       setEditTitle(`Угода: ${activeDialog.senderName}`);
       setEditBudget(1000);
@@ -413,6 +436,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       setEditContactPhone(activeDialog.phoneOrId);
       setEditContactEmail('');
       setEditCompanyId('');
+      setEditEmployerName('');
+      setEditEmployerIndustry('');
+      setEditEmployerHeadcount('');
+      setEditEmployerPositions('');
+      setEditEmployerLocation('');
+      setEditEmployerSalary('');
     }
   }, [activeDeal?.id, activeDialog?.key]);
 
@@ -567,10 +596,29 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     if (!activeDeal) return;
     setIsSavingDeal(true);
     try {
+      let cf: any = {};
+      try {
+        cf = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields) : (activeDeal.customFields || {});
+      } catch (e) { cf = {}; }
+
+      const updatedCustomFields = {
+        ...cf,
+        employerOrder: {
+          ...(cf.employerOrder || {}),
+          companyName: editEmployerName,
+          industry: editEmployerIndustry,
+          headcount: editEmployerHeadcount,
+          positions: editEmployerPositions,
+          location: editEmployerLocation,
+          salary: editEmployerSalary
+        }
+      };
+
       const res = await api.put(`/deals/${activeDeal.id}`, {
         title: editTitle,
         budget: Number(editBudget) || 0,
         companyId: editCompanyId || null,
+        customFields: JSON.stringify(updatedCustomFields),
         contactData: {
           name: editContactName,
           phone: editContactPhone,
@@ -586,6 +634,70 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       alert('Помилка збереження картки угоди');
     } finally {
       setIsSavingDeal(false);
+    }
+  };
+
+  const handlePromoteToOfficialCompany = async () => {
+    if (!activeDeal) return;
+    const compName = editEmployerName.trim() || activeDeal.title;
+    if (!compName) {
+      alert('Будь ласка, вкажіть назву підприємства перед внесенням до бази');
+      return;
+    }
+    setIsPromotingCompany(true);
+    try {
+      // 1. Create company in official catalog
+      const compRes = await api.post('/companies', {
+        name: compName,
+        address: editEmployerLocation.trim() || undefined,
+        phone: editContactPhone.trim() || undefined,
+        email: editContactEmail.trim() || undefined,
+        notes: `Сфера діяльності: ${editEmployerIndustry || 'Не вказано'}\nПотреба у персоналі: ${editEmployerHeadcount || 'Не вказано'}\nПосади: ${editEmployerPositions || 'Не вказано'}\nСтавка: ${editEmployerSalary || 'Не вказано'}\n(Створено з ліда після підтвердження оплати)`
+      });
+
+      const newCompanyId = compRes.data?.id;
+
+      // 2. Link deal to this newly created company
+      let cf: any = {};
+      try {
+        cf = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields) : (activeDeal.customFields || {});
+      } catch (e) { cf = {}; }
+
+      const updatedCustomFields = {
+        ...cf,
+        employerOrder: {
+          companyName: compName,
+          industry: editEmployerIndustry,
+          headcount: editEmployerHeadcount,
+          positions: editEmployerPositions,
+          location: editEmployerLocation,
+          salary: editEmployerSalary,
+          isOfficial: true,
+          officialCompanyId: newCompanyId
+        }
+      };
+
+      const dealRes = await api.put(`/deals/${activeDeal.id}`, {
+        companyId: newCompanyId,
+        customFields: JSON.stringify(updatedCustomFields)
+      });
+
+      // 3. Add system note to deal
+      await api.post(`/deals/${activeDeal.id}/notes`, {
+        content: `💎 Підприємство "${compName}" офіційно внесено до реєстру роботодавців CRM після отримання оплати (Сфера: ${editEmployerIndustry || '-'}, Потреба: ${editEmployerHeadcount || '-'}).`,
+        type: 'status_change'
+      }).catch(() => {});
+
+      setActiveDeal(dealRes.data);
+      setEditCompanyId(newCompanyId);
+      setCompanies(prev => [compRes.data, ...prev.filter(c => c.id !== newCompanyId)]);
+      setCompanyPromoteSuccess(`Підприємство "${compName}" успішно внесено до офіційного реєстру роботодавців!`);
+      setTimeout(() => setCompanyPromoteSuccess(null), 4000);
+    } catch (err: any) {
+      console.error('Failed to promote company:', err);
+      alert(err?.response?.data?.error || 'Помилка створення підприємства в базі');
+    } finally {
+      setIsPromotingCompany(false);
     }
   };
 
@@ -882,20 +994,21 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                             ? 'bg-blue-600 text-white shadow-blue-600/30' 
                             : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30'
                         }`}
-                        title={isDealPanelOpen ? "Приховати панель картки" : "Відкрити панель картки клієнта"}
+                        title={isDealPanelOpen ? "Приховати бічну панель картки" : "Відкрити бічну панель картки клієнта"}
                       >
                         <UserIcon className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{isDealPanelOpen ? 'Картка відкрита' : 'Картка клієнта'}</span>
-                        <span className="sm:hidden">Картка</span>
+                        <span className="hidden sm:inline">{isDealPanelOpen ? 'Панель відкрита' : 'Картка клієнта'}</span>
+                        <span className="sm:hidden">Панель</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setModalDealId(activeDeal.id)}
-                        className="p-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition"
-                        title="Розгорнути повне модальне вікно угоди"
+                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm active:scale-95"
+                        title="Відкрити повну картку клієнта у модальному вікні"
                       >
-                        <Maximize2 className="w-3.5 h-3.5" />
+                        <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="hidden md:inline">Повна картка ↗</span>
                       </button>
                     </div>
                   ) : (
@@ -1447,38 +1560,24 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Бюджет (€)</label>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Бюджет угоди (€)</label>
                           <input
                             type="number"
                             value={editBudget}
                             onChange={(e) => setEditBudget(e.target.value)}
-                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500 font-mono"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Підприємство</label>
-                          <select
-                            value={editCompanyId}
-                            onChange={(e) => setEditCompanyId(e.target.value)}
-                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                          >
-                            <option value="">-- Без компанії --</option>
-                            {companies.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Контактна особа</label>
+                          <input
+                            type="text"
+                            value={editContactName}
+                            onChange={(e) => setEditContactName(e.target.value)}
+                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                          />
                         </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Контактна особа (ПІБ)</label>
-                        <input
-                          type="text"
-                          value={editContactName}
-                          onChange={(e) => setEditContactName(e.target.value)}
-                          className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -1501,6 +1600,155 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                             className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
                           />
                         </div>
+                      </div>
+
+                      {/* Employer Requisition / Prospect Company Section */}
+                      <div className="p-3 bg-slate-900/95 border border-purple-500/30 rounded-2xl space-y-2.5 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-extrabold text-purple-300 flex items-center gap-1.5 uppercase tracking-wider">
+                            <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                            Підприємство & Заявка
+                          </span>
+                          {activeDeal.company ? (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              Офіційне в базі
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold flex items-center gap-1" title="Підприємство вноситься в офіційний реєстр після оплати">
+                              <Clock className="w-2.5 h-2.5" />
+                              Попереднє (до оплати)
+                            </span>
+                          )}
+                        </div>
+
+                        {companyPromoteSuccess && (
+                          <div className="p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-bold animate-in fade-in">
+                            ✅ {companyPromoteSuccess}
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-300 mb-0.5">
+                            Назва підприємства / заводу
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="ТОВ 'Агро-Пром' / Budimex..."
+                            value={editEmployerName}
+                            onChange={(e) => setEditEmployerName(e.target.value)}
+                            className="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-300 mb-0.5">
+                              Чим займається (сфера)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Агро / Метал / Логістика..."
+                              value={editEmployerIndustry}
+                              onChange={(e) => setEditEmployerIndustry(e.target.value)}
+                              className="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-300 mb-0.5">
+                              Скільки людей потрібно
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="10 зварювальників..."
+                              value={editEmployerHeadcount}
+                              onChange={(e) => setEditEmployerHeadcount(e.target.value)}
+                              className="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-cyan-300 font-bold placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-300 mb-0.5">
+                              Посади / Вакансії
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Монтажники, токарі..."
+                              value={editEmployerPositions}
+                              onChange={(e) => setEditEmployerPositions(e.target.value)}
+                              className="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-300 mb-0.5">
+                              Локація / Країна
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Польща / Україна..."
+                              value={editEmployerLocation}
+                              onChange={(e) => setEditEmployerLocation(e.target.value)}
+                              className="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-300 mb-0.5">
+                            Ставка / Оплата для працівників
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="25-28 PLN/год / 1200€..."
+                            value={editEmployerSalary}
+                            onChange={(e) => setEditEmployerSalary(e.target.value)}
+                            className="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-emerald-300 placeholder-slate-500 focus:outline-none focus:border-purple-400"
+                          />
+                        </div>
+
+                        {/* Action buttons for Company */}
+                        {!activeDeal.companyId ? (
+                          <div className="pt-1.5 space-y-1.5">
+                            <button
+                              type="button"
+                              onClick={handlePromoteToOfficialCompany}
+                              disabled={isPromotingCompany || !editEmployerName.trim()}
+                              className="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-purple-900/30 active:scale-95 disabled:opacity-50"
+                              title="Внести дані до офіційного реєстру підприємств після підтвердження оплати"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                              <span>{isPromotingCompany ? 'Внесення...' : '💎 Внести в офіційні підприємства (Оплачено)'}</span>
+                            </button>
+                            <div className="flex items-center justify-between gap-1 text-[10px] text-slate-400 pt-0.5">
+                              <span>Або пов'язати з існуючим:</span>
+                              <select
+                                value={editCompanyId}
+                                onChange={(e) => setEditCompanyId(e.target.value)}
+                                className="bg-slate-800 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none cursor-pointer max-w-[150px] truncate"
+                              >
+                                <option value="">-- Без компанії --</option>
+                                {companies.map(c => (
+                                  <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="pt-1 flex items-center justify-between text-[11px] text-emerald-400 bg-emerald-950/20 border border-emerald-500/20 p-2 rounded-xl">
+                            <span className="font-semibold truncate">
+                              Офіційно: <strong className="text-white">{activeDeal.company?.name}</strong>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setEditCompanyId('')}
+                              className="text-[10px] text-slate-400 hover:text-rose-400 underline ml-2 flex-shrink-0"
+                            >
+                              Відкріпити
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <button
