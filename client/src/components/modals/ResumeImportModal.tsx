@@ -28,6 +28,7 @@ interface ResumeImportModalProps {
   onClose: () => void;
   companies: Company[];
   onSuccess: () => void;
+  initialTab?: 'batch' | 'single';
 }
 
 interface BatchItem {
@@ -45,10 +46,17 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
   isOpen,
   onClose,
   companies,
-  onSuccess
+  onSuccess,
+  initialTab = 'batch'
 }) => {
   // Mode: Batch (Multi-file) vs Single
-  const [activeTab, setActiveTab] = useState<'batch' | 'single'>('batch');
+  const [activeTab, setActiveTab] = useState<'batch' | 'single'>(initialTab);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // Batch Multi-file state
   const [batchFiles, setBatchFiles] = useState<BatchItem[]>([]);

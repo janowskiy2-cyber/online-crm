@@ -20,6 +20,10 @@ model User {
   isActive    Boolean  @default(true)
   isDeleted   Boolean  @default(false)
   deletedAt   DateTime?
+  lastActiveAt        DateTime?
+  onlineMinutesToday  Int      @default(0)
+  onlineMinutesWeek   Int      @default(0)
+  lastPresenceDate    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

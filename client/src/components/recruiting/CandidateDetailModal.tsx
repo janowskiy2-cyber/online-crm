@@ -37,6 +37,7 @@ interface CandidateDetailModalProps {
   companies: Company[];
   onUpdateCandidate: (updated: Contact) => void;
   onOpenFilesModal?: (candidate: Contact) => void;
+  initialTab?: 'overview' | 'resume' | 'documents' | 'employer';
 }
 
 export const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
@@ -45,9 +46,16 @@ export const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
   candidate,
   companies,
   onUpdateCandidate,
-  onOpenFilesModal
+  onOpenFilesModal,
+  initialTab = 'overview'
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'resume' | 'documents' | 'employer'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'resume' | 'documents' | 'employer'>(initialTab);
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);

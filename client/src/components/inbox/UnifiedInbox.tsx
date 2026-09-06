@@ -541,24 +541,41 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 <div
                   key={d.key}
                   onClick={() => setSelectedChatKey(d.key)}
-                  className={`p-3.5 cursor-pointer transition flex items-start gap-3 ${
-                    isActive ? 'bg-[#1a233a] border-l-4 border-blue-500' : 'hover:bg-slate-900/60'
+                  className={`p-3.5 cursor-pointer transition-all duration-150 flex items-start gap-3 relative group ${
+                    isActive 
+                      ? 'bg-gradient-to-r from-blue-600/20 via-indigo-600/15 to-transparent border-l-4 border-blue-500 shadow-md' 
+                      : 'hover:bg-slate-800/50'
                   }`}
                 >
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs flex-shrink-0 ${
-                    isWA ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                  }`}>
-                    {isWA ? 'WA' : 'TG'}
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-xs shadow-md transition-transform group-hover:scale-105 ${
+                      isWA 
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-emerald-900/30 border border-emerald-400/30' 
+                        : 'bg-gradient-to-br from-sky-400 to-blue-600 text-white shadow-sky-900/30 border border-sky-300/30'
+                    }`}>
+                      {isWA ? 'WA' : 'TG'}
+                    </div>
+                    {/* Live pulse indicator */}
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900 shadow-sm" />
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-xs text-white truncate">{d.senderName}</h4>
-                      <span className="text-[10px] text-slate-500">
+                    <div className="flex items-center justify-between gap-1">
+                      <h4 className="font-bold text-xs text-white truncate group-hover:text-blue-300 transition">
+                        {d.senderName}
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-mono flex-shrink-0">
                         {new Date(d.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 truncate mt-0.5">{d.lastMessage.text}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase tracking-wider ${
+                        isWA ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-sky-500/15 text-sky-400 border border-sky-500/20'
+                      }`}>
+                        {isWA ? 'WhatsApp' : 'Telegram'}
+                      </span>
+                      <p className="text-xs text-slate-400 truncate flex-1">{d.lastMessage.text}</p>
+                    </div>
                   </div>
                 </div>
               );
@@ -586,15 +603,28 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     <ArrowLeft className="w-4 h-4" />
                   </button>
 
-                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-2xl flex items-center justify-center font-bold text-xs flex-shrink-0 ${
-                    activeDialog.channel === 'whatsapp' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                  }`}>
-                    {activeDialog.channel === 'whatsapp' ? 'WA' : 'TG'}
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center font-black text-xs shadow-md ${
+                      activeDialog.channel === 'whatsapp' 
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-emerald-900/30 border border-emerald-400/30' 
+                        : 'bg-gradient-to-br from-sky-400 to-blue-600 text-white shadow-sky-900/30 border border-sky-300/30'
+                    }`}>
+                      {activeDialog.channel === 'whatsapp' ? 'WA' : 'TG'}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900 shadow-sm" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-bold text-xs sm:text-sm text-white truncate">{activeDialog.senderName}</h3>
-                    <div className="text-[10px] sm:text-[11px] text-slate-400 truncate">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-xs sm:text-sm text-white truncate">{activeDialog.senderName}</h3>
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>В мережі</span>
+                      </span>
+                    </div>
+                    <div className="text-[10px] sm:text-[11px] text-slate-400 truncate flex items-center gap-1.5 font-mono">
                       <span>{activeDialog.phoneOrId}</span>
+                      <span>•</span>
+                      <span className="text-slate-500 uppercase">{activeDialog.channel}</span>
                     </div>
                   </div>
                 </div>
@@ -620,7 +650,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       phone: activeDialog.phoneOrId,
                       type: activeDialog.channel === 'whatsapp' ? 'whatsapp' : 'telegram'
                     })}
-                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
                     title="Зателефонувати в 1 клік"
                   >
                     <Phone className="w-3.5 h-3.5" />
@@ -630,7 +660,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   {activeDialog.dealId ? (
                     <button
                       onClick={() => onOpenDeal(activeDialog.dealId!)}
-                      className="px-2.5 py-1.5 sm:px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition flex-shrink-0"
+                      className="px-2.5 py-1.5 sm:px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition flex-shrink-0 shadow-sm"
                     >
                       <span className="hidden sm:inline">Картка</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -726,10 +756,14 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     key={m.id}
                     className={`flex flex-col group/msg ${isOut ? 'items-end' : 'items-start'}`}
                   >
-                    <div className="flex items-center gap-1.5 mb-1 text-[10px] text-slate-500">
-                      <span>{isOut ? 'Менеджер' : (m.senderName || activeDialog.senderName)}</span>
-                      <span>•</span>
-                      <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <div className={`flex items-center gap-1.5 mb-1 text-[10px] ${isOut ? 'justify-end' : 'justify-start'}`}>
+                      <span className={`font-semibold ${isOut ? 'text-blue-400' : 'text-slate-300'}`}>
+                        {isOut ? 'Менеджер CRM' : (m.senderName || activeDialog.senderName)}
+                      </span>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-500 font-mono">
+                        {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
 
                     {isVoice ? (
@@ -742,14 +776,14 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         />
                       </div>
                     ) : isVideo && m.mediaUrl ? (
-                      <div className="max-w-xs sm:max-w-sm rounded-2xl overflow-hidden border border-slate-700 bg-black shadow-xl">
+                      <div className="max-w-xs sm:max-w-sm rounded-2xl overflow-hidden border border-slate-700/80 bg-black shadow-2xl">
                         <video
                           controls
                           preload="metadata"
                           src={m.mediaUrl}
                           className="w-full max-h-64 object-contain bg-black rounded-t-2xl"
                         />
-                        <div className="p-2.5 bg-slate-900 flex items-center justify-between text-xs text-slate-300 border-t border-slate-800">
+                        <div className="p-2.5 bg-slate-900/95 flex items-center justify-between text-xs text-slate-300 border-t border-slate-800">
                           <div className="flex items-center gap-1.5 truncate">
                             <Video className="w-4 h-4 text-rose-400 flex-shrink-0" />
                             <span className="truncate font-medium">{m.text?.replace(/^🎥\s*/, '') || 'Відео'}</span>
@@ -767,7 +801,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     ) : isImage && m.mediaUrl ? (
                       <div
                         onClick={() => setViewingMedia({ url: m.mediaUrl, type: 'image', title: 'Фото' })}
-                        className="cursor-pointer max-w-xs rounded-2xl overflow-hidden border border-slate-700 shadow-md hover:opacity-90 transition"
+                        className="cursor-pointer max-w-xs rounded-2xl overflow-hidden border border-slate-700/80 shadow-lg hover:opacity-90 transition"
                       >
                         <img src={m.mediaUrl} alt="Зображення" className="w-full object-cover max-h-48" />
                       </div>
@@ -783,14 +817,20 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                               });
                             }
                           }}
-                          className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed select-text cursor-text ${
+                          className={`p-3.5 rounded-2xl text-xs leading-relaxed select-text cursor-text shadow-lg ${
                             isOut
-                              ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-600/20'
-                              : 'bg-[#141b2d] text-slate-100 border border-slate-800 rounded-tl-none'
-                          } ${isFile ? 'border-2 border-amber-400/40 font-semibold cursor-pointer hover:bg-slate-800/80 transition flex items-center gap-2' : ''}`}
+                              ? 'bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-600 text-white rounded-tr-xs shadow-blue-900/25 border border-blue-400/25'
+                              : 'bg-slate-800/90 text-slate-100 backdrop-blur-md border border-white/10 rounded-tl-xs shadow-black/20'
+                          } ${isFile ? 'border-2 border-amber-400/50 font-semibold cursor-pointer hover:bg-slate-800 transition flex items-center gap-2' : ''}`}
                         >
                           {isFile && <FileText className="w-4 h-4 text-amber-400 flex-shrink-0" />}
-                          <span className="select-text whitespace-pre-wrap">{m.text}</span>
+                          <p className="select-text whitespace-pre-wrap">{m.text}</p>
+                          <div className={`flex items-center justify-end gap-1 mt-1.5 text-[10px] font-mono ${
+                            isOut ? 'text-blue-200/90' : 'text-slate-400'
+                          }`}>
+                            <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {isOut && <CheckCheck className="w-3.5 h-3.5 text-blue-200 ml-0.5" />}
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -828,7 +868,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             )}
 
             {/* In-Chat Voice Recorder Bar OR Regular Text/File Form */}
-            <div className="p-3 sm:p-3.5 border-t border-slate-800 bg-[#0e1320] space-y-2">
+            <div className="p-3 sm:p-3.5 border-t border-white/10 bg-[#0a0f1d]/95 backdrop-blur-2xl space-y-2">
               {isVoiceRecording ? (
                 <VoiceRecorder
                   onSendVoice={handleSendVoiceNote}

@@ -22,23 +22,30 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
   onOpenMessenger,
   onSelectColleague
 }) => {
-  const { currentUser, users } = useAuth();
+  const { currentUser, users, presence } = useAuth();
 
-  // Load real colleagues from DB users (excluding current user)
+  // Load real colleagues from DB users with LIVE presence from backend
   const activeColleagues = users && users.length > 0
     ? users
         .filter(u => u.id !== currentUser?.id)
-        .slice(0, 6)
-        .map(u => ({
-          id: u.id,
-          name: u.name,
-          role: u.role,
-          department: u.department,
-          email: u.email,
-          phone: u.phone || '+380',
-          status: (u.isActive ? 'online' : 'busy') as 'online' | 'busy' | 'offline',
-          avatar: u.avatar || DEFAULT_ADMIN_AVATAR
-        }))
+        .slice(0, 8)
+        .map(u => {
+          const userPres = presence[u.id];
+          const status = userPres ? userPres.status : 'offline';
+          return {
+            id: u.id,
+            name: u.name,
+            role: u.role,
+            department: u.department,
+            email: u.email,
+            phone: u.phone || '+380',
+            status: status as 'online' | 'away' | 'offline',
+            todayTimeFormatted: userPres?.todayTimeFormatted || '0 хв',
+            weekTimeFormatted: userPres?.weekTimeFormatted || '0 хв',
+            todayMinutes: userPres?.todayMinutes || 0,
+            avatar: u.avatar || DEFAULT_ADMIN_AVATAR
+          };
+        })
     : [];
 
   return (
@@ -55,33 +62,59 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
 
         <div className="w-6 h-[1px] bg-white/10" />
 
-        {/* Online Colleagues Avatars Stack */}
+        {/* Online Colleagues Avatars Stack with REAL Presence */}
         <div className="flex flex-col items-center gap-2.5">
-          {activeColleagues.map((colleague) => (
-            <div
-              key={colleague.id}
-              onClick={() => onSelectColleague && onSelectColleague(colleague)}
-              className="relative group cursor-pointer"
-              title={`Картка співробітника: ${colleague.name} (${colleague.role})`}
-            >
-              <img
-                src={colleague.avatar}
-                alt={colleague.name}
-                className="w-9 h-9 rounded-full object-cover border-2 border-white/20 hover:border-blue-400 transition transform group-hover:scale-105"
-              />
-              <span 
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#0e1424] ${
-                  colleague.status === 'online' ? 'bg-emerald-400' : 'bg-amber-400'
-                }`}
-              />
+          {activeColleagues.map((colleague) => {
+            const isOnline = colleague.status === 'online';
+            const isAway = colleague.status === 'away';
+            return (
+              <div
+                key={colleague.id}
+                onClick={() => onSelectColleague && onSelectColleague(colleague)}
+                className="relative group cursor-pointer"
+                title={`${colleague.name} (${colleague.role}) — ${isOnline ? '🟢 Онлайн' : isAway ? '🟡 Відійшов' : '⚪ Офлайн'}`}
+              >
+                <img
+                  src={colleague.avatar}
+                  alt={colleague.name}
+                  className={`w-9 h-9 rounded-full object-cover border-2 transition transform group-hover:scale-105 ${
+                    isOnline 
+                      ? 'border-emerald-400 shadow-sm shadow-emerald-400/30' 
+                      : isAway 
+                        ? 'border-amber-400/80' 
+                        : 'border-white/20 opacity-70 group-hover:opacity-100'
+                  }`}
+                />
+                <span 
+                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#0e1424] ${
+                    isOnline 
+                      ? 'bg-emerald-400 shadow-sm shadow-emerald-400/60 animate-pulse' 
+                      : isAway 
+                        ? 'bg-amber-400' 
+                        : 'bg-slate-500'
+                  }`}
+                />
 
-              {/* Hover Tooltip Popup */}
-              <div className="absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-2 px-2.5 py-1.5 bg-slate-900/95 border border-white/15 rounded-xl shadow-2xl backdrop-blur-xl whitespace-nowrap z-50 animate-in fade-in zoom-in-95">
-                <span className="text-xs font-bold text-white">{colleague.name}</span>
-                <span className="text-[10px] text-slate-400">({colleague.role})</span>
+                {/* Hover Tooltip Popup with Real Workday Stats */}
+                <div className="absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover:flex flex-col gap-1 px-3 py-2 bg-slate-900/95 border border-white/15 rounded-xl shadow-2xl backdrop-blur-xl whitespace-nowrap z-50 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white">{colleague.name}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                      isOnline ? 'bg-emerald-500/20 text-emerald-400' : isAway ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {isOnline ? 'Онлайн' : isAway ? 'Відійшов' : 'Офлайн'}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    Посада: <span className="text-slate-200">{colleague.role}</span>
+                  </div>
+                  <div className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 border-t border-white/10 pt-1 mt-0.5">
+                    ⏱️ Сьогодні в CRM: <span className="font-bold text-white">{colleague.todayTimeFormatted}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

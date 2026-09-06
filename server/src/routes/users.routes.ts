@@ -39,6 +39,10 @@ const userSafeSelect = {
   isActive: true,
   isDeleted: true,
   deletedAt: true,
+  lastActiveAt: true,
+  onlineMinutesToday: true,
+  onlineMinutesWeek: true,
+  lastPresenceDate: true,
   createdAt: true,
   updatedAt: true,
   canViewAllDeals: true,
@@ -52,6 +56,130 @@ const userSafeSelect = {
 
 export function createUsersRouter(prisma: PrismaClient) {
   const router = Router();
+
+  // Heartbeat to track live presence and active workday time
+  router.post('/heartbeat', async (req: AuthRequest, res) => {
+    try {
+      const userId = req.userId;
+      if (!userId) return res.status(401).json({ error: 'Не авторизовано' });
+
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { lastActiveAt: true, onlineMinutesToday: true, onlineMinutesWeek: true, lastPresenceDate: true }
+      });
+
+      if (!user) return res.status(404).json({ error: 'Користувач не знайдений' });
+
+      let addMinute = 0;
+      if (user.lastActiveAt) {
+        const diffSec = (now.getTime() - new Date(user.lastActiveAt).getTime()) / 1000;
+        if (diffSec >= 20 && diffSec <= 150) {
+          addMinute = 1;
+        }
+      }
+
+      const isNewDay = user.lastPresenceDate !== todayStr;
+      const newToday = isNewDay ? 1 : (user.onlineMinutesToday + addMinute);
+      const newWeek = isNewDay && now.getDay() === 1 ? 1 : (user.onlineMinutesWeek + addMinute);
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          lastActiveAt: now,
+          onlineMinutesToday: newToday,
+          onlineMinutesWeek: newWeek,
+          lastPresenceDate: todayStr
+        }
+      });
+
+      res.json({ success: true, status: 'online', todayMinutes: newToday });
+    } catch (e) {
+      res.status(500).json({ error: 'Heartbeat error' });
+    }
+  });
+
+  // Get live presence status & productivity metrics for all team members
+  router.get('/presence', async (req, res) => {
+    try {
+      const users = await prisma.user.findMany({
+        where: { isDeleted: false, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          department: true,
+          avatar: true,
+          lastActiveAt: true,
+          onlineMinutesToday: true,
+          onlineMinutesWeek: true,
+          lastPresenceDate: true,
+          workShifts: {
+            take: 1,
+            orderBy: { startTime: 'desc' },
+            select: { status: true, startTime: true }
+          },
+          _count: {
+            select: {
+              deals: { where: { isDeleted: false } },
+              tasks: { where: { isDeleted: false } }
+            }
+          }
+        }
+      });
+
+      const now = Date.now();
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      const result: Record<string, any> = {};
+      for (const u of users) {
+        let status: 'online' | 'away' | 'offline' = 'offline';
+        if (u.lastActiveAt) {
+          const diffMs = now - new Date(u.lastActiveAt).getTime();
+          if (diffMs <= 2.5 * 60 * 1000) {
+            status = 'online';
+          } else if (diffMs <= 10 * 60 * 1000) {
+            status = 'away';
+          }
+        }
+
+        const isToday = u.lastPresenceDate === todayStr;
+        const todayMinutes = isToday ? (u.onlineMinutesToday || 0) : 0;
+        const weekMinutes = u.onlineMinutesWeek || 0;
+
+        const formatTime = (mins: number) => {
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          if (h === 0) return `${m} хв`;
+          return `${h} год ${m} хв`;
+        };
+
+        const activeShift = u.workShifts && u.workShifts.length > 0 ? u.workShifts[0] : null;
+
+        result[u.id] = {
+          userId: u.id,
+          name: u.name,
+          role: u.role,
+          department: u.department,
+          status,
+          lastActiveAt: u.lastActiveAt,
+          todayMinutes,
+          todayTimeFormatted: formatTime(todayMinutes),
+          weekMinutes,
+          weekTimeFormatted: formatTime(weekMinutes),
+          shiftStatus: activeShift ? activeShift.status : 'stopped',
+          dealsCount: u._count.deals,
+          tasksCount: u._count.tasks
+        };
+      }
+
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch presence' });
+    }
+  });
 
   // Get all active users (Safe select, no password hashes)
   router.get('/', async (req, res) => {

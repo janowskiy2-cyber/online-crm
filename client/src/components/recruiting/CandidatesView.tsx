@@ -43,12 +43,15 @@ export const CandidatesView: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterEmployerId, setFilterEmployerId] = useState('all');
   const [filterCountry, setFilterCountry] = useState('all');
+  const [filterProfession, setFilterProfession] = useState('all');
+  const [resumeTab, setResumeTab] = useState<'batch' | 'single'>('batch');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
   const [selectedCandidateForFiles, setSelectedCandidateForFiles] = useState<Contact | null>(null);
   const [selectedCandidateForDetail, setSelectedCandidateForDetail] = useState<Contact | null>(null);
+  const [candidateDetailTab, setCandidateDetailTab] = useState<'overview' | 'resume' | 'documents' | 'employer'>('overview');
 
   const handleUpdateCandidate = (updated: Contact) => {
     setCandidates(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
@@ -287,6 +290,11 @@ export const CandidatesView: React.FC = () => {
     if (filterCountry !== 'all') {
       if ((cand as any).country !== filterCountry) return false;
     }
+    if (filterProfession !== 'all') {
+      const candAny = cand as any;
+      const profText = `${cand.position || ''} ${candAny.profession || ''} ${Array.isArray(candAny.skills) ? candAny.skills.join(' ') : (candAny.skills || '')}`.toLowerCase();
+      if (!profText.includes(filterProfession.toLowerCase())) return false;
+    }
     return true;
   });
 
@@ -343,12 +351,28 @@ export const CandidatesView: React.FC = () => {
               </button>
 
               <button
-                onClick={() => setIsResumeModalOpen(true)}
+                onClick={() => {
+                  setResumeTab('batch');
+                  setIsResumeModalOpen(true);
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 transition shadow-lg shadow-orange-500/25 active:scale-95 border border-amber-400/40"
+                title="Масове завантаження до 20 резюме у форматі PDF/DOCX"
+              >
+                <Layers className="w-4 h-4 text-amber-100" />
+                <span>⚡ Масовий імпорт резюме</span>
+                <span className="px-1.5 py-0.5 bg-black/30 text-[10px] rounded-md font-mono text-amber-200">до 20 PDF</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setResumeTab('single');
+                  setIsResumeModalOpen(true);
+                }}
                 className="px-3.5 py-2 bg-gradient-to-r from-purple-600/25 to-indigo-600/25 hover:from-purple-600/40 hover:to-indigo-600/40 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-purple-600/20"
-                title="Автоматично розпізнати кандидата з тексту резюме або файлу PDF"
+                title="ШІ-скринінг окремого резюме або тексту"
               >
                 <Sparkles className="w-4 h-4 text-purple-300" />
-                <span>✨ ШІ-Парсинг резюме</span>
+                <span>✨ ШІ-Скринінг</span>
               </button>
 
               <button
@@ -420,19 +444,82 @@ export const CandidatesView: React.FC = () => {
 
         {/* Country Filter Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mr-1 flex-shrink-0">
+            <Globe2 className="w-3.5 h-3.5 text-emerald-400" /> Країна:
+          </span>
           {['all', 'Узбекистан', 'Індія', 'Туреччина', 'Бангладеш', 'Філіппіни', 'Непал'].map(c => (
             <button
               key={c}
               onClick={() => setFilterCountry(c)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition border ${
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition border flex-shrink-0 ${
                 filterCountry === c
                   ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                  : 'bg-slate-900/60 text-slate-300 border-white/10 hover:border-white/20'
+                  : 'bg-slate-900/60 text-slate-300 border-white/10 hover:border-white/20 hover:text-white'
               }`}
             >
               {c === 'all' ? 'Всі країни' : c}
             </button>
           ))}
+        </div>
+
+        {/* Profession Filter Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mr-1 flex-shrink-0">
+            <Briefcase className="w-3.5 h-3.5 text-blue-400" /> Професія:
+          </span>
+          {[
+            { id: 'all', label: 'Всі професії' },
+            { id: 'водій', label: '🚛 Водії (B, C, CE)' },
+            { id: 'зварювальник', label: '⚡ Зварювальники' },
+            { id: 'оператор', label: '📦 Оператори / Склад' },
+            { id: 'будівельник', label: '🏗️ Будівельники' },
+            { id: 'електрик', label: '💡 Електрики' },
+            { id: 'кухар', label: '👨‍🍳 Кухарі / HoReCa' },
+            { id: 'монтажник', label: '🔩 Монтажники' },
+            { id: 'арматурник', label: '🧱 Арматурники' },
+            { id: 'різноробочий', label: '🛠️ Різноробочі' }
+          ].map(p => (
+            <button
+              key={p.id}
+              onClick={() => setFilterProfession(p.id)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition border flex-shrink-0 ${
+                filterProfession === p.id
+                  ? 'bg-blue-600 text-white border-blue-400 shadow-sm shadow-blue-500/30'
+                  : 'bg-slate-900/70 text-slate-300 border-white/10 hover:border-white/20 hover:text-white'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Batch Drag & Drop Upload Banner */}
+        <div 
+          onClick={() => { setResumeTab('batch'); setIsResumeModalOpen(true); }}
+          className="border-2 border-dashed border-amber-500/30 hover:border-amber-400/70 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-slate-900/60 p-3.5 rounded-2xl flex items-center justify-between cursor-pointer transition-all group shadow-sm hover:shadow-amber-500/10 backdrop-blur-xl"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center group-hover:scale-110 transition shadow-inner flex-shrink-0">
+              <Upload className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-black text-white flex items-center gap-2">
+                <span>⚡ Масовий імпорт резюме кандидатів</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/25 text-amber-300 font-extrabold uppercase border border-amber-500/30">
+                  Пакетний режим до 20 PDF
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Натисніть сюди або перетягніть файли PDF / DOCX — ШІ автоматично розпізнає контакти, досвід, категорію прав та збереже кандидатів у базу.
+              </p>
+            </div>
+          </div>
+          <button 
+            type="button"
+            className="hidden sm:inline-flex px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs transition shadow-md group-hover:shadow-amber-500/30"
+          >
+            Завантажити пачку
+          </button>
         </div>
 
         {/* Batch Selection Header Toolbar */}
@@ -506,7 +593,10 @@ export const CandidatesView: React.FC = () => {
               return (
                 <div
                   key={cand.id}
-                  onClick={() => setSelectedCandidateForDetail(cand)}
+                  onClick={() => {
+                    setCandidateDetailTab('overview');
+                    setSelectedCandidateForDetail(cand);
+                  }}
                   className={`bitrix-glass rounded-2xl p-5 border transition-all duration-200 shadow-xl flex flex-col justify-between group cursor-pointer hover:border-emerald-500/60 hover:shadow-emerald-950/20 hover:scale-[1.01] ${
                     selectedIds.has(cand.id)
                       ? 'border-emerald-500/80 bg-emerald-950/25 ring-1 ring-emerald-500/40'
@@ -707,13 +797,14 @@ export const CandidatesView: React.FC = () => {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          setCandidateDetailTab('resume');
                           setSelectedCandidateForDetail(cand);
                         }}
-                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/35 flex items-center gap-1 transition"
-                        title="Переглянути оригінал резюме (PDF)"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/40 hover:bg-purple-500/35 flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+                        title="Відкрити оригінал резюме (PDF) у 1 клік"
                       >
-                        <FileText className="w-2.5 h-2.5 text-purple-300" />
-                        <span>Резюме</span>
+                        <FileText className="w-3 h-3 text-purple-300" />
+                        <span>📄 Резюме</span>
                       </button>
                     </div>
 
@@ -976,6 +1067,7 @@ export const CandidatesView: React.FC = () => {
         onClose={() => setIsResumeModalOpen(false)}
         companies={companies}
         onSuccess={fetchCandidates}
+        initialTab={resumeTab}
       />
 
       {selectedCandidateForFiles && (
@@ -994,6 +1086,7 @@ export const CandidatesView: React.FC = () => {
           candidate={selectedCandidateForDetail}
           companies={companies}
           onUpdateCandidate={handleUpdateCandidate}
+          initialTab={candidateDetailTab}
           onOpenFilesModal={(c) => {
             setSelectedCandidateForDetail(null);
             setSelectedCandidateForFiles(c);

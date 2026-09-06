@@ -20,14 +20,32 @@ const defaultRootUser: User = {
   canManageIntegrations: true
 };
 
+export interface UserPresence {
+  userId: string;
+  name: string;
+  role?: string;
+  department?: string;
+  status: 'online' | 'away' | 'offline';
+  lastActiveAt?: string;
+  todayMinutes: number;
+  todayTimeFormatted: string;
+  weekMinutes: number;
+  weekTimeFormatted: string;
+  shiftStatus?: string;
+  dealsCount?: number;
+  tasksCount?: number;
+}
+
 interface AuthContextType {
   currentUser: User | null;
   users: User[];
+  presence: Record<string, UserPresence>;
   isAuthenticated: boolean;
   isLoading: boolean;
   loginWithCredentials: (email: string, pass: string) => Promise<void>;
   logout: () => void;
   refreshUsers: () => Promise<void>;
+  refreshPresence: () => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
   updateUserPermissions: (userId: string, partial: Partial<User>) => Promise<void>;
   updateUserAvatar: (userId: string, base64Avatar: string) => Promise<boolean>;
@@ -87,6 +105,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Backend user sync error:', e);
     }
   };
+
+  const [presence, setPresence] = useState<Record<string, UserPresence>>({});
+
+  const fetchPresence = async () => {
+    try {
+      const res = await api.get('/users/presence');
+      if (res.data && typeof res.data === 'object') {
+        setPresence(res.data);
+      }
+    } catch (e) {
+      // transient network error
+    }
+  };
+
+  const sendHeartbeat = async () => {
+    try {
+      await api.post('/users/heartbeat');
+    } catch (e) {
+      // transient heartbeat error
+    }
+  };
+
+  // Heartbeat & presence polling every 30 seconds
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) return;
+
+    // Initial ping & fetch
+    sendHeartbeat();
+    fetchPresence();
+
+    const interval = setInterval(() => {
+      sendHeartbeat();
+      fetchPresence();
+    }, 30000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        sendHeartbeat();
+        fetchPresence();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [isAuthenticated, currentUser?.id]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -201,11 +267,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{
       currentUser,
       users,
+      presence,
       isAuthenticated,
       isLoading,
       loginWithCredentials,
       logout,
       refreshUsers: fetchUsers,
+      refreshPresence: fetchPresence,
       switchUser,
       updateUserPermissions,
       updateUserAvatar

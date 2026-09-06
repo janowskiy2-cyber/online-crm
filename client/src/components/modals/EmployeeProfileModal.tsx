@@ -11,6 +11,7 @@ import {
   Shield, 
   Sparkles 
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
 interface EmployeeProfileModalProps {
@@ -22,7 +23,7 @@ interface EmployeeProfileModalProps {
     phone?: string;
     email?: string;
     telegram?: string;
-    status?: 'online' | 'busy' | 'offline';
+    status?: 'online' | 'away' | 'busy' | 'offline';
     avatar?: string;
   };
   onClose: () => void;
@@ -38,6 +39,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   onChat,
   onFilterDeals
 }) => {
+  const { presence } = useAuth();
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleCopy = (text: string, field: string) => {
@@ -46,7 +48,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const isOnline = colleague.status === 'online' || !colleague.status;
+  const userPres = presence[colleague.id];
+  const realStatus = userPres ? userPres.status : (colleague.status === 'online' ? 'online' : 'offline');
+  const isOnline = realStatus === 'online';
+  const isAway = realStatus === 'away';
 
   const roleLabels: Record<string, string> = {
     super_admin: 'Суперадміністратор',
@@ -113,17 +118,27 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               />
               <span 
                 className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-[#0e1424] shadow-md ${
-                  isOnline ? 'bg-emerald-500 ring-2 ring-emerald-500/30' : 'bg-amber-500'
+                  isOnline 
+                    ? 'bg-emerald-500 ring-2 ring-emerald-500/30' 
+                    : isAway 
+                      ? 'bg-amber-500 ring-2 ring-amber-500/30' 
+                      : 'bg-slate-500'
                 }`}
-                title={isOnline ? 'В мережі' : 'Не в мережі'}
+                title={isOnline ? 'В мережі' : isAway ? 'Відійшов' : 'Не в мережі'}
               />
             </div>
 
             {/* Live Work Status Badge */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs font-semibold">
-              <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-              <span className={isOnline ? 'text-emerald-300' : 'text-amber-300'}>
-                {isOnline ? 'В мережі (Працює)' : 'Зайнятий'}
+              <span className={`w-2 h-2 rounded-full ${
+                isOnline 
+                  ? 'bg-emerald-400 animate-pulse' 
+                  : isAway 
+                    ? 'bg-amber-400' 
+                    : 'bg-slate-500'
+              }`} />
+              <span className={isOnline ? 'text-emerald-300' : isAway ? 'text-amber-300' : 'text-slate-400'}>
+                {isOnline ? 'В мережі (Онлайн)' : isAway ? 'Відійшов' : 'Не в мережі (Офлайн)'}
               </span>
             </div>
           </div>
@@ -138,8 +153,33 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             <p className="text-xs text-slate-400 mt-0.5">{displayDept}</p>
           </div>
 
+          {/* Workday & Activity Time Card (Live Tracking) */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800/90 border border-cyan-500/20 mb-4 space-y-2 shadow-lg">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-300 flex items-center gap-1.5 font-medium">
+                <Clock className="w-3.5 h-3.5 text-cyan-400" /> Активний час у CRM сьогодні:
+              </span>
+              <span className="font-mono font-bold text-cyan-300">
+                {userPres?.todayTimeFormatted || '0 хв'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/5">
+              <span className="text-slate-400">Час за поточний тиждень:</span>
+              <span className="font-mono text-slate-200 font-semibold">{userPres?.weekTimeFormatted || '0 хв'}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/5">
+              <span className="text-slate-400">Статус зміни співробітника:</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                userPres?.shiftStatus === 'working' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                userPres?.shiftStatus === 'break' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {userPres?.shiftStatus === 'working' ? '💼 Працює' : userPres?.shiftStatus === 'break' ? '☕ Перерва' : '🛑 Зміна закрита'}
+              </span>
+            </div>
+          </div>
+
           {/* Contact Details List with 1-Click Copy */}
-          <div className="space-y-2 mb-5">
+          <div className="space-y-2 mb-4">
             {/* Phone */}
             {colleague.phone && (
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 transition">
@@ -183,36 +223,20 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </button>
               </div>
             )}
-
-            {/* Work Schedule */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] border border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                  <Clock className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Робочий графік</div>
-                  <div className="text-xs font-medium text-slate-200">Пн–Пт, 09:00 – 18:00 (Київ)</div>
-                </div>
-              </div>
-              <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                Зміна відкрита
-              </span>
-            </div>
           </div>
 
           {/* Quick Stats Pill Grid */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
+          <div className="grid grid-cols-2 gap-2 mb-5">
             <div 
               onClick={() => onFilterDeals && onFilterDeals(colleague.name)}
               className="p-3 rounded-xl bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20 cursor-pointer transition text-center"
             >
-              <div className="text-lg font-black text-blue-400 font-mono">14</div>
+              <div className="text-lg font-black text-blue-400 font-mono">{userPres?.dealsCount ?? 14}</div>
               <div className="text-[11px] text-slate-400 font-medium mt-0.5">Активні угоди</div>
             </div>
 
             <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center">
-              <div className="text-lg font-black text-purple-400 font-mono">6</div>
+              <div className="text-lg font-black text-purple-400 font-mono">{userPres?.tasksCount ?? 6}</div>
               <div className="text-[11px] text-slate-400 font-medium mt-0.5">Завдань в роботі</div>
             </div>
           </div>
