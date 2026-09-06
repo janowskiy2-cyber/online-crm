@@ -272,10 +272,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Smart amoCRM & Speed-to-Lead Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3 px-0.5 flex-shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto text-xs font-medium p-1 bg-white/90 dark:bg-[#090d16]/90 border border-slate-200/80 dark:border-white/[0.08] rounded-xl shadow-sm backdrop-blur-md">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-nowrap text-xs font-medium p-1 bg-white/90 dark:bg-[#090d16]/90 border border-slate-200/80 dark:border-white/[0.08] rounded-xl shadow-sm backdrop-blur-md max-w-full">
           <button
             onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeFilter === 'all'
                 ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05]'
@@ -291,7 +291,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('no_tasks')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeFilter === 'no_tasks'
                 ? 'bg-rose-500 text-white font-semibold shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10'
@@ -308,7 +308,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('overdue')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeFilter === 'overdue'
                 ? 'bg-amber-500 text-white font-semibold shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10'
@@ -325,7 +325,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('my_deals')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeFilter === 'my_deals'
                 ? 'bg-indigo-600 text-white font-semibold shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10'
@@ -390,7 +390,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           {openCreateDeal && (
             <button
               onClick={() => openCreateDeal()}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm hover:shadow-md hover:shadow-blue-500/20 active:scale-95"
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm hover:shadow-md hover:shadow-blue-500/20 active:scale-95 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
               <span>+ Нова угода</span>
@@ -399,9 +399,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth touch-pan-x">
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex gap-3 h-full min-w-max pb-2">
+          <div className="flex gap-3 h-full min-w-max pb-2 px-1">
             {stagesList.map((stage) => {
               const stageDeals = (filteredDeals || []).filter((d) => d && d.stageId === stage.id);
               const totalStageBudget = stageDeals.reduce((sum, d) => sum + (Number(d.budget) || 0), 0);
@@ -409,7 +409,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               return (
                 <div
                   key={stage.id}
-                  className="w-72 sm:w-80 flex flex-col bg-slate-200/50 dark:bg-[#0b101c]/80 border border-slate-200/90 dark:border-white/[0.07] rounded-xl overflow-hidden backdrop-blur-sm"
+                  className="w-[85vw] max-w-xs sm:w-80 snap-center flex-shrink-0 flex flex-col bg-slate-200/50 dark:bg-[#0b101c]/80 border border-slate-200/90 dark:border-white/[0.07] rounded-xl overflow-hidden backdrop-blur-sm"
                 >
                   {/* Column Header */}
                   <div className="p-3 border-b border-slate-200/80 dark:border-white/[0.06] bg-white/80 dark:bg-[#0e1424]/90 flex items-center justify-between flex-shrink-0">

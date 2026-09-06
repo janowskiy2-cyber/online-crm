@@ -36,7 +36,8 @@ import {
   Maximize2,
   Minimize2,
   Link2,
-  Copy
+  Copy,
+  CheckSquare
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -82,6 +83,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const { currentUser, users } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'candidates' | 'documents' | 'notes' | 'tasks'>('all');
+  const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'info' | 'tasks_notes'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Deep Linking & Fullscreen Workspace State
@@ -133,11 +135,41 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
   // New Note / Comment input
   const [noteText, setNoteText] = useState('');
+  const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   
   // New Chat Message input
   const [chatChannel, setChatChannel] = useState<'whatsapp' | 'telegram'>('whatsapp');
   const [chatMessageText, setChatMessageText] = useState('');
+  const chatTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const quickNoteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
+
+  // Auto-expand chat input proportionally to typed/generated text
+  useEffect(() => {
+    if (chatTextareaRef.current) {
+      chatTextareaRef.current.style.height = 'auto';
+      const scrollHeight = chatTextareaRef.current.scrollHeight;
+      chatTextareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 40), 220)}px`;
+    }
+  }, [chatMessageText]);
+
+  // Auto-expand internal note input proportionally to typed text
+  useEffect(() => {
+    if (noteTextareaRef.current) {
+      noteTextareaRef.current.style.height = 'auto';
+      const scrollHeight = noteTextareaRef.current.scrollHeight;
+      noteTextareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 48), 180)}px`;
+    }
+  }, [noteText]);
+
+  // Auto-expand quick note input in right sidebar proportionally to dictated/typed text
+  useEffect(() => {
+    if (quickNoteTextareaRef.current) {
+      quickNoteTextareaRef.current.style.height = 'auto';
+      const scrollHeight = quickNoteTextareaRef.current.scrollHeight;
+      quickNoteTextareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 48), 180)}px`;
+    }
+  }, [quickNoteText]);
 
   // AI Smart Assistant states
   const [isGeneratingAiDraft, setIsGeneratingAiDraft] = useState(false);
@@ -258,6 +290,29 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   // Quick Notes state (right column)
   const [quickNoteText, setQuickNoteText] = useState('');
   const [isSavingQuickNote, setIsSavingQuickNote] = useState(false);
+  const [isDictatingQuickNote, setIsDictatingQuickNote] = useState(false);
+  const quickNoteRecognitionRef = useRef<any>(null);
+
+  // Direct Company Editing state
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [editCompanyAddress, setEditCompanyAddress] = useState('');
+  const [editCompanyPhone, setEditCompanyPhone] = useState('');
+  const [editCompanyEmail, setEditCompanyEmail] = useState('');
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+
+  // Order / Vacancy Needs state
+  const [isEditingOrder, setIsEditingOrder] = useState(false);
+  const [editOrderPosition, setEditOrderPosition] = useState('');
+  const [editOrderCount, setEditOrderCount] = useState('');
+  const [editOrderSalary, setEditOrderSalary] = useState('');
+  const [editOrderHousing, setEditOrderHousing] = useState('');
+  const [editOrderLocation, setEditOrderLocation] = useState('');
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  // Sidebar Documents category
+  const [sidebarDocCategory, setSidebarDocCategory] = useState<'Договір з підприємством' | 'Заявка на персонал' | 'Акт виконаних робіт' | 'Інше'>('Договір з підприємством');
+
 
   const checkMessengers = async (phone: string) => {
     if (!phone) return;
@@ -587,6 +642,106 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   };
 
+  const handleDeleteNote = async (noteId: string) => {
+    if (!deal || !window.confirm('Видалити цю замітку?')) return;
+    try {
+      await api.delete(`/deals/${deal.id}/notes/${noteId}`);
+      const updatedNotes = (deal.notes || []).filter((n: any) => n.id !== noteId);
+      const updatedDeal = { ...deal, notes: updatedNotes };
+      setDeal(updatedDeal);
+      onDealUpdated(updatedDeal);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка видалення замітки');
+    }
+  };
+
+  const toggleQuickNoteDictation = () => {
+    if (isDictatingQuickNote) {
+      if (quickNoteRecognitionRef.current) quickNoteRecognitionRef.current.stop();
+      setIsDictatingQuickNote(false);
+    } else {
+      setIsDictatingQuickNote(true);
+      const instance = startSpeechToText({
+        language: 'uk-UA',
+        onResult: (text) => {
+          setQuickNoteText(text);
+        },
+        onError: () => setIsDictatingQuickNote(false),
+        onEnd: () => setIsDictatingQuickNote(false)
+      });
+      quickNoteRecognitionRef.current = instance;
+    }
+  };
+
+  const handleStartEditCompany = () => {
+    setEditCompanyName(deal?.company?.name || '');
+    setEditCompanyAddress(deal?.company?.address || '');
+    setEditCompanyPhone(deal?.company?.phone || '');
+    setEditCompanyEmail(deal?.company?.email || '');
+    setIsEditingCompany(true);
+  };
+
+  const handleSaveCompany = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editCompanyName.trim() || !deal) {
+      alert('Вкажіть назву підприємства');
+      return;
+    }
+    setIsSavingCompany(true);
+    try {
+      const res = await api.put(`/deals/${deal.id}`, {
+        companyData: {
+          name: editCompanyName.trim(),
+          address: editCompanyAddress.trim() || undefined,
+          phone: editCompanyPhone.trim() || undefined,
+          email: editCompanyEmail.trim() || undefined
+        }
+      });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+      setIsEditingCompany(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка збереження підприємства');
+    } finally {
+      setIsSavingCompany(false);
+    }
+  };
+
+  const handleStartEditOrder = () => {
+    const ord = (customFieldsObj as any)?.orderInfo || {};
+    setEditOrderPosition(ord.position || deal?.title || '');
+    setEditOrderCount(ord.count || '');
+    setEditOrderSalary(ord.salary || '');
+    setEditOrderHousing(ord.housing || '');
+    setEditOrderLocation(ord.location || '');
+    setIsEditingOrder(true);
+  };
+
+  const handleSaveOrder = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!deal) return;
+    setIsSavingOrder(true);
+    try {
+      const newOrder = {
+        position: editOrderPosition.trim(),
+        count: editOrderCount.trim(),
+        salary: editOrderSalary.trim(),
+        housing: editOrderHousing.trim(),
+        location: editOrderLocation.trim()
+      };
+      const newCustomFields = { ...customFieldsObj, orderInfo: newOrder };
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+      setIsEditingOrder(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка збереження замовлення');
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
+
+
   const toggleVoiceDictation = () => {
     if (isDictating) {
       if (recognitionRef.current) recognitionRef.current.stop();
@@ -678,7 +833,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   }
 
   const visibleCustomFields = Object.entries(customFieldsObj).filter(
-    ([k]) => k !== 'candidates' && k !== 'paidMilestones'
+    ([k]) => k !== 'candidates' && k !== 'paidMilestones' && k !== 'orderInfo' && k !== 'documents'
   );
 
   const handleSaveCustomField = async (e: React.FormEvent) => {
@@ -939,28 +1094,28 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const currentStages = pipeline?.stages || [];
 
   return (
-    <div className={`fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-2 sm:p-4'} font-['Inter',sans-serif]`}>
-      <div className={`bg-white dark:bg-[#0c111d] border border-slate-200 dark:border-white/[0.1] flex flex-col shadow-2xl overflow-hidden transition-all duration-200 ${
-        isFullscreen ? 'w-full h-full rounded-none' : 'rounded-2xl w-full max-w-6xl h-[94vh] sm:h-[92vh] animate-in fade-in zoom-in-95 duration-150'
+    <div className={`fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
+      <div className={`bg-white dark:bg-[#0c111d] border-0 sm:border border-slate-200 dark:border-white/[0.1] flex flex-col shadow-2xl overflow-hidden transition-all duration-200 ${
+        isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-2xl sm:max-w-6xl sm:h-[92vh] animate-in fade-in zoom-in-95 duration-150'
       }`}>
         
         {/* Modal Top Bar */}
-        <div className="h-14 px-4 sm:px-6 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/90 dark:bg-[#0f1526]/90 flex-shrink-0">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[180px] sm:max-w-md">
+        <div className="h-14 px-3 sm:px-6 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/90 dark:bg-[#0f1526]/90 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <h2 className="text-xs sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[130px] sm:max-w-md">
               {deal.title}
             </h2>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-xs sm:text-sm px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px] sm:text-sm px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg whitespace-nowrap">
               €{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(deal.budget || 0)}
             </span>
           </div>
 
           {/* Quick Action Tools: Direct Link, Open in Tab, Fullscreen, Call, AI, KP, Calc */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* 1-Click Copy Shareable Deal URL */}
             <button
               onClick={handleCopyDealLink}
-              className="px-2.5 sm:px-3 py-1 bg-slate-200/70 hover:bg-slate-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-300/70 dark:border-white/10 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-slate-200/70 hover:bg-slate-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-300/70 dark:border-white/10 rounded-lg text-xs font-semibold items-center gap-1.5 transition active:scale-95"
               title="Скопіювати пряме посилання на цю угоду"
             >
               {isCopiedLink ? (
@@ -981,26 +1136,26 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               href={`/deals/${deal.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
+              className="hidden md:flex p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
               title="Відкрити в окремій вкладці браузера"
             >
               <ExternalLink className="w-4 h-4" strokeWidth={1.75} />
             </a>
 
-            {/* Fullscreen Workspace Toggle (Unload Background View) */}
+            {/* Fullscreen Workspace Toggle */}
             <button
               onClick={() => setIsFullscreen(prev => !prev)}
-              className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
+              className="hidden md:flex p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
               title={isFullscreen ? "Згорнути у вікно" : "Розгорнути на весь екран (Розвантажити фон)"}
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" strokeWidth={1.75} /> : <Maximize2 className="w-4 h-4" strokeWidth={1.75} />}
             </button>
 
-            <div className="w-[1px] h-4 bg-slate-300 dark:bg-white/10 mx-0.5" />
+            <div className="hidden sm:block w-[1px] h-4 bg-slate-300 dark:bg-white/10 mx-0.5" />
 
             <button
               onClick={() => setIsCallModalOpen(true)}
-              className="px-2.5 sm:px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="px-2 sm:px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
               title="Зателефонувати клієнту"
             >
               <Phone className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -1009,7 +1164,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             <button
               onClick={() => setIsCalcModalOpen(true)}
-              className="px-2.5 sm:px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="px-2 sm:px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              title="Калькулятор найму"
             >
               <Calculator className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span className="hidden sm:inline">Калькулятор</span>
@@ -1017,16 +1173,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             <button
               onClick={() => setIsKPModalOpen(true)}
-              className="px-2.5 sm:px-3 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 rounded-lg text-xs font-semibold items-center gap-1.5 transition active:scale-95"
             >
               <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />
-              <span className="hidden sm:inline">КП (PDF)</span>
+              <span>КП (PDF)</span>
             </button>
 
             <button
               onClick={handleScoreDeal}
               disabled={isScoringDeal}
-              className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 border ${
+              className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 border ${
                 aiDealScore 
                   ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
                   : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 border-purple-500/20'
@@ -1034,7 +1190,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               title={aiDealScore ? `${aiDealScore.reason}. Наступна дія: ${aiDealScore.nextAction}` : "ШІ-оцінка здоров'я угоди та ймовірності виграшу"}
             >
               <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${isScoringDeal ? 'animate-spin' : ''}`} strokeWidth={1.75} />
-              <span>{aiDealScore ? `${aiDealScore.temperature} (${aiDealScore.score}%)` : (isScoringDeal ? 'Оцінка...' : 'ШІ-Скоринг')}</span>
+              <span className="hidden sm:inline">{aiDealScore ? `${aiDealScore.temperature} (${aiDealScore.score}%)` : (isScoringDeal ? 'Оцінка...' : 'ШІ-Скоринг')}</span>
             </button>
 
             {currentUser?.canDeleteDeals && (
@@ -1075,7 +1231,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         )}
 
         {/* Pipeline Stage Bar */}
-        <div className="px-4 sm:px-6 py-2 bg-slate-100/80 dark:bg-[#080c14] border-b border-slate-200/80 dark:border-white/[0.08] flex items-center gap-1.5 overflow-x-auto">
+        <div className="px-3 sm:px-6 py-2 bg-slate-100/80 dark:bg-[#080c14] border-b border-slate-200/80 dark:border-white/[0.08] flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-shrink-0">
           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mr-1 flex-shrink-0">
             Етап:
           </span>
@@ -1085,7 +1241,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               <button
                 key={stage.id}
                 onClick={() => handleStageChange(stage.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-2 transition flex-shrink-0 ${
+                className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition flex-shrink-0 ${
                   isCurrent
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-white dark:bg-white/[0.04] hover:bg-slate-200/70 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08]'
@@ -1095,17 +1251,59 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: stage.color || '#3b82f6' }}
                 />
-                <span>{stage.name}</span>
+                <span className="whitespace-nowrap">{stage.name}</span>
               </button>
             );
           })}
         </div>
 
+        {/* Mobile Navigation Tabs (Phone/Tablet portrait): Chat | Info | Tasks */}
+        <div className="md:hidden flex items-center bg-slate-100 dark:bg-[#0b101d] border-b border-slate-200 dark:border-white/[0.08] p-1.5 gap-1.5 text-xs flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveMobileTab('chat')}
+            className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
+              activeMobileTab === 'chat'
+                ? 'bg-blue-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.05]'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+            <span className="truncate">Чат ({messages.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMobileTab('info')}
+            className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
+              activeMobileTab === 'info'
+                ? 'bg-blue-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.05]'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5 text-purple-400" />
+            <span className="truncate">Інфо / Потреба</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMobileTab('tasks_notes')}
+            className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
+              activeMobileTab === 'tasks_notes'
+                ? 'bg-blue-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.05]'
+            }`}
+          >
+            <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
+            <span className="truncate">Задачі ({tasks.length})</span>
+          </button>
+        </div>
+
         {/* 3-Column Content Layout */}
-        <div className="flex-1 grid grid-cols-12 overflow-y-auto md:overflow-hidden bg-white dark:bg-[#0c111d]">
+        <div className="flex-1 grid grid-cols-12 overflow-hidden bg-white dark:bg-[#0c111d] min-h-0">
           
           {/* Left Column: Client & Project Params (3 Cols) */}
-          <div className="col-span-12 md:col-span-3 border-r border-slate-200/80 dark:border-white/[0.08] p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 bg-slate-50/50 dark:bg-[#090d16]/50 text-xs">
+          <div className={`col-span-12 md:col-span-3 border-r border-slate-200/80 dark:border-white/[0.08] p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 bg-slate-50/50 dark:bg-[#090d16]/50 text-xs h-full ${
+            activeMobileTab === 'info' ? 'block' : 'hidden md:block'
+          }`}>
             {/* Responsible manager */}
             <div>
               <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
@@ -1326,23 +1524,260 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               )}
             </div>
 
-            {/* Company Info */}
+            {/* Company Info with 1-Click Inline Editing */}
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Підприємство / Завод
-              </label>
-              {deal.company ? (
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Підприємство / Завод
+                </label>
+                {deal.company ? (
+                  <button
+                    type="button"
+                    onClick={handleStartEditCompany}
+                    className="p-1 text-slate-400 hover:text-purple-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
+                    title="Редагувати дані підприємства"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Редагувати</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleStartEditCompany}
+                    className="p-1 text-purple-400 hover:text-purple-300 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px] font-bold"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Додати</span>
+                  </button>
+                )}
+              </div>
+
+              {isEditingCompany ? (
+                <form onSubmit={handleSaveCompany} className="bg-slate-900 border border-purple-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Назва підприємства / заводу</label>
+                    <input
+                      type="text"
+                      placeholder="ТОВ 'Промбуд Схід' / Budimex S.A."
+                      value={editCompanyName}
+                      onChange={(e) => setEditCompanyName(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Адреса / Місто / Країна</label>
+                    <input
+                      type="text"
+                      placeholder="Польща, м. Вроцлав, вул. Fabryczna 10"
+                      value={editCompanyAddress}
+                      onChange={(e) => setEditCompanyAddress(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Телефон</label>
+                      <input
+                        type="text"
+                        placeholder="+48..."
+                        value={editCompanyPhone}
+                        onChange={(e) => setEditCompanyPhone(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Email</label>
+                      <input
+                        type="email"
+                        placeholder="office@company.com"
+                        value={editCompanyEmail}
+                        onChange={(e) => setEditCompanyEmail(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingCompany(false)}
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingCompany}
+                      className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{isSavingCompany ? 'Збереження...' : 'Зберегти'}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : deal.company ? (
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2">
                   <div className="font-bold text-sm text-white flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-purple-400" />
-                    <span>{deal.company.name}</span>
+                    <Building2 className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                    <span className="truncate">{deal.company.name}</span>
                   </div>
                   {deal.company.address && (
-                    <div className="text-[11px] text-slate-400">{deal.company.address}</div>
+                    <div className="text-xs text-slate-300 flex items-start gap-1.5">
+                      <Globe2 className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                      <span className="leading-snug">{deal.company.address}</span>
+                    </div>
+                  )}
+                  {deal.company.phone && (
+                    <div className="text-xs text-slate-300 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <span>{deal.company.phone}</span>
+                    </div>
+                  )}
+                  {deal.company.email && (
+                    <div className="text-xs text-slate-300 flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                      <span className="truncate">{deal.company.email}</span>
+                    </div>
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 italic">Компанію не прив'язано</p>
+                <div className="p-3 bg-slate-900/60 border border-dashed border-slate-700 rounded-2xl text-center space-y-2">
+                  <p className="text-xs text-slate-500 italic">Компанію ще не прив'язано</p>
+                  <button
+                    type="button"
+                    onClick={handleStartEditCompany}
+                    className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-semibold transition"
+                  >
+                    + Додати підприємство
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Order / Vacancy Needs Parameters (Editable on the fly) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Замовлення / Потреба
+                </label>
+                <button
+                  type="button"
+                  onClick={handleStartEditOrder}
+                  className="p-1 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
+                  title="Редагувати параметри замовлення"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Редагувати</span>
+                </button>
+              </div>
+
+              {isEditingOrder ? (
+                <form onSubmit={handleSaveOrder} className="bg-slate-900 border border-emerald-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Посада / Спеціальність</label>
+                    <input
+                      type="text"
+                      placeholder="Зварювальник MIG/MAG, Арматурник..."
+                      value={editOrderPosition}
+                      onChange={(e) => setEditOrderPosition(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Кількість людей</label>
+                      <input
+                        type="text"
+                        placeholder="10 осіб"
+                        value={editOrderCount}
+                        onChange={(e) => setEditOrderCount(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Ставка / Оплата</label>
+                      <input
+                        type="text"
+                        placeholder="25 PLN/год або €14/год"
+                        value={editOrderSalary}
+                        onChange={(e) => setEditOrderSalary(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Житло / Умови</label>
+                      <input
+                        type="text"
+                        placeholder="Безкоштовно / €100/міс"
+                        value={editOrderHousing}
+                        onChange={(e) => setEditOrderHousing(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Локація / Місто</label>
+                      <input
+                        type="text"
+                        placeholder="Вроцлав / Варшава"
+                        value={editOrderLocation}
+                        onChange={(e) => setEditOrderLocation(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingOrder(false)}
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingOrder}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{isSavingOrder ? 'Збереження...' : 'Зберегти'}</span>
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-white truncate">
+                      {(customFieldsObj as any)?.orderInfo?.position || deal.title || 'Посада не вказана'}
+                    </span>
+                    {(customFieldsObj as any)?.orderInfo?.count && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold border border-emerald-500/30">
+                        {(customFieldsObj as any)?.orderInfo?.count}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
+                    <div className="bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/50">
+                      <span className="text-[9px] text-slate-400 block uppercase">Ставка:</span>
+                      <span className="font-semibold text-emerald-300">
+                        {(customFieldsObj as any)?.orderInfo?.salary || 'За домовленістю'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/50">
+                      <span className="text-[9px] text-slate-400 block uppercase">Житло:</span>
+                      <span className="font-semibold text-slate-200">
+                        {(customFieldsObj as any)?.orderInfo?.housing || 'Уточнюється'}
+                      </span>
+                    </div>
+                  </div>
+                  {(customFieldsObj as any)?.orderInfo?.location && (
+                    <div className="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
+                      <Globe2 className="w-3 h-3 text-slate-500" />
+                      <span>{(customFieldsObj as any)?.orderInfo?.location}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1365,10 +1800,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Central Column: Live Timeline & Messengers Chat (6 Cols) */}
-          <div className="col-span-12 md:col-span-6 flex flex-col min-h-[500px] md:min-h-0 h-full bg-[#080c14] border-r border-slate-800/80">
+          <div className={`col-span-12 md:col-span-6 flex flex-col min-h-0 h-full bg-[#080c14] border-r border-slate-800/80 ${
+            activeMobileTab === 'chat' ? 'flex' : 'hidden md:flex'
+          }`}>
             {/* Timeline Filter tabs */}
-            <div className="p-3 border-b border-slate-800/80 flex items-center justify-between bg-[#0e1320]">
-              <div className="flex items-center gap-2">
+            <div className="p-2 sm:p-3 border-b border-slate-800/80 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none bg-[#0e1320] flex-shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 <button
                   onClick={() => setActiveTab('all')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
@@ -2134,15 +2571,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     </button>
                   </div>
 
-                  <form onSubmit={(e) => handleAddNote(e)} className="flex gap-2">
+                  <form onSubmit={(e) => handleAddNote(e)} className="flex items-end gap-2">
                     <textarea
+                      ref={noteTextareaRef}
                       rows={2}
                       placeholder="Надиктуйте голосом або напишіть замітку..."
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
-                      className={`flex-1 bg-slate-900 border rounded-2xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                      className={`flex-1 bg-slate-900 border rounded-2xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
                         isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-amber-500'
                       }`}
+                      style={{ minHeight: '48px', maxHeight: '180px' }}
                     />
                     <button
                       type="submit"
@@ -2319,7 +2758,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       />
                     )}
 
-                    <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex gap-2">
+                    <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-end gap-2">
                       <input
                         type="file"
                         ref={fileInputRef}
@@ -2340,7 +2779,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         title="Прикріпити файл (PDF / Фото / Договір)"
-                        className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                       >
                         <Paperclip className="w-4 h-4" />
                       </button>
@@ -2349,7 +2788,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         type="button"
                         onClick={() => videoInputRef.current?.click()}
                         title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
-                        className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                       >
                         <Video className="w-4 h-4" />
                       </button>
@@ -2358,14 +2797,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         type="button"
                         onClick={() => setIsVoiceRecording(true)}
                         title="Записати голосове повідомлення"
-                        className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                       >
                         <Mic className="w-4 h-4" />
                       </button>
 
-                      <input
-                        type="text"
-                        placeholder={`Напишіть повідомлення клієнту в ${chatChannel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}... (введіть / для швидких шаблонів)`}
+                      <textarea
+                        ref={chatTextareaRef}
+                        rows={1}
+                        placeholder={`Напишіть повідомлення клієнту в ${chatChannel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}... (введіть / для швидких шаблонів, Enter — надіслати, Shift+Enter — новий рядок)`}
                         value={chatMessageText}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -2377,14 +2817,21 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             setSlashFilter(null);
                           }
                         }}
-                        className={`flex-1 bg-slate-900 border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        className={`flex-1 bg-slate-900 border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
                           isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-blue-500'
                         }`}
+                        style={{ minHeight: '40px', maxHeight: '220px' }}
                       />
                       <button
                         type="submit"
                         disabled={isSendingFile}
-                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30 flex-shrink-0"
+                        className="px-4 py-2.5 mb-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30 flex-shrink-0"
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>{isSendingFile ? '...' : 'Надіслати'}</span>
@@ -2396,10 +2843,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Tasks Checklist & Quick Notes (3 Cols) */}
-          <div className="col-span-12 md:col-span-3 p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#0e1422]">
+          {/* Right Column: Tasks Checklist, Quick Notes & Attached Documents (3 Cols) */}
+          <div className={`col-span-12 md:col-span-3 p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#0e1422] h-full ${
+            activeMobileTab === 'tasks_notes' ? 'block' : 'hidden md:block'
+          }`}>
             
-            {/* Quick Notes & Customer Insights */}
+            {/* 1-Click Inline Pipeline Stage Selector */}
+            <div className="bg-slate-900/90 border border-blue-500/30 rounded-2xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Етап воронки</span>
+                </span>
+                <span
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: currentStages.find(s => s.id === deal.stageId)?.color || '#3b82f6' }}
+                />
+              </div>
+              <select
+                value={deal.stageId}
+                onChange={(e) => handleStageChange(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition cursor-pointer"
+              >
+                {currentStages.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quick Notes & Customer Insights with Voice Dictation & Deletion */}
             <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-3.5 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -2411,13 +2885,31 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
               <form onSubmit={handleAddQuickNote} className="space-y-2">
                 <textarea
+                  ref={quickNoteTextareaRef}
                   rows={2}
-                  placeholder="Запишіть деталі про клієнта під час листування..."
+                  placeholder={isDictatingQuickNote ? "Слухаю голос... Говоріть..." : "Запишіть деталі про клієнта під час листування..."}
                   value={quickNoteText}
                   onChange={(e) => setQuickNoteText(e.target.value)}
-                  className="w-full bg-slate-800/90 border border-slate-700/80 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition resize-none"
+                  className={`w-full bg-slate-800/90 border rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                    isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700/80 focus:border-amber-500'
+                  }`}
+                  style={{ minHeight: '48px', maxHeight: '200px' }}
                 />
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={toggleQuickNoteDictation}
+                    className={`px-2 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ${
+                      isDictatingQuickNote
+                        ? 'bg-rose-600 text-white border-rose-500 animate-pulse'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                    }`}
+                    title={isDictatingQuickNote ? "Слухаю... Натисніть щоб зупинити" : "Надиктувати замітку голосом"}
+                  >
+                    <Mic className={`w-3.5 h-3.5 ${isDictatingQuickNote ? 'text-white' : 'text-emerald-400'}`} />
+                    <span className="text-[10px]">{isDictatingQuickNote ? 'Слухаю...' : '🎙️ Голос'}</span>
+                  </button>
+
                   <button
                     type="submit"
                     disabled={isSavingQuickNote || !quickNoteText.trim()}
@@ -2429,18 +2921,122 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 </div>
               </form>
 
-              {/* Recent Notes Stream */}
+              {/* Recent Notes Stream with Delete Button */}
               <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                 {(deal.notes || []).length === 0 ? (
                   <p className="text-[11px] text-slate-500 italic">Поки немає заміток</p>
                 ) : (
                   (deal.notes || []).map((n: any) => (
-                    <div key={n.id} className="p-2 bg-slate-800/80 border border-slate-700/60 rounded-xl text-xs space-y-1">
+                    <div key={n.id} className="p-2 bg-slate-800/80 border border-slate-700/60 rounded-xl text-xs space-y-1 group">
                       <div className="flex items-center justify-between text-[10px] text-slate-400">
                         <span className="font-bold text-amber-300">{n.user?.name || 'Менеджер'}</span>
-                        <span>{new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        <div className="flex items-center gap-1">
+                          <span>{new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNote(n.id)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-500 hover:text-rose-400 transition"
+                            title="Видалити замітку"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-slate-200 leading-snug whitespace-pre-line text-[11px]">{n.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Quick Documents & Contracts Widget (Accessible while chatting) */}
+            <div className="bg-slate-900/90 border border-cyan-500/30 rounded-2xl p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-cyan-400" />
+                  <span>Документи & Договори</span>
+                </h3>
+                <span className="text-[10px] text-slate-500">{documentsList.length} файлів</span>
+              </div>
+
+              {/* Fast Upload Bar */}
+              <div className="space-y-2 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
+                <div className="flex items-center justify-between gap-1.5">
+                  <select
+                    value={sidebarDocCategory}
+                    onChange={(e: any) => setSidebarDocCategory(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 focus:outline-none"
+                  >
+                    <option value="Договір з підприємством">📄 Договір</option>
+                    <option value="Заявка на персонал">📋 Бриф-заявка</option>
+                    <option value="Акт виконаних робіт">📑 Акт</option>
+                    <option value="Інше">📁 Інше</option>
+                  </select>
+
+                  <label className="cursor-pointer px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 flex-shrink-0">
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>{isUploadingDoc ? '...' : '+ Додати'}</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={async (e) => {
+                        setDocCategory(sidebarDocCategory);
+                        await handleUploadDocumentFile(e);
+                      }}
+                      disabled={isUploadingDoc}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Attached Documents List with 1-Click Delete */}
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {documentsList.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 italic">Договір або заявку ще не завантажено</p>
+                ) : (
+                  documentsList.map((d) => (
+                    <div
+                      key={d.id}
+                      className="p-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/70 rounded-xl flex items-center justify-between gap-2 text-xs transition group"
+                    >
+                      <div
+                        onClick={() => setViewingMedia({ url: resolveMediaUrl(d.url), type: 'pdf', title: d.name })}
+                        className="min-w-0 flex items-center gap-2 cursor-pointer flex-1"
+                        title="Натисніть для перегляду документа"
+                      >
+                        <FileText className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <span className="font-semibold text-white block truncate text-[11px] group-hover:text-cyan-300">
+                            {d.name}
+                          </span>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                            <span className="text-cyan-300 font-medium">{d.category}</span>
+                            <span>•</span>
+                            <span>{d.sizeKb} KB</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <a
+                          href={resolveMediaUrl(d.url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1 text-slate-400 hover:text-white transition"
+                          title="Завантажити / Відкрити"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDocument(d.id)}
+                          className="p-1 text-slate-500 hover:text-rose-400 transition"
+                          title="Видалити файл"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

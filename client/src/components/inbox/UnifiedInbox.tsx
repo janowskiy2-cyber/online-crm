@@ -67,6 +67,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [isSendingFile, setIsSendingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Auto-expand textarea proportionally to typed/generated text
+  useEffect(() => {
+    if (replyTextareaRef.current) {
+      replyTextareaRef.current.style.height = 'auto';
+      const scrollHeight = replyTextareaRef.current.scrollHeight;
+      replyTextareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 40), 220)}px`;
+    }
+  }, [replyText]);
 
   // Active deal connected to selected chat
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
@@ -935,7 +945,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       />
                     )}
 
-                    <form onSubmit={(e) => handleSendMessage(e)} className="flex gap-1.5 sm:gap-2">
+                    <form onSubmit={(e) => handleSendMessage(e)} className="flex items-end gap-1.5 sm:gap-2">
                       <input
                         type="file"
                         ref={fileInputRef}
@@ -956,7 +966,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         title="Прикріпити файл (PDF / Фото / Договір)"
-                        className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2 sm:p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                       >
                         <Paperclip className="w-4 h-4" />
                       </button>
@@ -965,7 +975,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         type="button"
                         onClick={() => videoInputRef.current?.click()}
                         title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
-                        className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2 sm:p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                       >
                         <Video className="w-4 h-4" />
                       </button>
@@ -974,16 +984,17 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         type="button"
                         onClick={() => setIsVoiceRecording(true)}
                         title="Записати голосове повідомлення"
-                        className="p-2 sm:p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2 sm:p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
                       >
                         <Mic className="w-4 h-4" />
                       </button>
 
-                      <input
-                        type="text"
+                      <textarea
+                        ref={replyTextareaRef}
+                        rows={1}
                         placeholder={isInternalNote 
-                          ? "Напишіть службову замітку для команди (клієнт не побачить)..."
-                          : `Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}... (введіть / для швидких шаблонів)`}
+                          ? "Напишіть службову замітку для команди (клієнт не побачить)... (Enter — надіслати, Shift+Enter — новий рядок)"
+                          : `Написати у ${activeDialog.channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}... (введіть / для швидких шаблонів, Enter — надіслати, Shift+Enter — новий рядок)`}
                         value={replyText}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -995,16 +1006,23 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                             setSlashFilter(null);
                           }
                         }}
-                        className={`flex-1 bg-slate-900 border rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition ${
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        className={`flex-1 bg-slate-900 border rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
                           isInternalNote 
                             ? 'border-amber-500/60 focus:border-amber-400 ring-1 ring-amber-500/20' 
                             : 'border-slate-700 focus:border-blue-500'
                         }`}
+                        style={{ minHeight: '40px', maxHeight: '220px' }}
                       />
                       <button
                         type="submit"
                         disabled={isSendingFile}
-                        className={`px-3 sm:px-4 py-2 sm:py-2.5 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg flex-shrink-0 ${
+                        className={`px-3 sm:px-4 py-2 sm:py-2.5 mb-0.5 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-lg flex-shrink-0 ${
                           isInternalNote 
                             ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30' 
                             : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'

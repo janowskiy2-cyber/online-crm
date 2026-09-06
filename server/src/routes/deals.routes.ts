@@ -225,6 +225,32 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
         include: { stage: true, tasks: { where: { isCompleted: false } } }
       });
 
+      let targetCompanyId = data.companyId;
+      if (data.companyData && data.companyData.name) {
+        if (existingDeal?.companyId) {
+          await prisma.company.update({
+            where: { id: existingDeal.companyId },
+            data: {
+              name: data.companyData.name,
+              address: data.companyData.address || undefined,
+              phone: data.companyData.phone || undefined,
+              email: data.companyData.email || undefined
+            }
+          });
+          targetCompanyId = existingDeal.companyId;
+        } else {
+          const newComp = await prisma.company.create({
+            data: {
+              name: data.companyData.name,
+              address: data.companyData.address || undefined,
+              phone: data.companyData.phone || undefined,
+              email: data.companyData.email || undefined
+            }
+          });
+          targetCompanyId = newComp.id;
+        }
+      }
+
       const isStageChanged = data.stageId && existingDeal && existingDeal.stageId !== data.stageId;
 
       const updated = await prisma.deal.update({
@@ -237,7 +263,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           pipelineId: data.pipelineId,
           responsibleId: data.responsibleId,
           contactId: data.contactId,
-          companyId: data.companyId,
+          companyId: targetCompanyId !== undefined ? targetCompanyId : data.companyId,
           tags: typeof data.tags === 'string' ? data.tags : (data.tags ? JSON.stringify(data.tags) : undefined),
           customFields: typeof data.customFields === 'string' ? data.customFields : (data.customFields ? JSON.stringify(data.customFields) : undefined)
         },
@@ -412,6 +438,20 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     } catch (e: any) {
       console.error('Error adding note:', e);
       res.status(500).json({ error: 'Failed to add note' });
+    }
+  });
+
+  // Delete Note / Comment from deal
+  router.delete('/:id/notes/:noteId', async (req, res) => {
+    try {
+      const { noteId } = req.params;
+      await prisma.dealNote.delete({
+        where: { id: noteId }
+      });
+      res.json({ success: true, message: 'Замітку успішно видалено' });
+    } catch (e: any) {
+      console.error('Error deleting note:', e);
+      res.status(500).json({ error: 'Failed to delete note' });
     }
   });
 
