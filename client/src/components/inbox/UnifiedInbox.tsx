@@ -30,11 +30,21 @@ import {
   Eye,
   Bot,
   Copy,
-  Check
+  Check,
+  Plus,
+  Save,
+  Edit3,
+  CheckSquare,
+  Square,
+  ChevronDown,
+  Trash2,
+  AlertCircle,
+  Briefcase
 } from 'lucide-react';
 import { api, socket } from '../../services/api';
 import { soundService } from '../../services/sound.service';
-import { ChatMessage, Deal, Pipeline } from '../../types';
+import { ChatMessage, Deal, Pipeline, Company, Task } from '../../types';
+import { DealDetailModal } from '../deal-modal/DealDetailModal';
 import { MediaViewerModal } from '../media/MediaViewerModal';
 import { AudioMessagePlayer } from '../media/AudioMessagePlayer';
 import { VoiceRecorder } from '../media/VoiceRecorder';
@@ -81,6 +91,29 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   // Active deal connected to selected chat
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [isDealPanelOpen, setIsDealPanelOpen] = useState(true);
+  const [modalDealId, setModalDealId] = useState<string | null>(null);
+  const [panelTab, setPanelTab] = useState<'details' | 'notes' | 'tasks' | 'payment'>('details');
+
+  // Inline deal editing state
+  const [editTitle, setEditTitle] = useState('');
+  const [editBudget, setEditBudget] = useState<number | string>('');
+  const [editContactName, setEditContactName] = useState('');
+  const [editContactPhone, setEditContactPhone] = useState('');
+  const [editContactEmail, setEditContactEmail] = useState('');
+  const [editCompanyId, setEditCompanyId] = useState('');
+  const [isSavingDeal, setIsSavingDeal] = useState(false);
+  const [saveDealSuccess, setSaveDealSuccess] = useState(false);
+
+  // Quick notes state
+  const [dealNoteInput, setDealNoteInput] = useState('');
+  const [isAddingDealNote, setIsAddingDealNote] = useState(false);
+
+  // Quick tasks state
+  const [dealTaskInput, setDealTaskInput] = useState('');
+  const [isAddingDealTask, setIsAddingDealTask] = useState(false);
+
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
 
@@ -180,6 +213,15 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     } catch (e) {}
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const res = await api.get('/contacts/companies/all');
+      if (res.data && Array.isArray(res.data)) {
+        setCompanies(res.data);
+      }
+    } catch (e) {}
+  };
+
   const fetchMessages = async () => {
     try {
       const res = await api.get('/chat/messages');
@@ -234,8 +276,17 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   useEffect(() => {
     fetchMessages();
     fetchPipelines();
+    fetchCompanies();
 
-    const interval = setInterval(fetchMessages, 2500);
+    // High performance: 30s background poll, instant visibility refresh, WebSockets for 0-delay new messages
+    const interval = setInterval(fetchMessages, 30000);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMessages();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     const handleNewMessage = (msg: ChatMessage) => {
       setMessages(prev => {
@@ -250,6 +301,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     socket.on('new_message', handleNewMessage);
     return () => {
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
       socket.off('new_message', handleNewMessage);
     };
   }, []);
@@ -280,6 +332,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       const d = dialogsMap.get(key)!;
       d.messages.push(msg);
       d.lastMessage = msg;
+      if (!d.dealId && msg.dealId) {
+        d.dealId = msg.dealId;
+      }
     }
   });
 
@@ -295,15 +350,71 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   const activeDialog = dialogs.find(d => d.key === selectedChatKey) || (typeof window !== 'undefined' && window.innerWidth > 768 ? filteredDialogs[0] : null);
 
+  const currentPipeline = pipelines.find(p => p.id === activeDeal?.pipelineId) || pipelines[0];
+
+  // Smart Deal Loader: loads deal by dealId or automatically by phone match in database
   useEffect(() => {
-    if (activeDialog?.dealId) {
-      api.get(`/deals/${activeDialog.dealId}`).then(res => {
-        if (res.data) setActiveDeal(res.data);
-      }).catch(() => setActiveDeal(null));
-    } else {
-      setActiveDeal(null);
+    let isCancelled = false;
+    const loadDealForDialog = async () => {
+      if (!activeDialog) {
+        setActiveDeal(null);
+        return;
+      }
+
+      if (activeDialog.dealId) {
+        try {
+          const res = await api.get(`/deals/${activeDialog.dealId}`);
+          if (!isCancelled && res.data) {
+            setActiveDeal(res.data);
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // If no dealId on message, check by clean phone digits in CRM database
+      const phoneDigits = activeDialog.phoneOrId?.replace(/\D/g, '');
+      if (phoneDigits && phoneDigits.length >= 7) {
+        try {
+          const res = await api.get(`/deals/check-duplicate?query=${encodeURIComponent(phoneDigits)}`);
+          if (!isCancelled && res.data?.duplicates?.length > 0) {
+            const matchedDealId = res.data.duplicates[0].id;
+            const dealRes = await api.get(`/deals/${matchedDealId}`);
+            if (!isCancelled && dealRes.data) {
+              setActiveDeal(dealRes.data);
+              activeDialog.dealId = matchedDealId;
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!isCancelled) {
+        setActiveDeal(null);
+      }
+    };
+
+    loadDealForDialog();
+    return () => { isCancelled = true; };
+  }, [activeDialog?.key, activeDialog?.dealId]);
+
+  // Sync inline edit form whenever activeDeal or activeDialog changes
+  useEffect(() => {
+    if (activeDeal) {
+      setEditTitle(activeDeal.title || '');
+      setEditBudget(activeDeal.budget || 0);
+      setEditContactName(activeDeal.contact?.name || activeDialog?.senderName || '');
+      setEditContactPhone(activeDeal.contact?.phone || activeDialog?.phoneOrId || '');
+      setEditContactEmail(activeDeal.contact?.email || '');
+      setEditCompanyId(activeDeal.companyId || '');
+    } else if (activeDialog) {
+      setEditTitle(`Угода: ${activeDialog.senderName}`);
+      setEditBudget(1000);
+      setEditContactName(activeDialog.senderName);
+      setEditContactPhone(activeDialog.phoneOrId);
+      setEditContactEmail('');
+      setEditCompanyId('');
     }
-  }, [activeDialog?.dealId]);
+  }, [activeDeal?.id, activeDialog?.key]);
 
   const handleStageChange = async (newStageId: string) => {
     if (!activeDeal) return;
@@ -427,16 +538,22 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
 
       const res = await api.post('/deals', {
-        title: `Угода з чату: ${activeDialog.senderName}`,
+        title: `Угода: ${activeDialog.senderName}`,
         pipelineId: defaultPipeline?.id,
         stageId: defaultStage?.id,
         responsibleId: currentUserId || 'usr-admin',
-        budget: 1000
+        budget: 1200,
+        contactData: {
+          name: activeDialog.senderName,
+          phone: activeDialog.phoneOrId
+        }
       });
 
       if (res.data?.id) {
-        await fetchMessages();
-        onOpenDeal(res.data.id);
+        activeDialog.dealId = res.data.id;
+        setActiveDeal(res.data);
+        setIsDealPanelOpen(true);
+        fetchMessages();
       }
     } catch (e) {
       console.error('Failed to create deal from chat:', e);
@@ -446,13 +563,111 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
+  const handleSaveDealChanges = async () => {
+    if (!activeDeal) return;
+    setIsSavingDeal(true);
+    try {
+      const res = await api.put(`/deals/${activeDeal.id}`, {
+        title: editTitle,
+        budget: Number(editBudget) || 0,
+        companyId: editCompanyId || null,
+        contactData: {
+          name: editContactName,
+          phone: editContactPhone,
+          email: editContactEmail
+        }
+      });
+      if (res.data) {
+        setActiveDeal(res.data);
+        setSaveDealSuccess(true);
+        setTimeout(() => setSaveDealSuccess(false), 2500);
+      }
+    } catch (e) {
+      alert('Помилка збереження картки угоди');
+    } finally {
+      setIsSavingDeal(false);
+    }
+  };
+
+  const handleAddDealNote = async () => {
+    if (!activeDeal || !dealNoteInput.trim()) return;
+    setIsAddingDealNote(true);
+    try {
+      const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
+      const res = await api.post(`/deals/${activeDeal.id}/notes`, {
+        content: dealNoteInput.trim(),
+        type: 'comment',
+        userId: currentUserId || 'usr-admin'
+      });
+      if (res.data) {
+        setActiveDeal(prev => prev ? {
+          ...prev,
+          notes: [res.data, ...(prev.notes || [])]
+        } : null);
+        setDealNoteInput('');
+      }
+    } catch (e) {
+      alert('Помилка додавання замітки');
+    } finally {
+      setIsAddingDealNote(false);
+    }
+  };
+
+  const handleAddDealTask = async () => {
+    if (!activeDeal || !dealTaskInput.trim()) return;
+    setIsAddingDealTask(true);
+    try {
+      const currentUserId = typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin';
+      const res = await api.post('/tasks', {
+        text: dealTaskInput.trim(),
+        dealId: activeDeal.id,
+        type: 'call',
+        dueDate: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+        responsibleId: currentUserId || 'usr-admin'
+      });
+      if (res.data) {
+        setActiveDeal(prev => prev ? {
+          ...prev,
+          tasks: [...(prev.tasks || []), res.data]
+        } : null);
+        setDealTaskInput('');
+      }
+    } catch (e) {
+      alert('Помилка додавання завдання');
+    } finally {
+      setIsAddingDealTask(false);
+    }
+  };
+
+  const handleToggleMilestone = async (milestoneId: number) => {
+    if (!activeDeal) return;
+    let paid: number[] = [];
+    try {
+      const parsed = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields) : activeDeal.customFields;
+      paid = Array.isArray(parsed?.paidMilestones) ? parsed.paidMilestones : [];
+    } catch (e) {}
+
+    const nextPaid = paid.includes(milestoneId)
+      ? paid.filter(id => id !== milestoneId)
+      : [...paid, milestoneId];
+
+    try {
+      const parsed = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields || '{}') : (activeDeal.customFields || {});
+      const nextCustomFields = { ...parsed, paidMilestones: nextPaid };
+      const res = await api.put(`/deals/${activeDeal.id}`, {
+        customFields: JSON.stringify(nextCustomFields)
+      });
+      if (res.data) setActiveDeal(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const quickSnippets = [
     { label: '📄 Розрахунок КП', text: 'Доброго дня! Підготували для вашого підприємства офіційну комерційну пропозицію з прорахунком вартості та графіком 4х25%. Надіслати PDF?' },
     { label: '💳 Схема 4х25%', text: 'Оплата здійснюється безпечно за 4 транші по 25%: 1) Договір ➔ 2) Затвердження кандидатів ➔ 3) Віза D ➔ 4) Фактичний вихід на завод.' },
     { label: '🛡️ Гарантія заміни', text: 'У нас діє 1 місяць повного супроводу координатором та 1 безкоштовна гарантійна заміна у разі необхідності.' }
   ];
-
-  const currentPipeline = pipelines.find(p => p.id === activeDeal?.pipelineId) || pipelines[0];
 
   return (
     <div className="flex-1 flex overflow-hidden bitrix-wallpaper bg-[#080c14]/80 font-['Inter',sans-serif] w-full">
@@ -657,23 +872,45 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     <span className="hidden sm:inline">Дзвінок</span>
                   </button>
 
-                  {activeDialog.dealId ? (
-                    <button
-                      onClick={() => onOpenDeal(activeDialog.dealId!)}
-                      className="px-2.5 py-1.5 sm:px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition flex-shrink-0 shadow-sm"
-                    >
-                      <span className="hidden sm:inline">Картка</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
+                  {activeDeal ? (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIsDealPanelOpen(prev => !prev)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm ${
+                          isDealPanelOpen 
+                            ? 'bg-blue-600 text-white shadow-blue-600/30' 
+                            : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30'
+                        }`}
+                        title={isDealPanelOpen ? "Приховати панель картки" : "Відкрити панель картки клієнта"}
+                      >
+                        <UserIcon className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{isDealPanelOpen ? 'Картка відкрита' : 'Картка клієнта'}</span>
+                        <span className="sm:hidden">Картка</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setModalDealId(activeDeal.id)}
+                        className="p-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition"
+                        title="Розгорнути повне модальне вікно угоди"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   ) : (
                     <button
-                      onClick={handleCreateDealFromChat}
+                      type="button"
+                      onClick={() => {
+                        setIsDealPanelOpen(true);
+                        if (!isCreatingDeal) handleCreateDealFromChat();
+                      }}
                       disabled={isCreatingDeal}
                       className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30 flex-shrink-0 active:scale-95"
-                      title="Створити нову угоду з цього діалогу"
+                      title="Створити та відкрити картку угоди для цього контакту"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>{isCreatingDeal ? 'Створення...' : '+ Створити угоду'}</span>
+                      <span>{isCreatingDeal ? 'Створення...' : '+ Створити картку'}</span>
                     </button>
                   )}
                 </div>
@@ -1086,78 +1323,413 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         )}
       </div>
 
-      {/* Right Smart Deal Mini-Sidebar */}
-      {activeDeal && (
-        <div className="w-72 border-l border-slate-800 p-4 bg-[#0e1320] flex-col justify-between overflow-y-auto text-xs space-y-4 hidden xl:flex">
-          <div className="space-y-3.5">
-            <div className="border-b border-slate-800 pb-2.5 flex items-center justify-between">
-              <span className="font-bold text-white text-xs">Параметри угоди</span>
-              <span className="text-emerald-400 font-extrabold text-xs px-2 py-0.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                €{activeDeal.budget || 0}
-              </span>
+      {/* Right In-Messenger Client & Deal Workspace Panel (Collapsible / Full editing) */}
+      {activeDialog && isDealPanelOpen && (
+        <div className="w-80 sm:w-96 border-l border-white/10 bg-[#0b0f1c]/95 backdrop-blur-2xl flex flex-col justify-between h-full overflow-hidden text-xs flex-shrink-0 z-20 shadow-2xl animate-in slide-in-from-right duration-200">
+          {/* Panel Header */}
+          <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-slate-900/60">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                <UserIcon className="w-4 h-4" />
+              </div>
+              <div className="truncate">
+                <h4 className="font-extrabold text-white text-xs truncate">Картка клієнта</h4>
+                <p className="text-[10px] text-slate-400 truncate">{activeDialog.senderName}</p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="font-bold text-white text-xs truncate">{activeDeal.title}</div>
-              {activeDeal.company && (
-                <div className="flex items-center gap-1.5 text-slate-300">
-                  <Building2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                  <span className="truncate">{activeDeal.company.name}</span>
-                </div>
+            <div className="flex items-center gap-1">
+              {activeDeal && (
+                <button
+                  type="button"
+                  onClick={() => setModalDealId(activeDeal.id)}
+                  className="p-1.5 text-slate-400 hover:text-blue-300 hover:bg-slate-800 rounded-lg transition"
+                  title="Розгорнути повну картку угоди у вікні"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
               )}
-              {activeDeal.contact && (
-                <div className="flex items-center gap-1.5 text-slate-400">
-                  <UserIcon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                  <span className="truncate">{activeDeal.contact.name}</span>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setIsDealPanelOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                title="Сховати панель"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-
-            {(() => {
-              let paid: number[] = [];
-              try {
-                const parsed = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields) : activeDeal.customFields;
-                paid = Array.isArray(parsed?.paidMilestones) ? parsed.paidMilestones : [];
-              } catch (e) {}
-
-              const tranches = [
-                { id: 1, name: '1. Договір (25%)' },
-                { id: 2, name: '2. Скринінг (25%)' },
-                { id: 3, name: '3. Віза D (25%)' },
-                { id: 4, name: '4. Вихід на завод (25%)' }
-              ];
-
-              return (
-                <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Графік оплати (4х25%):
-                  </span>
-                  <div className="space-y-1.5 text-[11px]">
-                    {tranches.map(t => {
-                      const isPaid = paid.includes(t.id);
-                      return (
-                        <div key={t.id} className="flex justify-between items-center text-slate-300">
-                          <span>{t.name}:</span>
-                          <span className={isPaid ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
-                            {isPaid ? '✅ Оплачено' : 'Очікується'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
 
-          <button
-            onClick={() => onOpenDeal(activeDeal.id)}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition"
-          >
-            <span>Повна карточка угоди</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {activeDeal ? (
+            <>
+              {/* Tabs selector */}
+              <div className="flex border-b border-white/10 bg-slate-900/40 p-1 text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setPanelTab('details')}
+                  className={`flex-1 py-1.5 rounded-lg transition text-center ${
+                    panelTab === 'details' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Інфо & Етап
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPanelTab('notes')}
+                  className={`flex-1 py-1.5 rounded-lg transition text-center relative ${
+                    panelTab === 'notes' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Замітки {activeDeal.notes?.length ? `(${activeDeal.notes.length})` : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPanelTab('tasks')}
+                  className={`flex-1 py-1.5 rounded-lg transition text-center ${
+                    panelTab === 'tasks' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Завдання {activeDeal.tasks?.length ? `(${activeDeal.tasks.length})` : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPanelTab('payment')}
+                  className={`flex-1 py-1.5 rounded-lg transition text-center ${
+                    panelTab === 'payment' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  4х25%
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+                {panelTab === 'details' && (
+                  <div className="space-y-3">
+                    {/* Stage Switcher */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                        Етап воронки:
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {(currentPipeline?.stages || []).map(stg => {
+                          const isCur = activeDeal.stageId === stg.id;
+                          return (
+                            <button
+                              key={stg.id}
+                              type="button"
+                              onClick={() => handleStageChange(stg.id)}
+                              className={`px-2 py-1.5 rounded-xl text-[10px] font-bold transition flex items-center gap-1.5 truncate border ${
+                                isCur
+                                  ? 'bg-blue-600 text-white border-blue-400 shadow-md ring-1 ring-blue-400/50'
+                                  : 'bg-slate-900/80 text-slate-300 border-white/5 hover:border-white/20 hover:bg-slate-800'
+                              }`}
+                            >
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stg.color }} />
+                              <span className="truncate">{stg.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Inline Form */}
+                    <div className="space-y-2.5 pt-2 border-t border-white/5">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Назва угоди</label>
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Бюджет (€)</label>
+                          <input
+                            type="number"
+                            value={editBudget}
+                            onChange={(e) => setEditBudget(e.target.value)}
+                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Підприємство</label>
+                          <select
+                            value={editCompanyId}
+                            onChange={(e) => setEditCompanyId(e.target.value)}
+                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                          >
+                            <option value="">-- Без компанії --</option>
+                            {companies.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Контактна особа (ПІБ)</label>
+                        <input
+                          type="text"
+                          value={editContactName}
+                          onChange={(e) => setEditContactName(e.target.value)}
+                          className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Телефон</label>
+                          <input
+                            type="text"
+                            value={editContactPhone}
+                            onChange={(e) => setEditContactPhone(e.target.value)}
+                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1">Email</label>
+                          <input
+                            type="email"
+                            value={editContactEmail}
+                            onChange={(e) => setEditContactEmail(e.target.value)}
+                            placeholder="email@company.com"
+                            className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveDealChanges}
+                        disabled={isSavingDeal}
+                        className="w-full mt-2 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow-md shadow-blue-600/30 active:scale-95 disabled:opacity-50"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{isSavingDeal ? 'Збереження...' : (saveDealSuccess ? '✅ Збережено успішно!' : 'Зберегти зміни')}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {panelTab === 'notes' && (
+                  <div className="space-y-3">
+                    {/* Add note input */}
+                    <div className="space-y-2 p-2.5 bg-amber-950/20 border border-amber-500/30 rounded-2xl">
+                      <span className="text-[10px] font-bold text-amber-300 block">
+                        🔒 Нова службова замітка (тільки для команди)
+                      </span>
+                      <textarea
+                        rows={2}
+                        placeholder="Введіть замітку щодо клієнта..."
+                        value={dealNoteInput}
+                        onChange={(e) => setDealNoteInput(e.target.value)}
+                        className="w-full bg-slate-900 border border-amber-500/40 rounded-xl p-2 text-xs text-amber-100 placeholder-amber-400/50 focus:outline-none focus:border-amber-400 resize-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddDealNote}
+                        disabled={isAddingDealNote || !dealNoteInput.trim()}
+                        className="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm disabled:opacity-50 active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isAddingDealNote ? 'Додавання...' : 'Додати замітку'}</span>
+                      </button>
+                    </div>
+
+                    {/* Notes list */}
+                    <div className="space-y-2">
+                      {activeDeal.notes && activeDeal.notes.length > 0 ? (
+                        activeDeal.notes.map(note => (
+                          <div key={note.id} className="p-2.5 bg-slate-900/90 border border-white/5 rounded-xl space-y-1">
+                            <div className="flex items-center justify-between text-[10px] text-slate-400">
+                              <span className="font-semibold text-amber-300">{note.user?.name || 'Менеджер'}</span>
+                              <span className="font-mono">{new Date(note.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                            </div>
+                            <p className="text-xs text-slate-200 whitespace-pre-wrap">{note.content}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-slate-500 text-[11px]">
+                          Заміток по цій угоді ще немає
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {panelTab === 'tasks' && (
+                  <div className="space-y-3">
+                    {/* Add task input */}
+                    <div className="space-y-2 p-2.5 bg-slate-900/90 border border-emerald-500/30 rounded-2xl">
+                      <span className="text-[10px] font-bold text-emerald-400 block">
+                        📋 Поставити завдання по клієнту
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="напр.: Передзвонити щодо договору"
+                        value={dealTaskInput}
+                        onChange={(e) => setDealTaskInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddDealTask(); }}
+                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddDealTask}
+                        disabled={isAddingDealTask || !dealTaskInput.trim()}
+                        className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm disabled:opacity-50 active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isAddingDealTask ? 'Створення...' : 'Створити завдання'}</span>
+                      </button>
+                    </div>
+
+                    {/* Tasks list */}
+                    <div className="space-y-1.5">
+                      {activeDeal.tasks && activeDeal.tasks.length > 0 ? (
+                        activeDeal.tasks.map(t => (
+                          <div key={t.id} className="p-2.5 bg-slate-900/90 border border-white/5 rounded-xl flex items-start gap-2">
+                            <span className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${t.isCompleted ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs ${t.isCompleted ? 'line-through text-slate-500' : 'text-slate-200'}`}>
+                                {t.text}
+                              </p>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                До: {new Date(t.dueDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-slate-500 text-[11px]">
+                          Немає відкритих завдань
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {panelTab === 'payment' && (
+                  <div className="space-y-3">
+                    {(() => {
+                      let paid: number[] = [];
+                      try {
+                        const parsed = typeof activeDeal.customFields === 'string' ? JSON.parse(activeDeal.customFields) : activeDeal.customFields;
+                        paid = Array.isArray(parsed?.paidMilestones) ? parsed.paidMilestones : [];
+                      } catch (e) {}
+
+                      const tranches = [
+                        { id: 1, name: '1. Договір (25%)' },
+                        { id: 2, name: '2. Скринінг (25%)' },
+                        { id: 3, name: '3. Віза D (25%)' },
+                        { id: 4, name: '4. Вихід на завод (25%)' }
+                      ];
+
+                      return (
+                        <div className="p-3 bg-slate-900/90 border border-white/10 rounded-2xl space-y-2.5">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-white/5">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                              Графік оплати (4х25%):
+                            </span>
+                            <span className="text-emerald-400 font-extrabold text-xs">
+                              €{activeDeal.budget || 0}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2 text-xs">
+                            {tranches.map(t => {
+                              const isPaid = paid.includes(t.id);
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => handleToggleMilestone(t.id)}
+                                  className={`w-full p-2.5 rounded-xl border flex items-center justify-between transition cursor-pointer ${
+                                    isPaid 
+                                      ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300' 
+                                      : 'bg-slate-800/60 border-white/5 text-slate-400 hover:border-white/20'
+                                  }`}
+                                >
+                                  <span className="font-semibold">{t.name}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold">{isPaid ? 'Оплачено' : 'Очікується'}</span>
+                                    {isPaid ? (
+                                      <CheckSquare className="w-4 h-4 text-emerald-400" />
+                                    ) : (
+                                      <Square className="w-4 h-4 text-slate-500" />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom full deal button */}
+              <div className="p-3 border-t border-white/10 bg-slate-900/80">
+                <button
+                  type="button"
+                  onClick={() => setModalDealId(activeDeal.id)}
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition border border-white/10 active:scale-95"
+                >
+                  <span>Повна картка угоди (вікно)</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="p-6 text-center space-y-4 my-auto">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-white text-sm">Картку угоди не знайдено</h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  Для цього клієнта ще не створено угоду в CRM. Створіть її в один клік прямо зараз.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateDealFromChat}
+                disabled={isCreatingDeal}
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition shadow-lg shadow-blue-600/30 active:scale-95 disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isCreatingDeal ? 'Створення угоди...' : '⚡ Створити картку клієнта'}</span>
+              </button>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* In-App Deal Detail Modal Overlay (stay in chat while viewing/editing full deal) */}
+      {modalDealId && (
+        <DealDetailModal
+          dealId={modalDealId}
+          pipeline={currentPipeline || pipelines[0] || { id: 'default', name: 'Воронка', stages: [] }}
+          onClose={() => {
+            setModalDealId(null);
+            if (activeDeal?.id) {
+              api.get(`/deals/${activeDeal.id}`).then(res => res.data && setActiveDeal(res.data)).catch(() => {});
+            }
+          }}
+          onDealUpdated={(updated) => {
+            setActiveDeal(updated);
+          }}
+          onDealDeleted={() => {
+            setModalDealId(null);
+            setActiveDeal(null);
+          }}
+        />
       )}
 
       {/* In-App Media Viewer Lightbox & PDF Viewer Modal */}

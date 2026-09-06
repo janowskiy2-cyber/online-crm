@@ -112,7 +112,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await api.get('/users/presence');
       if (res.data && typeof res.data === 'object') {
-        setPresence(res.data);
+        setPresence(prev => {
+          // Prevent unnecessary global React re-renders if presence status didn't change
+          const prevKeys = Object.keys(prev);
+          const nextKeys = Object.keys(res.data);
+          if (prevKeys.length !== nextKeys.length) return res.data;
+          let hasChange = false;
+          for (const k of nextKeys) {
+            if (!prev[k] || prev[k].status !== res.data[k].status || prev[k].todayMinutes !== res.data[k].todayMinutes) {
+              hasChange = true;
+              break;
+            }
+          }
+          return hasChange ? res.data : prev;
+        });
       }
     } catch (e) {
       // transient network error
@@ -127,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Heartbeat & presence polling every 30 seconds
+  // Heartbeat & presence polling every 60 seconds
   useEffect(() => {
     if (!isAuthenticated || !currentUser) return;
 
@@ -138,7 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const interval = setInterval(() => {
       sendHeartbeat();
       fetchPresence();
-    }, 30000);
+    }, 60000);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {

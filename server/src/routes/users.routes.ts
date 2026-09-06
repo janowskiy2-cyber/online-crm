@@ -101,9 +101,18 @@ export function createUsersRouter(prisma: PrismaClient) {
     }
   });
 
+  // High-performance in-memory cache for presence to eliminate DB hammering
+  let presenceCache: { data: Record<string, any>; timestamp: number } | null = null;
+  const PRESENCE_CACHE_TTL = 15000; // 15 seconds
+
   // Get live presence status & productivity metrics for all team members
   router.get('/presence', async (req, res) => {
     try {
+      const now = Date.now();
+      if (presenceCache && (now - presenceCache.timestamp < PRESENCE_CACHE_TTL)) {
+        return res.json(presenceCache.data);
+      }
+
       const users = await prisma.user.findMany({
         where: { isDeleted: false, isActive: true },
         select: {
@@ -115,25 +124,13 @@ export function createUsersRouter(prisma: PrismaClient) {
           lastActiveAt: true,
           onlineMinutesToday: true,
           onlineMinutesWeek: true,
-          lastPresenceDate: true,
-          workShifts: {
-            take: 1,
-            orderBy: { startTime: 'desc' },
-            select: { status: true, startTime: true }
-          },
-          _count: {
-            select: {
-              deals: { where: { isDeleted: false } },
-              tasks: { where: { isDeleted: false } }
-            }
-          }
+          lastPresenceDate: true
         }
       });
 
-      const now = Date.now();
       const todayStr = new Date().toISOString().slice(0, 10);
-
       const result: Record<string, any> = {};
+
       for (const u of users) {
         let status: 'online' | 'away' | 'offline' = 'offline';
         if (u.lastActiveAt) {
@@ -156,25 +153,23 @@ export function createUsersRouter(prisma: PrismaClient) {
           return `${h} год ${m} хв`;
         };
 
-        const activeShift = u.workShifts && u.workShifts.length > 0 ? u.workShifts[0] : null;
-
         result[u.id] = {
           userId: u.id,
           name: u.name,
           role: u.role,
           department: u.department,
+          avatar: u.avatar,
           status,
           lastActiveAt: u.lastActiveAt,
           todayMinutes,
           todayTimeFormatted: formatTime(todayMinutes),
           weekMinutes,
           weekTimeFormatted: formatTime(weekMinutes),
-          shiftStatus: activeShift ? activeShift.status : 'stopped',
-          dealsCount: u._count.deals,
-          tasksCount: u._count.tasks
+          shiftStatus: status === 'online' ? 'active' : 'stopped'
         };
       }
 
+      presenceCache = { data: result, timestamp: now };
       res.json(result);
     } catch (e) {
       res.status(500).json({ error: 'Failed to fetch presence' });
