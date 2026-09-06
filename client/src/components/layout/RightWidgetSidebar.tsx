@@ -34,49 +34,32 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
   // Important Announcements State
   const [announcementIndex, setAnnouncementIndex] = useState(0);
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
-  const [announcements, setAnnouncements] = useState<any[]>([
-    {
-      id: 1,
-      author: 'Олег Строкатий',
-      role: 'Керівник відділу',
-      date: 'Сьогодні, 10:15',
-      title: 'У середу оновлення шлюзу WhatsApp',
-      text: 'Прохання перевірити всі термінові діалоги до 18:00 у зв\'язку з плановим оновленням сесій.',
-      avatar: DEFAULT_ADMIN_AVATAR
-    }
-  ]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
 
-  // Pulse Stats State
+  // Pulse Stats State (Live from DB)
   const [pulseStats, setPulseStats] = useState({
-    activityPercentage: 86,
-    dealsThisWeek: 12,
-    tasksThisWeek: 28,
-    messagesThisWeek: 145,
-    activeEmployees: 8,
+    activityPercentage: 0,
+    dealsThisWeek: 0,
+    tasksThisWeek: 0,
+    messagesThisWeek: 0,
+    activeEmployees: 0,
     rank: 1
   });
 
   // Tasks Summary State (Live from DB)
   const [taskCounts, setTaskCounts] = useState({
-    doing: 4,
-    doingNew: 1,
-    helping: 1,
+    doing: 0,
+    doingNew: 0,
+    helping: 0,
     helpingNew: 0,
-    assigned: 1,
+    assigned: 0,
     assignedNew: 0,
-    observing: 12,
-    observingNew: 3
+    observing: 0,
+    observingNew: 0
   });
 
   // Birthdays State (Live from DB)
-  const [birthdays, setBirthdays] = useState<any[]>([
-    {
-      id: '1',
-      name: 'Сергій Кулєшов',
-      birthday: '21 липня',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face'
-    }
-  ]);
+  const [birthdays, setBirthdays] = useState<any[]>([]);
 
   useEffect(() => {
     // 1. Fetch Real Announcements
@@ -161,53 +144,55 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
       </div>
 
       {/* 3. Important Announcement Card (Bitrix24 Pinned Widget) */}
-      <div className="bitrix-widget-card border-amber-500/30">
-        <div className="bg-[#c27845] px-3.5 py-1.5 flex items-center justify-between text-white">
-          <span className="text-[11px] font-bold uppercase tracking-wider">Важные сообщения</span>
-          <div className="flex items-center gap-1 text-[11px] font-mono">
-            <button
-              onClick={() => setAnnouncementIndex(prev => prev > 0 ? prev - 1 : announcements.length - 1)}
-              className="hover:text-amber-200"
-            >
-              &lt;
-            </button>
-            <span>{announcementIndex + 1} / {announcements.length}</span>
-            <button
-              onClick={() => setAnnouncementIndex(prev => prev < announcements.length - 1 ? prev + 1 : 0)}
-              className="hover:text-amber-200"
-            >
-              &gt;
-            </button>
-          </div>
-        </div>
-        <div className="p-3.5 bg-slate-900/90 space-y-3 text-xs">
-          <div className="flex items-center gap-2.5">
-            <img 
-              src={currentAnnounce.avatar || DEFAULT_ADMIN_AVATAR} 
-              alt={currentAnnounce.author}
-              className="w-10 h-10 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
-            />
-            <div>
-              <div className="font-bold text-sky-400 text-xs">{currentAnnounce.author}</div>
-              <div className="text-white text-xs font-semibold mt-0.5">{currentAnnounce.title}</div>
+      {announcements.length > 0 && currentAnnounce && (
+        <div className="bitrix-widget-card border-amber-500/30">
+          <div className="bg-[#c27845] px-3.5 py-1.5 flex items-center justify-between text-white">
+            <span className="text-[11px] font-bold uppercase tracking-wider">Важные сообщения</span>
+            <div className="flex items-center gap-1 text-[11px] font-mono">
+              <button
+                onClick={() => setAnnouncementIndex(prev => prev > 0 ? prev - 1 : announcements.length - 1)}
+                className="hover:text-amber-200"
+              >
+                &lt;
+              </button>
+              <span>{announcementIndex + 1} / {announcements.length}</span>
+              <button
+                onClick={() => setAnnouncementIndex(prev => prev < announcements.length - 1 ? prev + 1 : 0)}
+                className="hover:text-amber-200"
+              >
+                &gt;
+              </button>
             </div>
           </div>
-          <p className="text-slate-300 text-xs leading-relaxed">
-            {currentAnnounce.text}
-          </p>
-          <button
-            onClick={() => setHasAcknowledged(!hasAcknowledged)}
-            className={`w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              hasAcknowledged
-                ? 'bg-emerald-600 text-white'
-                : 'bg-[#f1cd53] hover:bg-[#e2bd44] text-slate-900 shadow-sm'
-            }`}
-          >
-            {hasAcknowledged && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-            <span>{hasAcknowledged ? 'Я ознайомлена' : 'Я ознайомлена'}</span>
-          </button>
+          <div className="p-3.5 bg-slate-900/90 space-y-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <img 
+                src={currentAnnounce.avatar || DEFAULT_ADMIN_AVATAR} 
+                alt={currentAnnounce.author}
+                className="w-10 h-10 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
+              />
+              <div>
+                <div className="font-bold text-sky-400 text-xs">{currentAnnounce.author}</div>
+                <div className="text-white text-xs font-semibold mt-0.5">{currentAnnounce.title}</div>
+              </div>
+            </div>
+            <p className="text-slate-300 text-xs leading-relaxed">
+              {currentAnnounce.text}
+            </p>
+            <button
+              onClick={() => setHasAcknowledged(!hasAcknowledged)}
+              className={`w-full py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                hasAcknowledged
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-[#f1cd53] hover:bg-[#e2bd44] text-slate-900 shadow-sm'
+              }`}
+            >
+              {hasAcknowledged && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+              <span>{hasAcknowledged ? 'Я ознайомлена' : 'Я ознайомлена'}</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 4. My Tasks Breakdown (Bitrix24 Tasks Widget with Pink Count Pills) */}
       <div className="bitrix-widget-card">
@@ -285,26 +270,28 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({
       </div>
 
       {/* 5. Birthdays Widget (Bitrix24 Style) */}
-      <div className="bitrix-widget-card">
-        <div className="bg-[#e49e3d] px-3.5 py-1.5 text-white text-[11px] font-bold uppercase tracking-wider">
-          Дни рождения
-        </div>
-        <div className="divide-y divide-white/5 bg-slate-900/90">
-          {birthdays.slice(0, 3).map((b) => (
-            <div key={b.id} className="p-3 flex items-center gap-3">
-              <img
-                src={b.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face'}
-                alt={b.name}
-                className="w-9 h-9 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
-              />
-              <div className="min-w-0">
-                <div className="font-bold text-sky-400 text-xs truncate">{b.name}</div>
-                <div className="text-slate-400 text-[11px]">{b.birthday || b.dateStr || '15 травня'}</div>
+      {birthdays.length > 0 && (
+        <div className="bitrix-widget-card">
+          <div className="bg-[#e49e3d] px-3.5 py-1.5 text-white text-[11px] font-bold uppercase tracking-wider">
+            Дни рождения
+          </div>
+          <div className="divide-y divide-white/5 bg-slate-900/90">
+            {birthdays.slice(0, 3).map((b) => (
+              <div key={b.id} className="p-3 flex items-center gap-3">
+                <img
+                  src={b.avatar || DEFAULT_ADMIN_AVATAR}
+                  alt={b.name}
+                  className="w-9 h-9 rounded-full object-cover border border-amber-400/40 flex-shrink-0"
+                />
+                <div className="min-w-0">
+                  <div className="font-bold text-sky-400 text-xs truncate">{b.name}</div>
+                  <div className="text-slate-400 text-[11px]">{b.birthday || b.dateStr}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
     </aside>
   );

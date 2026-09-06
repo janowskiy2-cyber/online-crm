@@ -24,10 +24,10 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
 }) => {
   const { currentUser, users } = useAuth();
 
-  // Load real colleagues from DB users (excluding current user and duplicate root admin)
-  const activeColleagues = users && users.length > 1
+  // Load real colleagues from DB users (excluding current user)
+  const activeColleagues = users && users.length > 0
     ? users
-        .filter(u => u.id !== currentUser?.id && (currentUser?.role !== 'super_admin' || u.role !== 'super_admin'))
+        .filter(u => u.id !== currentUser?.id)
         .slice(0, 6)
         .map(u => ({
           id: u.id,
@@ -39,12 +39,7 @@ export const RightQuickDock: React.FC<RightQuickDockProps> = ({
           status: (u.isActive ? 'online' : 'busy') as 'online' | 'busy' | 'offline',
           avatar: u.avatar || DEFAULT_ADMIN_AVATAR
         }))
-    : [
-        { id: '1', name: 'Олег Строкатий', role: 'Керівник', department: 'Керівництво', email: 'oleg@crm.pro', phone: '+380671112233', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face' },
-        { id: '2', name: 'Катерина Шеленкова', role: 'HR Скринінг', department: 'Відділ найму', email: 'katerina@crm.pro', phone: '+380682223344', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face' },
-        { id: '3', name: 'Дмитро Філаткін', role: 'Координатор', department: 'Логістика кандидатів', email: 'dmitro@crm.pro', phone: '+380993334455', status: 'online' as const, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face' },
-        { id: '4', name: 'Наталія Грихіна', role: 'Юрист (Візи)', department: 'Юридичний супровід', email: 'natalia@crm.pro', phone: '+380974445566', status: 'busy' as const, avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face' }
-      ];
+    : [];
 
   return (
     <aside className="w-14 flex flex-col justify-between items-center py-3 bg-slate-900/40 backdrop-blur-2xl border-l border-white/10 select-none flex-shrink-0 z-30">

@@ -260,32 +260,6 @@ export function createChatRouter(
     }
   });
 
-  // 10. Live Simulator: Guaranteed creation of new lead with unique phone
-  router.post('/simulate-incoming', async (req, res) => {
-    try {
-      const { channel } = req.body;
-      const ch = channel || 'whatsapp';
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
-      const uniquePhone = `+38067${Math.floor(1000000 + Math.random() * 9000000)}`;
-      const name = ch === 'whatsapp' ? `ТОВ "Пром-Завод #${randomSuffix}"` : `Директор Олексій #${randomSuffix}`;
-      const msgText = `Доброго дня! Терміново потрібно 15 фасувальників та операторів лінії на виробництво.`;
-
-      let savedMsg;
-      if (ch === 'whatsapp') {
-        savedMsg = await whatsappService.processIncomingOrOutgoingMessage(uniquePhone.replace(/\D/g, ''), name, msgText, false);
-      } else {
-        savedMsg = await telegramService.handleIncomingMessage(`@director_${randomSuffix}`, name, msgText);
-      }
-
-      res.json({
-        success: true,
-        message: 'Новий лід успішно створено та розподілено в CRM!',
-        data: savedMsg
-      });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message || 'Помилка симуляції' });
-    }
-  });
 
   // Check contact messengers availability (WhatsApp and Telegram)
   router.post('/check-contact', async (req, res) => {

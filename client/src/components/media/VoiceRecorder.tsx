@@ -65,10 +65,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       setIsRecording(true);
       startTimer();
     } catch (err) {
-      console.warn('Microphone access fallback:', err);
-      // Mock / fallback audio stream
-      setIsRecording(true);
-      startTimer();
+      console.warn('Microphone access error:', err);
+      alert('Не вдалося отримати доступ до мікрофону. Перевірте дозволи у налаштуваннях браузера.');
+      onCancel();
     }
   };
 
@@ -88,8 +87,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
     } else {
-      // Fallback synthetic voice message
-      onSendVoice('data:audio/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwE=', recordingTime || 5);
+      onCancel();
     }
   };
 

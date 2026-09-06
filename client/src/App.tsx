@@ -11,7 +11,6 @@ import { RightQuickDock } from './components/layout/RightQuickDock';
 import { CreateDealModal } from './components/modals/CreateDealModal';
 import { QRConnectModal } from './components/modals/QRConnectModal';
 import { LoginPage } from './components/auth/LoginPage';
-import { IncomingCallModal, IncomingCallData } from './components/telephony/IncomingCallModal';
 import { CallModal } from './components/telephony/CallModal';
 import { useAuth } from './context/AuthContext';
 import { api, socket } from './services/api';
@@ -69,8 +68,7 @@ export function App() {
   const [isObjectionsOpen, setIsObjectionsOpen] = useState(false);
   const [selectedColleague, setSelectedColleague] = useState<any | null>(null);
 
-  // Incoming and Active Call State
-  const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
+  // Active Call Session State (Direct dialing & logging)
   const [activeCallSession, setActiveCallSession] = useState<{
     name: string;
     phone: string;
@@ -130,18 +128,9 @@ export function App() {
     }
   }, [isAuthenticated]);
 
-  // Telephony & Socket listeners
+  // Real-time Push & Socket listeners
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    const handleIncomingCall = (data: IncomingCallData) => {
-      setIncomingCall(data);
-      if (document.hidden) {
-        triggerNativePush('📞 Вхідний дзвінок у CRM', {
-          body: `Клієнт: ${data.callerName || data.callerNumber} (${data.channel.toUpperCase()})`
-        });
-      }
-    };
 
     const handleNewMessage = (msg: any) => {
       if (document.hidden) {
@@ -159,12 +148,10 @@ export function App() {
       }
     };
 
-    socket.on('incoming_call', handleIncomingCall);
     socket.on('new_message', handleNewMessage);
     socket.on('task_created', handleTaskCreated);
 
     return () => {
-      socket.off('incoming_call', handleIncomingCall);
       socket.off('new_message', handleNewMessage);
       socket.off('task_created', handleTaskCreated);
     };
@@ -483,24 +470,7 @@ export function App() {
         </Suspense>
       )}
 
-      {/* Incoming Call Overlay Alert Modal */}
-      {incomingCall && (
-        <IncomingCallModal
-          data={incomingCall}
-          onAnswer={(callData) => {
-            setIncomingCall(null);
-            setActiveCallSession({
-              name: callData.contactName || 'Вхідний дзвінок',
-              phone: callData.phone,
-              type: 'gsm',
-              dealId: callData.dealId
-            });
-          }}
-          onDecline={() => setIncomingCall(null)}
-        />
-      )}
-
-      {/* Outgoing or Answered Active Call Screen */}
+      {/* Direct Contact & Call Outcome Logger Modal */}
       {activeCallSession && (
         <CallModal
           contactName={activeCallSession.name}

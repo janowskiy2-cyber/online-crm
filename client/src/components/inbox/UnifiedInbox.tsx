@@ -775,9 +775,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       <div className={`flex items-center gap-1.5 max-w-[88%] sm:max-w-xl ${isOut ? 'flex-row-reverse' : 'flex-row'}`}>
                         <div
                           onClick={() => {
-                            if (isFile) {
+                            if (isFile && m.mediaUrl) {
                               setViewingMedia({
-                                url: m.mediaUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                                url: m.mediaUrl,
                                 type: 'pdf',
                                 title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
                               });

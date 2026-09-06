@@ -2465,9 +2465,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <div className={`flex items-center gap-1.5 max-w-[88%] sm:max-w-md ${isOutgoing ? 'flex-row-reverse' : 'flex-row'}`}>
                               <div
                                 onClick={() => {
-                                  if (isFile) {
+                                  if (isFile && item.mediaUrl) {
                                     setViewingMedia({
-                                      url: resolveMediaUrl(item.mediaUrl) || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                                      url: resolveMediaUrl(item.mediaUrl),
                                       type: 'pdf',
                                       title: item.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
                                     });

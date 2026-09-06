@@ -44,7 +44,6 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
 
   const [waQrImage, setWaQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
@@ -160,26 +159,6 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
       setErrorNotice(err?.response?.data?.error || 'Невірний код або пароль 2FA. Спробуйте ще раз.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Test Inbound Lead Flow (Simulator)
-  const handleSimulateLead = async (channel: 'whatsapp' | 'telegram') => {
-    setIsSimulating(true);
-    setErrorNotice(null);
-    try {
-      await api.post('/chat/simulate-incoming', {
-        channel,
-        senderName: channel === 'whatsapp' ? 'ТОВ "Агро-Холдинг Південь" (WA)' : 'Андрій Директор (TG)',
-        phoneOrTg: channel === 'whatsapp' ? '+380734277174' : '@director_agro',
-        text: 'Доброго дня! Потрібно 20 робітників на склад і фасування в Одесу. Надішліть КП 4х25% та договір.'
-      });
-      setSuccessNotice(`🚀 Тестовий вхідний лід (${channel.toUpperCase()}) успішно створено та розподілено в CRM! Перевірте Воронку та Месенджери.`);
-      setTimeout(() => setSuccessNotice(null), 6000);
-    } catch (err) {
-      setErrorNotice('Помилка виконання тесту зв\'язку.');
-    } finally {
-      setIsSimulating(false);
     }
   };
 
@@ -308,15 +287,6 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
 
               <div className="flex justify-center gap-3 pt-2">
                 <button
-                  onClick={() => handleSimulateLead(activeChannel)}
-                  disabled={isSimulating}
-                  className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  <span>{isSimulating ? 'Тестування...' : '⚡ Протестувати прийом ліда'}</span>
-                </button>
-
-                <button
                   onClick={() => handleDisconnect(activeChannel)}
                   className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition"
                 >
@@ -361,15 +331,6 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                   <span>Оновити QR</span>
-                </button>
-
-                <button
-                  onClick={() => handleSimulateLead('whatsapp')}
-                  disabled={isSimulating}
-                  className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  <span>⚡ Тест прийому ліда</span>
                 </button>
               </div>
             </div>
