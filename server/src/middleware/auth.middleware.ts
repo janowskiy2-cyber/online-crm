@@ -85,7 +85,21 @@ function decodeBearer(req: AuthRequest): boolean {
  * Attaches userId, userRole, userEmail to request.
  */
 export function authRequired(req: AuthRequest, res: Response, next: NextFunction) {
+  // Allow public access to candidate resume PDFs so standard browser tabs and iframes can render them without rejection
+  if (req.method === 'GET' && (req.path.endsWith('/resume.pdf') || req.originalUrl?.includes('/resume.pdf'))) {
+    decodeBearer(req); // Try to decode if token present, but don't reject if absent
+    return next();
+  }
+
   if (!req.headers.authorization?.startsWith('Bearer ')) {
+    // Also check query param ?token=
+    const queryToken = req.query?.token;
+    if (typeof queryToken === 'string' && queryToken) {
+      req.headers.authorization = `Bearer ${queryToken}`;
+      if (decodeBearer(req)) {
+        return next();
+      }
+    }
     return res.status(401).json({ error: 'Токен авторизації відсутній' });
   }
   if (!decodeBearer(req)) {

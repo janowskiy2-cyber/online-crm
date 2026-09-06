@@ -79,7 +79,14 @@ api.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     const url: string = error?.config?.url || '';
-    if (status === 401 && !url.includes('/auth/login') && !url.includes('/users/verify-admin-pin')) {
+    if (
+      status === 401 && 
+      !url.includes('/auth/login') && 
+      !url.includes('/users/verify-admin-pin') &&
+      !url.includes('/resume') &&
+      !url.includes('/uploads') &&
+      !url.includes('/files')
+    ) {
       clearAuth();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));

@@ -89,30 +89,23 @@ async function evaluateInPage(expression) {
 async function getPendingConfirmations() {
   const expr = `
     (() => {
-      const candidates = Array.from(document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"]'));
+      const candidates = Array.from(document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"], .monaco-button, a[role="button"], .cursor-pointer'));
       const pending = [];
+
+      const CONFIRM_REGEX = /^(proceed|proceed with|продолжить|продовжити|allow|always allow|allow command|разрешить|всегда разрешать|дозволити|завжди дозволяти|run|run command|выполнить|виконати|запустить|запустити|approve|approve plan|утвердить|затвердити|accept|принять|прийняти|confirm|подтвердить|підтвердити|yes|да|так|apply|применить|застосувати)$/i;
 
       for (const el of candidates) {
         const text = (el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim();
-        const isVisible = el.offsetParent !== null || el.getClientRects().length > 0;
+        const rect = el.getBoundingClientRect();
+        const isVisible = (el.offsetParent !== null || rect.width > 0 || rect.height > 0) && rect.top >= 0;
         if (!isVisible || !text) continue;
 
-        const lower = text.toLowerCase();
-        const isProceed = lower === 'proceed' || lower.startsWith('proceed with');
-        const isRun = lower === 'run' || lower.startsWith('run ') && !lower.includes('finished') && !lower.includes('running');
-        const isAllow = lower === 'allow' || lower === 'always allow' || lower.includes('allow command');
-        const isApprove = lower === 'approve' || lower.includes('approve plan');
-        const isAccept = lower === 'accept';
-        const isConfirm = lower === 'confirm' || lower === 'підтвердити';
-
-        if (isProceed || isRun || isAllow || isApprove || isAccept || isConfirm) {
+        const lower = text.toLowerCase().replace(/\\s+/g, ' ');
+        if (CONFIRM_REGEX.test(lower) || lower.startsWith('proceed') || lower.startsWith('run ') || lower.startsWith('allow ') || lower.startsWith('выполнить ') || lower.startsWith('разрешить ')) {
           pending.push({
             text,
             tag: el.tagName,
-            isProceed,
-            isRun,
-            isAllow,
-            isApprove
+            className: el.className
           });
         }
       }
@@ -131,43 +124,57 @@ async function getPendingConfirmations() {
 async function clickPendingConfirmation() {
   const expr = `
     (() => {
-      const candidates = Array.from(document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"]'));
+      function triggerClick(el) {
+        el.scrollIntoView({ block: 'center' });
+        const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+        for (const evt of events) {
+          const e = new MouseEvent(evt, { bubbles: true, cancelable: true, view: window });
+          el.dispatchEvent(e);
+        }
+        if (typeof el.click === 'function') {
+          el.click();
+        }
+      }
+
+      const candidates = Array.from(document.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"], .monaco-button, a[role="button"], .cursor-pointer'));
       
-      // Priority 1: Exact "Proceed" / "Proceed with..."
+      const CONFIRM_REGEX = /^(proceed|proceed with|продолжить|продовжити|allow|always allow|allow command|разрешить|всегда разрешать|дозволити|завжди дозволяти|run|run command|выполнить|виконати|запустить|запустити|approve|approve plan|утвердить|затвердити|accept|принять|прийняти|confirm|подтвердить|підтвердити|yes|да|так|apply|применить|застосувати)$/i;
+
+      // Priority 1: Exact confirmation match
       for (const el of candidates) {
-        const text = (el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim().toLowerCase();
-        const isVisible = el.offsetParent !== null || el.getClientRects().length > 0;
+        const text = (el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim().toLowerCase().replace(/\\s+/g, ' ');
+        const rect = el.getBoundingClientRect();
+        const isVisible = (el.offsetParent !== null || rect.width > 0 || rect.height > 0) && rect.top >= 0;
         if (!isVisible) continue;
 
-        if (text === 'proceed' || text.startsWith('proceed with') || text === 'approve' || text === 'always allow') {
-          el.scrollIntoView({ block: 'center' });
-          el.click();
-          return { success: true, text: el.innerText || text, type: 'proceed' };
+        if (CONFIRM_REGEX.test(text) || text.startsWith('proceed') || text.startsWith('run ') || text.startsWith('allow ') || text.startsWith('выполнить ') || text.startsWith('разрешить ')) {
+          triggerClick(el);
+          return { success: true, text: el.innerText || text, type: 'exact_confirm' };
         }
       }
 
-      // Priority 2: "Allow" / "Run"
-      for (const el of candidates) {
-        const text = (el.innerText || el.textContent || el.getAttribute('aria-label') || '').trim().toLowerCase();
-        const isVisible = el.offsetParent !== null || el.getClientRects().length > 0;
+      // Priority 2: Primary action buttons in dialogs or popups
+      const dialogButtons = Array.from(document.querySelectorAll('[role="dialog"] button, .monaco-dialog-box button, .notification-toast button, .modal button'));
+      for (const el of dialogButtons) {
+        const rect = el.getBoundingClientRect();
+        const isVisible = (el.offsetParent !== null || rect.width > 0 || rect.height > 0) && rect.top >= 0;
         if (!isVisible) continue;
-
-        if (text === 'allow' || text === 'run' || text.startsWith('run ') && !text.includes('finished') && !text.includes('running')) {
-          el.scrollIntoView({ block: 'center' });
-          el.click();
-          return { success: true, text: el.innerText || text, type: 'run_or_allow' };
+        const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+        if (!text.includes('cancel') && !text.includes('отмена') && !text.includes('скасувати') && !text.includes('close')) {
+          triggerClick(el);
+          return { success: true, text: el.innerText || text, type: 'dialog_primary' };
         }
       }
 
-      // Priority 3: Any button containing "proceed" or "підтвердити"
+      // Priority 3: Fuzzy matching
       for (const el of candidates) {
         const text = (el.innerText || el.textContent || '').trim().toLowerCase();
-        const isVisible = el.offsetParent !== null || el.getClientRects().length > 0;
+        const rect = el.getBoundingClientRect();
+        const isVisible = (el.offsetParent !== null || rect.width > 0 || rect.height > 0) && rect.top >= 0;
         if (!isVisible) continue;
 
-        if (text.includes('proceed') || text.includes('підтвердити') || text.includes('approve')) {
-          el.scrollIntoView({ block: 'center' });
-          el.click();
+        if (text.includes('proceed') || text.includes('підтвердити') || text.includes('подтвердить') || text.includes('approve') || text.includes('разрешить') || text.includes('выполнить')) {
+          triggerClick(el);
           return { success: true, text: el.innerText || text, type: 'fuzzy_confirm' };
         }
       }

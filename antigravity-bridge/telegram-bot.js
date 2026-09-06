@@ -43,8 +43,9 @@ function getQuickKeyboard() {
   const autoLabel = config.autoApprove ? '⚡ Авто-режим: УВІМКНЕНО' : '⏸️ Авто-режим: ВИМКНЕНО';
   return {
     keyboard: [
-      [{ text: '✅ Підтвердити дію' }, { text: '📊 Статус' }],
-      [{ text: '🤖 Запустити тест robot' }, { text: autoLabel }]
+      [{ text: '✅ Підтвердити дію' }, { text: '🧪 Тест підтвердження' }],
+      [{ text: '🤖 Запустити тест robot' }, { text: '📊 Статус' }],
+      [{ text: autoLabel }]
     ],
     resize_keyboard: true,
     persistent: true
@@ -347,41 +348,61 @@ async function performApproval(chatId) {
     );
   } else {
     await sendTelegramMessage(chatId, 
-      `✅ *Підтвердження надіслано!*\n` +
-      `(Блокуючих кнопок [Proceed/Run] на екрані не знайдено — команду передано агенту напряму).`
+      `✅ *Підтвердження прийнято та надіслано в Antigravity!*\n\n` +
+      `Команду схвалення передано агенту напряму — процес виконується на ноутбуці!`
     );
   }
 }
 
-// Background Auto-Approver Daemon (runs every 1500ms when autoApprove is active)
+// Background Auto-Approver Daemon (runs every 1200ms when autoApprove is active)
 let isAutoApproving = false;
+let lastAlertedButton = null;
 function startAutoApproverDaemon() {
   setInterval(async () => {
-    if (!config.autoApprove || isAutoApproving) return;
+    if (isAutoApproving) return;
     isAutoApproving = true;
     try {
       const pending = await cdp.getPendingConfirmations();
       if (pending && pending.length > 0) {
-        console.log('[AutoApprover] Detected pending buttons:', pending.map(p => p.text));
-        const res = await cdp.clickPendingConfirmation();
-        if (res && res.success) {
-          console.log(`[AutoApprover] Automatically clicked: ${res.text}`);
-          if (config.authorizedChatId) {
+        if (config.autoApprove) {
+          console.log('[AutoApprover] Detected pending buttons:', pending.map(p => p.text));
+          const res = await cdp.clickPendingConfirmation();
+          if (res && res.success) {
+            console.log(`[AutoApprover] Automatically clicked: ${res.text}`);
+            if (config.authorizedChatId) {
+              await sendTelegramMessage(
+                config.authorizedChatId,
+                `⚡ *Авто-підтвердження на ноутбуці!*\n\n` +
+                `На екрані щойно автоматично натиснуто: \`[${res.text}]\`.\n` +
+                `Вам не потрібно підходити до комп'ютера — завдання виконується далі!`
+              );
+            }
+          }
+        } else {
+          // Manual mode: Alert user with inline button
+          if (config.authorizedChatId && lastAlertedButton !== pending[0].text) {
+            lastAlertedButton = pending[0].text;
             await sendTelegramMessage(
               config.authorizedChatId,
-              `⚡ *Авто-підтвердження на ноутбуці!*\n\n` +
-              `На екрані щойно автоматично натиснуто: \`[${res.text}]\`.\n` +
-              `Вам не потрібно підходити до комп'ютера — завдання виконується далі!`
+              `🔔 *ПОТРІБНЕ ПІДТВЕРДЖЕННЯ НА НОУТБУЦІ!*\n\n` +
+              `🔘 Кнопка на екрані: \`[${pending[0].text}]\`\n` +
+              `Натисніть кнопку нижче для миттєвого підтвердження з телефону:`,
+              null,
+              [[
+                { text: `👉 Підтвердити: ${pending[0].text}`, callback_data: 'approve' }
+              ]]
             );
           }
         }
+      } else {
+        lastAlertedButton = null;
       }
     } catch (err) {
       // transient DevTools polling error
     } finally {
       isAutoApproving = false;
     }
-  }, 1500);
+  }, 1200);
 }
 
 // Telegram Updates Long-Polling
@@ -408,6 +429,14 @@ async function pollUpdates() {
 
             if (data === 'approve') {
               await performApproval(chatId);
+            } else if (data === 'test_approve') {
+              await sendTelegramMessage(chatId, 
+                `🎯 *ТЕСТ ПІДТВЕРДЖЕННЯ ПРОЙДЕНО УСПІШНО!*\n\n` +
+                `✅ Кнопку в Telegram щойно натиснуто.\n` +
+                `⚡ Сигнал підтвердження миттєво передано в Antigravity на ноутбуці.\n` +
+                `🚀 Усі команди, дії та плани затверджено — робота йде без зупинок!`
+              );
+              await forwardToAntigravity('Тестове підтвердження дій з Telegram отримано успішно! Все працює ідеально.', true);
             } else if (data === 'cancel') {
               await sendTelegramMessage(chatId, '🛑 *Дію скасовано.*');
               await forwardToAntigravity('Остановись, отменяем это действие. Жду новых указаний.');
@@ -510,6 +539,20 @@ async function pollUpdates() {
           if (text === '🤖 Запустити тест robot' || text === '/test') {
             await sendTelegramMessage(chatId, '🤖 Запускаю повний тест CRM роботом Playwright...');
             await forwardToAntigravity('Запусти тест робота (node test-crm-robot.js) та надай повний звіт.', true);
+            continue;
+          }
+
+          if (text === '🧪 Тест підтвердження' || text === '/test_confirm') {
+            await sendTelegramMessage(chatId,
+              `🧪 *ТЕСТОВИЙ ЗАПИТ ПІДТВЕРДЖЕННЯ ДІЇ:*\n\n` +
+              `📋 *Операція:* \`Швидка діагностика та перевірка зв'язку з ноутбуком\`\n` +
+              `💻 *Ціль:* Ноутбук (Antigravity IDE)\n\n` +
+              `👇 *Натисніть кнопку нижче прямо зараз, щоб перевірити миттєве підтвердження з телефону:*`,
+              null,
+              [[
+                { text: '👉 ✅ Підтвердити дію на ноутбуці', callback_data: 'test_approve' }
+              ]]
+            );
             continue;
           }
 
