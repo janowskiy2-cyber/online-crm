@@ -316,6 +316,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Search className="w-5 h-5" />
           </button>
 
+          <span className="hidden xl:inline text-xs font-black text-white tracking-tight mr-1 drop-shadow">
+            Recruiter I Club
+          </span>
+
           {/* Project Category Pills */}
           <div className="hidden sm:flex items-center p-0.5 bg-black/20 border border-white/10 rounded-xl">
             {PROJECTS_CONFIG.map((proj) => {

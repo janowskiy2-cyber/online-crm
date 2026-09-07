@@ -58,7 +58,7 @@ export const IntegrationsView: React.FC = () => {
     }
   };
 
-  const generatedEmbedCode = `<!-- Recruiting CRM Lead Form Widget -->
+  const generatedEmbedCode = `<!-- Recruiter I Club Lead Form Widget -->
 <div id="crm-lead-widget" style="max-width:440px;background:#111827;padding:24px;border-radius:16px;font-family:sans-serif;color:#fff;">
   <h3 style="margin-top:0;font-size:18px;font-weight:bold;">${formTitle}</h3>
   <form action="${webhookUrl}" method="POST">

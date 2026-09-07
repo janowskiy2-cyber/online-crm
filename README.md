@@ -1,4 +1,4 @@
-# Online CRM Pro (amoCRM Edition)
+# Recruiter I Club (amoCRM + Bitrix24 Edition)
 
 Полнофункциональная CRM-система корпоративного уровня с дизайном и бизнес-логикой в стиле **amoCRM**, поддержкой омниканальных мессенджеров (**WhatsApp и Telegram по QR-коду**), матрицей из **20 пользователей и ролей (RBAC)**, интерактивной Kanban-доской, Digital Pipeline автоматизацией и расширенной аналитикой.
 

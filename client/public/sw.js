@@ -61,7 +61,7 @@ self.addEventListener('fetch', (event) => {
 // Push: Handles native Web Push notifications sent to service worker
 self.addEventListener('push', (event) => {
   let payload = {
-    title: 'Online CRM Pro',
+    title: 'Recruiter I Club',
     body: 'Нове сповіщення або вхідне повідомлення в CRM',
     icon: 'https://img.icons8.com/color/192/crm.png',
     badge: 'https://img.icons8.com/color/48/crm.png',

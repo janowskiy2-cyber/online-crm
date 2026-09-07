@@ -1,4 +1,4 @@
-﻿# robots.txt for Online CRM Pro
+# robots.txt for Recruiter I Club
 User-agent: *
 Allow: /
 Allow: /manifest.json

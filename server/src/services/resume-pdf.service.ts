@@ -41,7 +41,7 @@ export class ResumePdfService {
           margin: 36,
           info: {
             Title: `Резюме - ${data.name}`,
-            Author: 'Міжнародна Агенція Працевлаштування (Online CRM Pro)',
+            Author: 'Міжнародна Агенція Працевлаштування (Recruiter I Club)',
             Subject: data.profession,
             Keywords: 'Резюме, CV, Вакансії, Робота за кордоном'
           }
@@ -236,7 +236,7 @@ export class ResumePdfService {
         // FOOTER
         doc.rect(36, pageHeight - 34, pageWidth - 72, 1).fill('#e2e8f0');
         doc.font(fontMain).fontSize(7.5).fillColor('#94a3b8');
-        const verificationText = `Документ верифіковано в базі Online CRM Pro • Статус: Готовий до працевлаштування • Дата оновлення: ${new Date().toLocaleDateString('uk-UA')}`;
+        const verificationText = `Документ верифіковано в базі Recruiter I Club • Статус: Готовий до працевлаштування • Дата оновлення: ${new Date().toLocaleDateString('uk-UA')}`;
         doc.text(verificationText, 36, pageHeight - 26, { width: pageWidth - 72, align: 'center' });
 
         doc.end();

@@ -92,10 +92,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Brand Header */}
           <div className="h-14 flex items-center justify-between px-4 border-b border-white/10">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-base tracking-tight text-white drop-shadow">
-                Битрикс 24
+              <span className="font-bold text-sm tracking-tight text-white drop-shadow">
+                Recruiter I Club
               </span>
-              <span className="text-[9px] bg-blue-500/20 text-blue-300 font-bold px-1.5 py-0.2 rounded border border-blue-500/30">
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-500/30">
                 PRO
               </span>
             </div>

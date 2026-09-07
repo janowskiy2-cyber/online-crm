@@ -1,4 +1,4 @@
-﻿// Native Web Push & Service Worker Notification Helper for Online CRM Pro
+// Native Web Push & Service Worker Notification Helper for Recruiter I Club
 
 export const isWebPushSupported = (): boolean => {
   return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator;
@@ -15,7 +15,7 @@ export const requestWebPushPermission = async (): Promise<boolean> => {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       const reg = await navigator.serviceWorker.ready;
-      reg.showNotification('Online CRM Pro', {
+      reg.showNotification('Recruiter I Club', {
         body: 'Нативні Push-сповіщення увімкнено! Ви отримуватимете сигнали навіть при згорнутому браузері.',
         icon: 'https://img.icons8.com/color/192/crm.png',
         badge: 'https://img.icons8.com/color/48/crm.png'

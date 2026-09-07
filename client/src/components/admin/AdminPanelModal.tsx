@@ -312,7 +312,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
     const passwordLine = password
       ? `🔑 Пароль: ${password}`
       : '🔑 Пароль: видається адміністратором особисто (кнопка «Скинути пароль» згенерує новий)';
-    const inviteText = `Вам надано робочий доступ до Recruiting CRM!
+    const inviteText = `Вам надано робочий доступ до Recruiter I Club!
 
 🔗 Посилання для входу: ${window.location.origin}
 👤 Логін / Email: ${user.email}

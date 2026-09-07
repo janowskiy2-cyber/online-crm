@@ -299,7 +299,7 @@ export function generateCandidateDossierHtml(candidate: Contact): string {
             ВІДДІЛ КАДРОВОГО<br>
             СКРИНІНГУ
           </div>
-          <div style="font-size: 11px; margin-top: 6px; color: #334155;">Верифіковано рекрутером CRM</div>
+          <div style="font-size: 11px; margin-top: 6px; color: #334155;">Верифіковано рекрутером Recruiter I Club</div>
         </div>
       </td>
     </tr>

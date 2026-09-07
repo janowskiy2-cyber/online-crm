@@ -89,7 +89,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white/10 backdrop-blur-md border border-white/15 flex items-center gap-1.5 text-blue-200">
               <Shield className="w-3 h-3 text-blue-400" />
-              Команда CRM
+              Команда Recruiter I Club
             </span>
           </div>
           

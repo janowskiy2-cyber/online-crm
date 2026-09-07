@@ -1,4 +1,4 @@
-﻿export interface InvoiceData {
+export interface InvoiceData {
   dealTitle: string;
   companyName: string;
   trancheNumber: number; // 1, 2, 3, 4
@@ -54,7 +54,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
 </head>
 <body>
   <div class="no-print" style="background: #0f172a; color: white; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-    <div><strong>Офіційний рахунок сформовано CRM Pro</strong> (Транш №${data.trancheNumber} — ${data.tranchePercent}%)</div>
+    <div><strong>Офіційний рахунок сформовано Recruiter I Club</strong> (Транш №${data.trancheNumber} — ${data.tranchePercent}%)</div>
     <button onclick="window.print()" style="background: #2563eb; color: white; border: none; padding: 8px 18px; border-radius: 6px; font-weight: bold; cursor: pointer;">🖨️ Друкувати / Зберегти як PDF</button>
   </div>
 

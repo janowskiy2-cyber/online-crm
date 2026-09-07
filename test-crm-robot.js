@@ -19,7 +19,7 @@ console.log('================================================================\n'
  * БАЗА ЗНАНЬ ПРОЄКТУ ДЛЯ РОБОТА-ТЕСТИРОВЩИКА (PROJECT KNOWLEDGE REGISTRY)
  */
 const CRM_PROJECT_REGISTRY = {
-  name: 'Online CRM Pro (Bitrix24 + amoCRM Edition)',
+  name: 'Recruiter I Club (Bitrix24 + amoCRM Edition)',
   modules: [
     { id: 'auth', name: 'Авторизація та Майстер-доступ', route: '/' },
     { id: 'feed', name: 'Жива стрічка компанії', route: '/feed' },

@@ -58,7 +58,7 @@ export const LoginPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center justify-center gap-1.5">
-              <span>Recruiting CRM</span>
+              <span>Recruiter I Club</span>
               <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold px-2 py-0.2 rounded-full border border-emerald-500/20 tracking-wide">
                 PRO
               </span>
