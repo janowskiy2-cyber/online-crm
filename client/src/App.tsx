@@ -288,6 +288,9 @@ export function App() {
                 <Route path="/contacts" element={
                   <ContactsView onOpenDeal={handleOpenDeal} />
                 } />
+                <Route path="/contacts/:contactId" element={
+                  <ContactsView onOpenDeal={handleOpenDeal} />
+                } />
 
                 <Route path="/analytics" element={<AnalyticsView />} />
                 

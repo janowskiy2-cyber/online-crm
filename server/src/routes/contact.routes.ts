@@ -51,10 +51,13 @@ export function createContactRouter(prisma: PrismaClient) {
   // Get contacts (supports ?type=candidate or ?type=b2b_contact) with Synaptic Semantic Search
   router.get('/', async (req, res) => {
     try {
-      const { search, type } = req.query;
+      const { search, type, companyId } = req.query;
       let where: any = { isDeleted: false };
       if (type) {
         where.type = String(type);
+      }
+      if (companyId) {
+        where.companyId = String(companyId);
       }
       if (search) {
         const terms = await SemanticSearchService.expandQuery(String(search));
@@ -240,6 +243,112 @@ export function createContactRouter(prisma: PrismaClient) {
     }
   });
 
+  // Get single company with contacts and deals
+  router.get('/companies/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const company = await prisma.company.findUnique({
+        where: { id },
+        include: {
+          contacts: { where: { isDeleted: false } },
+          deals: {
+            where: { isDeleted: false },
+            include: { stage: true, pipeline: true, tasks: { where: { isDeleted: false } } }
+          },
+          _count: { select: { contacts: true, deals: true } }
+        }
+      });
+      if (!company) {
+        return res.status(404).json({ error: 'Підприємство не знайдено' });
+      }
+      res.json(company);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch company' });
+    }
+  });
+
+  // Get company notes
+  router.get('/companies/:id/notes', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deals = await prisma.deal.findMany({
+        where: { companyId: id, isDeleted: false },
+        select: { id: true }
+      });
+      const dealIds = deals.map(d => d.id);
+      const notes = await prisma.dealNote.findMany({
+        where: { dealId: { in: dealIds } },
+        include: { user: { select: { id: true, name: true, avatar: true } } },
+        orderBy: { createdAt: 'desc' }
+      });
+      res.json(notes);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch company notes' });
+    }
+  });
+
+  // Add company note
+  router.post('/companies/:id/notes', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { text, content } = req.body;
+      const noteContent = (text || content || '').trim();
+      if (!noteContent) {
+        return res.status(400).json({ error: 'Текст замітки обовʼязковий' });
+      }
+
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
+      let validUserId = currentUserId;
+      if (validUserId) {
+        const uExists = await prisma.user.findUnique({ where: { id: validUserId } });
+        if (!uExists) validUserId = '';
+      }
+      if (!validUserId) {
+        const firstUser = await prisma.user.findFirst();
+        validUserId = firstUser ? firstUser.id : 'usr-admin';
+      }
+
+      let deal = await prisma.deal.findFirst({
+        where: { companyId: id, isDeleted: false },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (!deal) {
+        const pipeline = await prisma.pipeline.findFirst({
+          include: { stages: { orderBy: { sortOrder: 'asc' } } }
+        });
+        if (pipeline && pipeline.stages.length > 0) {
+          const company = await prisma.company.findUnique({ where: { id } });
+          deal = await prisma.deal.create({
+            data: {
+              title: company?.name ? `Співпраця: ${company.name}` : 'Замовлення персоналу',
+              pipelineId: pipeline.id,
+              stageId: pipeline.stages[0].id,
+              companyId: id,
+              responsibleId: validUserId
+            }
+          });
+        }
+      }
+
+      if (deal) {
+        const note = await prisma.dealNote.create({
+          data: {
+            dealId: deal.id,
+            userId: validUserId,
+            content: noteContent
+          },
+          include: { user: { select: { id: true, name: true, avatar: true } } }
+        });
+        return res.status(201).json(note);
+      }
+
+      res.status(200).json({ success: true, text: noteContent });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to create company note' });
+    }
+  });
+
   // Get archived contacts
   router.get('/archived/list', async (req, res) => {
     try {
@@ -251,6 +360,29 @@ export function createContactRouter(prisma: PrismaClient) {
       res.json(contacts);
     } catch (e) {
       res.status(500).json({ error: 'Failed to fetch archived contacts' });
+    }
+  });
+
+  // Get single contact by ID
+  router.get('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const contact = await prisma.contact.findUnique({
+        where: { id },
+        include: {
+          company: true,
+          deals: {
+            where: { isDeleted: false },
+            include: { stage: true, pipeline: true, tasks: { where: { isDeleted: false } } }
+          }
+        }
+      });
+      if (!contact) {
+        return res.status(404).json({ error: 'Контакт не знайдено' });
+      }
+      res.json(contact);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fetch contact' });
     }
   });
 

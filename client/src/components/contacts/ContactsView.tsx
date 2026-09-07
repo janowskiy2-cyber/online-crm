@@ -22,10 +22,11 @@ import {
   Upload,
   X
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../services/api';
 import { Contact, Company } from '../../types';
 import { ImportCsvModal } from '../modals/ImportCsvModal';
+import { ClientDetailModal } from './ClientDetailModal';
 
 interface ExtendedCompany extends Company {
   _count?: {
@@ -43,13 +44,21 @@ interface ContactsViewProps {
 
 export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
   const navigate = useNavigate();
+  const { contactId } = useParams<{ contactId?: string }>();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<ExtendedCompany[]>([]);
   const [activeTab, setActiveTab] = useState<'employers' | 'representatives'>('employers');
   const [search, setSearch] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(contactId || null);
   const [isAddEmployerOpen, setIsAddEmployerOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (contactId) {
+      setSelectedClientId(contactId);
+    }
+  }, [contactId]);
 
   // Form state for new employer
   const [employerForm, setEmployerForm] = useState({
@@ -318,7 +327,8 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
                 return (
                   <div
                     key={comp.id}
-                    className="bitrix-glass rounded-2xl p-5 border border-white/10 hover:border-blue-500/40 transition-all duration-200 shadow-xl flex flex-col justify-between group"
+                    onClick={() => setSelectedClientId(comp.id)}
+                    className="bitrix-glass rounded-2xl p-5 border border-white/10 hover:border-blue-500/50 hover:bg-slate-900/60 transition-all duration-200 shadow-xl flex flex-col justify-between group cursor-pointer"
                   >
                     <div>
                       {/* Card Header */}
@@ -336,6 +346,19 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
                             </span>
                           </div>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedClientId(comp.id);
+                          }}
+                          className="px-2.5 py-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1 border border-blue-500/20"
+                          title="Відкрити детальну картку клієнта"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Картка</span>
+                        </button>
                       </div>
 
                       {/* Location & Details */}
@@ -407,18 +430,32 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
             {contacts.map((contact) => (
               <div
                 key={contact.id}
-                className="bitrix-glass rounded-2xl p-5 border border-white/10 hover:border-slate-600 transition shadow-xl space-y-3"
+                onClick={() => setSelectedClientId(contact.companyId || contact.id)}
+                className="bitrix-glass rounded-2xl p-5 border border-white/10 hover:border-indigo-500/50 hover:bg-slate-900/60 transition shadow-xl space-y-3 cursor-pointer group"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 font-bold flex items-center justify-center border border-indigo-500/30">
                       {contact.name.charAt(0)}
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-white">{contact.name}</h3>
+                      <h3 className="font-bold text-sm text-white group-hover:text-indigo-300 transition">{contact.name}</h3>
                       <p className="text-xs text-slate-400">{contact.position || 'Представник роботодавця'}</p>
                     </div>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedClientId(contact.companyId || contact.id);
+                    }}
+                    className="px-2.5 py-1 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1 border border-indigo-500/20"
+                    title="Відкрити повну картку"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Картка</span>
+                  </button>
                 </div>
 
                 <div className="space-y-1.5 text-xs text-slate-300 pt-2 border-t border-white/10">
@@ -598,6 +635,23 @@ export const ContactsView: React.FC<ContactsViewProps> = ({ onOpenDeal }) => {
         type="employers"
         onSuccess={fetchCompanies}
       />
+
+      {selectedClientId && (
+        <ClientDetailModal
+          clientId={selectedClientId}
+          onClose={() => {
+            setSelectedClientId(null);
+            if (window.location.pathname.startsWith('/contacts/')) {
+              navigate('/contacts');
+            }
+          }}
+          onOpenDeal={onOpenDeal}
+          onUpdated={() => {
+            fetchCompanies();
+            fetchContacts();
+          }}
+        />
+      )}
     </div>
   );
 };

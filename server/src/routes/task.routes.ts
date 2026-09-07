@@ -51,12 +51,14 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
   router.get('/', async (req, res) => {
     try {
       const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
-      const { status, dealId, search } = req.query;
+      const { status, dealId, search, companyId } = req.query;
 
       let where: any = { isDeleted: false };
 
       if (dealId) {
         where.dealId = String(dealId);
+      } else if (companyId) {
+        where.deal = { companyId: String(companyId) };
       }
 
       if (status === 'active') {

@@ -56,6 +56,7 @@ import { startSpeechToText } from '../../utils/speechRecognition';
 import { openPrintableInvoice } from '../../utils/invoiceGenerator';
 import { SlashCommandsPopup } from '../chat/SlashCommandsPopup';
 import { CannedResponse } from '../../constants/cannedResponses';
+import { ClientDetailModal } from '../contacts/ClientDetailModal';
 
 const resolveMediaUrl = (url?: string) => {
   if (!url) return '';
@@ -107,7 +108,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     setCopiedItemTextId(id);
     setTimeout(() => setCopiedItemTextId(null), 2000);
   };
-  
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(val) + ' ₴';
+  };
+
+  const [selectedClientIdForModal, setSelectedClientIdForModal] = useState<string | null>(null);
+
   // Modals state
   const [isKPModalOpen, setIsKPModalOpen] = useState(false);
   const [isObjectionsModalOpen, setIsObjectionsModalOpen] = useState(false);
@@ -1109,6 +1115,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     ...(deal?.messages || []).map((m: any) => ({ ...m, itemType: 'message', timestamp: new Date(m.createdAt).getTime() }))
   ].sort((a, b) => a.timestamp - b.timestamp);
 
+  const displayedTimelineItems = timelineItems.filter((item: any) => {
+    if (activeTab === 'chat') {
+      return item.itemType === 'message';
+    }
+    if (activeTab === 'notes') {
+      const isCall = item.type === 'call' || (typeof (item.text || item.content) === 'string' && (item.text || item.content).includes('📞'));
+      return item.itemType === 'note' && !isCall;
+    }
+    // 'all' displays everything: messages, notes, calls, audit events!
+    return true;
+  });
+
+  const handleOpenCallModal = async () => {
+    setIsCallModalOpen(true);
+    try {
+      const contactName = deal?.contact?.name || deal?.company?.name || deal?.title || 'Клієнт';
+      const phone = deal?.contact?.phone || deal?.contact?.whatsapp || deal?.company?.phone || '';
+      await api.post(`/deals/${dealId}/notes`, {
+        type: 'call',
+        content: `📞 Ініційовано дзвінок клієнту (${contactName}, ${phone})`
+      });
+      const res = await api.get(`/deals/${dealId}`);
+      if (res.data) {
+        setDeal(res.data);
+        onDealUpdated(res.data);
+      }
+    } catch (e) {
+      console.warn('Call logging notice:', e);
+    }
+  };
+
   interface CandidateItem {
     id: string;
     name: string;
@@ -1397,19 +1434,30 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   }
 
   return (
-    <div className={`fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
-      <div className={`bg-white dark:bg-[#0c111d] border-0 sm:border border-slate-200 dark:border-white/[0.1] flex flex-col shadow-2xl overflow-hidden transition-all duration-200 ${
-        isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-2xl sm:max-w-6xl sm:h-[92vh] animate-in fade-in zoom-in-95 duration-150'
-      }`}>
+    <div className={`fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
+      <div 
+        className={`relative flex flex-col shadow-2xl overflow-hidden transition-all duration-200 border border-white/15 ${
+          isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-3xl sm:max-w-7xl sm:h-[94vh] animate-in fade-in zoom-in-95 duration-150'
+        }`}
+        style={{
+          backgroundImage: `
+            linear-gradient(180deg, rgba(10, 16, 32, 0.88) 0%, rgba(6, 10, 22, 0.95) 100%),
+            url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2560&auto=format&fit=crop')
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backdropFilter: 'blur(24px)'
+        }}
+      >
         
         {/* Modal Top Bar */}
-        <div className="h-14 px-3 sm:px-6 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/90 dark:bg-[#0f1526]/90 flex-shrink-0">
+        <div className="h-14 px-3 sm:px-6 border-b border-white/10 flex items-center justify-between bg-[#0a0f1d]/85 backdrop-blur-md flex-shrink-0">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <h2 className="text-xs sm:text-base font-bold text-slate-900 dark:text-white truncate max-w-[130px] sm:max-w-md">
+            <h2 className="text-xs sm:text-base font-bold text-white truncate max-w-[130px] sm:max-w-md">
               {deal.title}
             </h2>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[11px] sm:text-sm px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg whitespace-nowrap">
-              €{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(deal.budget || 0)}
+            <span className="text-emerald-400 font-bold font-mono text-[11px] sm:text-sm px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg whitespace-nowrap">
+              {formatCurrency(deal.budget || 0)}
             </span>
           </div>
 
@@ -1418,13 +1466,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             {/* 1-Click Copy Shareable Deal URL */}
             <button
               onClick={handleCopyDealLink}
-              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-slate-200/70 hover:bg-slate-300/80 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-300/70 dark:border-white/10 rounded-lg text-xs font-semibold items-center gap-1.5 transition active:scale-95"
+              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-white/10 hover:bg-white/15 text-slate-200 border border-white/10 rounded-lg text-xs font-semibold items-center gap-1.5 transition active:scale-95"
               title="Скопіювати пряме посилання на цю угоду"
             >
               {isCopiedLink ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Скопійовано!</span>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-400 font-bold">Скопійовано!</span>
                 </>
               ) : (
                 <>
@@ -1439,7 +1487,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               href={`/deals/${deal.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
+              className="hidden md:flex p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition"
               title="Відкрити в окремій вкладці браузера"
             >
               <ExternalLink className="w-4 h-4" strokeWidth={1.75} />
@@ -1448,17 +1496,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             {/* Fullscreen Workspace Toggle */}
             <button
               onClick={() => setIsFullscreen(prev => !prev)}
-              className="hidden md:flex p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
+              className="hidden md:flex p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition"
               title={isFullscreen ? "Згорнути у вікно" : "Розгорнути на весь екран (Розвантажити фон)"}
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" strokeWidth={1.75} /> : <Maximize2 className="w-4 h-4" strokeWidth={1.75} />}
             </button>
 
-            <div className="hidden sm:block w-[1px] h-4 bg-slate-300 dark:bg-white/10 mx-0.5" />
+            <div className="hidden sm:block w-[1px] h-4 bg-white/10 mx-0.5" />
 
             <button
-              onClick={() => setIsCallModalOpen(true)}
-              className="px-2 sm:px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              onClick={handleOpenCallModal}
+              className="px-2 sm:px-3 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
               title="Зателефонувати клієнту"
             >
               <Phone className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -1632,26 +1680,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
                   Контакт клієнта (HR / Директор)
                 </label>
-                {deal.contact ? (
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={handleStartEditContact}
-                    className="p-1 text-slate-400 hover:text-blue-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
-                    title="Редагувати дані клієнта"
+                    onClick={() => setSelectedClientIdForModal(deal.companyId || deal.company?.id || deal.contactId || deal.contact?.id || null)}
+                    className="px-2 py-0.5 text-blue-400 hover:text-white bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/25 rounded-lg transition flex items-center gap-1 text-[11px] font-bold"
+                    title="Відкрити повну картку клієнта"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Редагувати</span>
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Картка клієнта</span>
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleStartEditContact}
-                    className="p-1 text-blue-400 hover:text-blue-300 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px] font-bold"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Додати</span>
-                  </button>
-                )}
+                  {deal.contact ? (
+                    <button
+                      type="button"
+                      onClick={handleStartEditContact}
+                      className="p-1 text-slate-400 hover:text-blue-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
+                      title="Редагувати дані клієнта"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Редагувати</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStartEditContact}
+                      className="p-1 text-blue-400 hover:text-blue-300 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px] font-bold"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Додати</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {isEditingContact ? (
@@ -2942,12 +3001,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             ) : (
               /* Timeline Stream */
               <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
-                {timelineItems.length === 0 ? (
+                {displayedTimelineItems.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-xs">
-                    Історія подій поки порожня
+                    {activeTab === 'chat'
+                      ? 'Повідомлень у чаті месенджерів (WhatsApp / Telegram) поки немає. Напишіть повідомлення в полі нижче!'
+                      : activeTab === 'notes'
+                      ? 'Заміток по угоді поки немає.'
+                      : 'Історія подій поки порожня.'}
                   </div>
                 ) : (
-                  timelineItems.map((item: any) => {
+                  displayedTimelineItems.map((item: any) => {
                     if (item.itemType === 'message') {
                       const isOutgoing = item.direction === 'outgoing';
                       const isWhatsApp = item.channel === 'whatsapp';
@@ -3019,29 +3082,38 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                               <div
                                 onClick={() => {
                                   if (isFile && item.mediaUrl) {
-                                    setViewingMedia({
-                                      url: resolveMediaUrl(item.mediaUrl),
-                                      type: 'pdf',
-                                      title: item.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
-                                    });
+                                    setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'document', title: item.text || 'Документ' });
                                   }
                                 }}
-                                className={`p-3 sm:p-3.5 rounded-2xl text-xs leading-relaxed select-text cursor-text ${
+                                className={`rounded-2xl px-4 py-2.5 text-xs shadow-md select-text cursor-text ${
+                                  isFile && item.mediaUrl ? 'cursor-pointer hover:ring-2 hover:ring-blue-500/50 transition-all duration-150' : ''
+                                } ${
                                   isOutgoing
-                                    ? 'bg-blue-600 text-white rounded-tr-none shadow-md'
-                                    : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-tl-none'
-                                } ${isFile ? 'border-2 border-amber-400/50 cursor-pointer hover:bg-slate-700/80 transition flex items-center gap-2' : ''}`}
+                                    ? isWhatsApp
+                                      ? 'bg-[#005c4b] text-white'
+                                      : 'bg-[#2b5278] text-white'
+                                    : 'bg-[#202c33] text-slate-100'
+                                }`}
                               >
-                                {isFile && <FileText className="w-4 h-4 text-amber-400 flex-shrink-0" />}
-                                <span className="select-text whitespace-pre-wrap">{item.text}</span>
+                                {isFile && item.mediaUrl ? (
+                                  <div className="flex items-center gap-2 font-semibold">
+                                    <FileText className="w-4 h-4 text-emerald-300 flex-shrink-0" />
+                                    <span className="underline">{item.text || 'Документ'}</span>
+                                    <ExternalLink className="w-3 h-3 text-slate-300 flex-shrink-0 ml-1" />
+                                  </div>
+                                ) : (
+                                  <p className="leading-relaxed whitespace-pre-line select-text">
+                                    {item.text}
+                                  </p>
+                                )}
                               </div>
                               <button
                                 type="button"
-                                onClick={(e) => handleCopyText(item.id, item.text, e)}
-                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-400 hover:text-white transition shadow-sm flex-shrink-0"
-                                title={copiedItemTextId === item.id ? "Скопійовано!" : "Скопіювати текст"}
+                                onClick={(e) => handleCopyText(item.id, item.text || '', e)}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-white transition flex-shrink-0"
+                                title={copiedItemTextId === item.id ? "Скопійовано!" : "Скопіювати"}
                               >
-                                {copiedItemTextId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedItemTextId === item.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                               </button>
                             </div>
                           )}
@@ -3049,7 +3121,35 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       );
                     }
 
+                    const isCall = item.type === 'call' || (typeof (item.text || item.content) === 'string' && (item.text || item.content).includes('📞'));
                     const isAudit = item.type === 'status_change' || item.type === 'system';
+
+                    if (isCall) {
+                      return (
+                        <div
+                          key={item.id}
+                          className="rounded-2xl p-3.5 text-xs space-y-1.5 bg-emerald-950/40 border border-emerald-500/30 shadow-sm transition select-text"
+                        >
+                          <div className="flex items-center justify-between text-slate-400">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-[10px] flex items-center gap-1 border border-emerald-500/30">
+                                <Phone className="w-3 h-3 text-emerald-400" />
+                                <span>Дзвінок клієнту</span>
+                              </span>
+                              <span className="font-semibold text-slate-200">
+                                {item.user?.name || 'Менеджер'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500">
+                              {new Date(item.createdAt).toLocaleString('uk-UA')}
+                            </span>
+                          </div>
+                          <p className="leading-relaxed whitespace-pre-line text-emerald-100 font-medium select-text">
+                            {item.text || item.content}
+                          </p>
+                        </div>
+                      );
+                    }
 
                     return (
                       <div
@@ -3233,6 +3333,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             не знайдено
                           </span>
                         )}
+                      </button>
+
+                      {/* Quick Call button directly from Chat toolbar */}
+                      <button
+                        type="button"
+                        onClick={handleOpenCallModal}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 active:scale-95"
+                        title="Зателефонувати клієнту прямо з чату (фіксується в історії подій)"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="hidden sm:inline">Дзвінок</span>
                       </button>
                     </div>
 
@@ -3985,6 +4096,21 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Standalone Client Detail Modal (Company/HR Dossier with Candidate Attachment & Notes) */}
+      {selectedClientIdForModal && (
+        <ClientDetailModal
+          clientId={selectedClientIdForModal}
+          onClose={() => setSelectedClientIdForModal(null)}
+          onOpenDeal={(dId) => {
+            setSelectedClientIdForModal(null);
+            if (dId !== dealId) {
+              window.location.href = `/deals/${dId}`;
+            }
+          }}
+          onUpdated={() => fetchDealDetail()}
+        />
       )}
     </div>
   );
