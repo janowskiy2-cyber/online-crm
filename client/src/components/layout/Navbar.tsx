@@ -317,7 +317,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {/* Project Category Pills */}
-          <div className="flex items-center p-0.5 bg-black/20 border border-white/10 rounded-xl">
+          <div className="hidden sm:flex items-center p-0.5 bg-black/20 border border-white/10 rounded-xl">
             {PROJECTS_CONFIG.map((proj) => {
               const isActive = currentWorkspace === proj.id;
               const handleWorkspaceSelect = () => {

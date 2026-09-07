@@ -3038,7 +3038,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
 
             {/* Input / Message Bar */}
-            <div className="p-3.5 border-t border-slate-800/80 bg-[#0e1422] space-y-2.5">
+            <div className="p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-slate-800/80 bg-[#0e1422] space-y-2.5 flex-shrink-0">
               {activeTab === 'notes' ? (
                 /* Dedicated Voice Dictation & Note Box */
                 <div className="space-y-2">

@@ -227,6 +227,39 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
+  const handleMoveDealStage = async (dealId: string, newStageId: string) => {
+    if (!dealId || !newStageId) return;
+    const currentDeal = deals.find((d) => d.id === dealId);
+    if (!currentDeal || currentDeal.stageId === newStageId) return;
+
+    const targetStage = stagesList.find((s) => s.id === newStageId);
+    if (targetStage && targetStage.name.toLowerCase().includes('відмова')) {
+      setPendingLossDeal({ id: dealId, title: currentDeal.title, targetStageId: newStageId });
+      return;
+    }
+
+    setRecentlyMovedDealId(dealId);
+    setTimeout(() => setRecentlyMovedDealId(null), 8000);
+
+    setDeals((prev) =>
+      prev.map((deal) =>
+        deal.id === dealId ? { ...deal, stageId: newStageId } : deal
+      )
+    );
+
+    try {
+      const res = await api.put(`/deals/${dealId}`, { stageId: newStageId });
+      if (res.data) {
+        setDeals((prev) =>
+          prev.map((d) => (d.id === dealId ? { ...d, ...res.data, stageId: newStageId } : d))
+        );
+      }
+    } catch (e) {
+      console.error('Failed to move deal:', e);
+      fetchDeals();
+    }
+  };
+
   const handleExportDeals = async () => {
     try {
       const pId = pipeline?.id || '';
@@ -250,6 +283,34 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper bg-slate-100/70 dark:bg-[#070b13]/80 p-3 sm:p-4 transition-colors duration-200 font-['Inter',sans-serif]">
+      {/* Mobile Sticky Horizontal Stage Ribbon (md:hidden) */}
+      {stagesList.length > 0 && (
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 mb-2 px-0.5 flex-shrink-0">
+          {stagesList.map((stg) => {
+            const stageDeals = (filteredDeals || []).filter((d) => d && d.stageId === stg.id);
+            return (
+              <button
+                key={stg.id}
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById(`kanban-stage-${stg.id}`);
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                  }
+                }}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-white/95 dark:bg-[#0e1424]/95 border border-slate-200 dark:border-white/10 shadow-sm active:scale-95 flex-shrink-0 transition"
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: stg.color || '#3b82f6' }} />
+                <span className="text-slate-800 dark:text-slate-200 truncate max-w-[110px]">{stg.name}</span>
+                <span className="px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-white/[0.08] text-[10px] font-mono text-slate-500 dark:text-slate-400 font-bold">
+                  {stageDeals.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Workspace guidance banner if candidate category is selected */}
       {projectId === 'candidates' && (
         <div className="mb-3 p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-3 text-xs text-white backdrop-blur-md shadow-lg animate-in fade-in">
@@ -409,6 +470,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               return (
                 <div
                   key={stage.id}
+                  id={`kanban-stage-${stage.id}`}
                   className="w-[85vw] max-w-xs sm:w-80 snap-center flex-shrink-0 flex flex-col bg-slate-200/50 dark:bg-[#0b101c]/80 border border-slate-200/90 dark:border-white/[0.07] rounded-xl overflow-hidden backdrop-blur-sm"
                 >
                   {/* Column Header */}
@@ -454,6 +516,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                   deal={deal}
                                   onClick={() => onOpenDeal(deal.id)}
                                   stageColor={stage.color || '#3b82f6'}
+                                  stages={stagesList}
+                                  onMoveStage={handleMoveDealStage}
                                 />
                               </div>
                             )}

@@ -458,7 +458,7 @@ export const CandidatesView: React.FC = () => {
         </div>
 
         {/* Country Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 text-xs">
           <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mr-1 flex-shrink-0">
             <Globe2 className="w-3.5 h-3.5 text-emerald-400" /> Країна:
           </span>
@@ -478,7 +478,7 @@ export const CandidatesView: React.FC = () => {
         </div>
 
         {/* Profession Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 text-xs">
           <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mr-1 flex-shrink-0">
             <Briefcase className="w-3.5 h-3.5 text-blue-400" /> Професія:
           </span>

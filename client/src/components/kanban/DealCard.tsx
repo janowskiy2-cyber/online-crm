@@ -10,7 +10,7 @@ import {
   Link2,
   Check
 } from 'lucide-react';
-import { Deal } from '../../types';
+import { Deal, Stage } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
 
@@ -18,11 +18,20 @@ interface DealCardProps {
   deal: Deal;
   onClick: () => void;
   stageColor?: string;
+  stages?: Stage[];
+  onMoveStage?: (dealId: string, stageId: string) => void;
 }
 
-export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, stageColor = '#3b82f6' }) => {
+export const DealCard: React.FC<DealCardProps> = ({ 
+  deal, 
+  onClick, 
+  stageColor = '#3b82f6',
+  stages = [],
+  onMoveStage
+}) => {
   const { currentUser, users } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isStagePickerOpen, setIsStagePickerOpen] = useState(false);
 
   const handleCopyLink = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -181,17 +190,65 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, onClick, stageColor = 
           )}
         </div>
 
-        {/* Responsible Manager Avatar */}
-        <div className="flex items-center" title={`Відповідальний: ${deal.responsible?.name || 'Менеджер'}`}>
-          <img
-            src={(() => {
-              const isSuperAdmin = deal.responsible?.role === 'super_admin' || deal.responsibleId === 'usr-admin' || deal.responsible?.email === 'admin@crm.pro';
-              const matchingUser = users?.find(u => u.id === deal.responsibleId || (isSuperAdmin && u.role === 'super_admin'));
-              return matchingUser?.avatar || deal.responsible?.avatar || (isSuperAdmin ? (currentUser?.avatar || DEFAULT_ADMIN_AVATAR) : DEFAULT_ADMIN_AVATAR);
-            })()}
-            alt={deal.responsible?.name || 'Менеджер'}
-            className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200 dark:ring-white/[0.1] shadow-sm"
-          />
+        {/* Right side: 1-Tap Quick Stage Mover & Responsible Manager */}
+        <div className="flex items-center gap-1.5">
+          {onMoveStage && stages.length > 1 && (
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setIsStagePickerOpen(prev => !prev)}
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] hover:bg-blue-500/10 hover:text-blue-500 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/[0.06] transition flex items-center gap-0.5 active:scale-95"
+                title="Змінити етап в 1 клік (без перетягування)"
+              >
+                <span>➔ Етап</span>
+              </button>
+              {isStagePickerOpen && (
+                <div 
+                  className="absolute bottom-full mb-1 right-0 z-50 bg-white dark:bg-[#121829] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-1.5 min-w-[180px] space-y-0.5 animate-in fade-in zoom-in-95"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-white/5">
+                    Перемістити на:
+                  </div>
+                  {stages.map((stg) => {
+                    const isCurrent = stg.id === deal.stageId;
+                    return (
+                      <button
+                        key={stg.id}
+                        type="button"
+                        disabled={isCurrent}
+                        onClick={() => {
+                          setIsStagePickerOpen(false);
+                          onMoveStage(deal.id, stg.id);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
+                          isCurrent 
+                            ? 'bg-blue-500/10 text-blue-500 font-bold opacity-60 cursor-default' 
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-blue-600'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stg.color || '#3b82f6' }} />
+                        <span className="truncate">{stg.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Responsible Manager Avatar */}
+          <div className="flex items-center" title={`Відповідальний: ${deal.responsible?.name || 'Менеджер'}`}>
+            <img
+              src={(() => {
+                const isSuperAdmin = deal.responsible?.role === 'super_admin' || deal.responsibleId === 'usr-admin' || deal.responsible?.email === 'admin@crm.pro';
+                const matchingUser = users?.find(u => u.id === deal.responsibleId || (isSuperAdmin && u.role === 'super_admin'));
+                return matchingUser?.avatar || deal.responsible?.avatar || (isSuperAdmin ? (currentUser?.avatar || DEFAULT_ADMIN_AVATAR) : DEFAULT_ADMIN_AVATAR);
+              })()}
+              alt={deal.responsible?.name || 'Менеджер'}
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200 dark:ring-white/[0.1] shadow-sm"
+            />
+          </div>
         </div>
       </div>
     </div>

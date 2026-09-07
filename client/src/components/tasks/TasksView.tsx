@@ -481,7 +481,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenDeal }) => {
             <button
               type="submit"
               disabled={isQuickSubmitting || !quickText.trim()}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/30 flex items-center gap-1.5 shrink-0"
+              className="flex-1 sm:flex-initial justify-center px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/30 flex items-center gap-1.5 shrink-0 active:scale-95"
             >
               <span>{isQuickSubmitting ? 'Збереження...' : '+ Додати'}</span>
             </button>

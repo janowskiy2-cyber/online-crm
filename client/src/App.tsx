@@ -162,6 +162,22 @@ export function App() {
     };
   }, [isAuthenticated]);
 
+  const [isMobileChatActive, setIsMobileChatActive] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      setIsMobileChatActive(Boolean(e.detail?.active));
+    };
+    window.addEventListener('crm:mobile-chat-toggle', handler);
+    return () => window.removeEventListener('crm:mobile-chat-toggle', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith('/inbox')) {
+      setIsMobileChatActive(false);
+    }
+  }, [location.pathname]);
+
   if (!isAuthenticated) {
     return <LoginPage />;
   }
@@ -220,7 +236,7 @@ export function App() {
         />
 
         {/* Dynamic Views & Bitrix24 Right Utility Widgets + Right Quick Dock */}
-        <main className="flex-1 flex overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+        <main className={`flex-1 flex overflow-hidden ${isMobileChatActive ? 'pb-0' : 'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]'} md:pb-0`}>
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <Suspense fallback={<ViewLoader />}>
               <Routes>
@@ -321,55 +337,57 @@ export function App() {
         </main>
 
         {/* Native Mobile Bottom Navigation Bar (iOS / Android App Style with Safe Area Insets) */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-[#0e1320]/95 backdrop-blur-lg border-t border-slate-800/90 z-30 flex items-center justify-around px-1 select-none">
-          <button
-            onClick={() => { setCurrentTab('deals'); navigate('/deals'); }}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              location.pathname.startsWith('/deals') ? 'text-blue-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            <Kanban className="w-4 h-4" />
-            <span className="text-[10px]">Воронка</span>
-          </button>
+        {!isMobileChatActive && (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-[#0e1320]/95 backdrop-blur-lg border-t border-slate-800/90 z-30 flex items-center justify-around px-1 select-none">
+            <button
+              onClick={() => { setCurrentTab('deals'); navigate('/deals'); }}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
+                location.pathname.startsWith('/deals') ? 'text-blue-400 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <Kanban className="w-4 h-4" />
+              <span className="text-[10px]">Воронка</span>
+            </button>
 
-          <button
-            onClick={() => { setCurrentTab('inbox'); navigate('/inbox'); }}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              location.pathname.startsWith('/inbox') ? 'text-emerald-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span className="text-[10px]">Чати</span>
-          </button>
+            <button
+              onClick={() => { setCurrentTab('inbox'); navigate('/inbox'); }}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
+                location.pathname.startsWith('/inbox') ? 'text-emerald-400 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-[10px]">Чати</span>
+            </button>
 
-          <button
-            onClick={() => { setCurrentTab('candidates'); navigate('/candidates'); }}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              location.pathname.startsWith('/candidates') ? 'text-purple-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span className="text-[10px]">Кандидати</span>
-          </button>
+            <button
+              onClick={() => { setCurrentTab('candidates'); navigate('/candidates'); }}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
+                location.pathname.startsWith('/candidates') ? 'text-purple-400 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span className="text-[10px]">Кандидати</span>
+            </button>
 
-          <button
-            onClick={() => { setCurrentTab('tasks'); navigate('/tasks'); }}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-              location.pathname.startsWith('/tasks') ? 'text-amber-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            <CheckSquare className="w-4 h-4" />
-            <span className="text-[10px]">Завдання</span>
-          </button>
+            <button
+              onClick={() => { setCurrentTab('tasks'); navigate('/tasks'); }}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
+                location.pathname.startsWith('/tasks') ? 'text-amber-400 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <CheckSquare className="w-4 h-4" />
+              <span className="text-[10px]">Завдання</span>
+            </button>
 
-          <button
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="flex flex-col items-center justify-center gap-1 flex-1 py-1 text-slate-400 hover:text-white transition"
-          >
-            <Menu className="w-4 h-4" />
-            <span className="text-[10px]">Меню</span>
-          </button>
-        </div>
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="flex flex-col items-center justify-center gap-1 flex-1 py-1 text-slate-400 hover:text-white transition"
+            >
+              <Menu className="w-4 h-4" />
+              <span className="text-[10px]">Меню</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Deal Detail Modal — Deep Linking & Direct URL Support */}

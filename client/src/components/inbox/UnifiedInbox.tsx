@@ -93,9 +93,24 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [isDealPanelOpen, setIsDealPanelOpen] = useState(true);
+  const [isDealPanelOpen, setIsDealPanelOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
   const [modalDealId, setModalDealId] = useState<string | null>(null);
   const [panelTab, setPanelTab] = useState<'details' | 'notes' | 'tasks' | 'payment'>('details');
+
+  // Notify App.tsx to hide bottom navigation bar on mobile during active chat
+  useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (isMobile) {
+      window.dispatchEvent(new CustomEvent('crm:mobile-chat-toggle', { 
+        detail: { active: Boolean(selectedChatKey) } 
+      }));
+    }
+    return () => {
+      window.dispatchEvent(new CustomEvent('crm:mobile-chat-toggle', { 
+        detail: { active: false } 
+      }));
+    };
+  }, [selectedChatKey]);
 
   // Inline deal editing state
   const [editTitle, setEditTitle] = useState('');
@@ -959,8 +974,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   {/* Mobile Back Button */}
                   <button
-                    onClick={() => setSelectedChatKey(null)}
-                    className="md:hidden p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-xl mr-1"
+                    onClick={() => {
+                      setSelectedChatKey(null);
+                      window.dispatchEvent(new CustomEvent('crm:mobile-chat-toggle', { detail: { active: false } }));
+                    }}
+                    className="md:hidden p-2 text-slate-300 hover:text-white bg-slate-800 active:scale-95 rounded-xl mr-1 flex items-center justify-center min-w-[36px] min-h-[36px] shadow-sm"
                     title="Назад до списку"
                   >
                     <ArrowLeft className="w-4 h-4" />
@@ -1254,7 +1272,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             )}
 
             {/* In-Chat Voice Recorder Bar OR Regular Text/File Form */}
-            <div className="p-3 sm:p-3.5 border-t border-white/10 bg-[#0a0f1d]/95 backdrop-blur-2xl space-y-2">
+            <div className="p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-white/10 bg-[#0a0f1d]/95 backdrop-blur-2xl space-y-2">
               {isVoiceRecording ? (
                 <VoiceRecorder
                   onSendVoice={handleSendVoiceNote}
@@ -1474,11 +1492,19 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
       {/* Right In-Messenger Client & Deal Workspace Panel (Collapsible / Full editing) */}
       {activeDialog && isDealPanelOpen && (
-        <div className="w-80 sm:w-96 border-l border-white/10 bg-[#0b0f1c]/95 backdrop-blur-2xl flex flex-col justify-between h-full overflow-hidden text-xs flex-shrink-0 z-20 shadow-2xl animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 md:relative md:inset-auto z-50 md:z-20 w-full md:w-80 lg:w-96 border-l border-white/10 bg-[#0b0f1c] md:bg-[#0b0f1c]/95 backdrop-blur-2xl flex flex-col justify-between h-full overflow-hidden text-xs flex-shrink-0 shadow-2xl animate-in slide-in-from-right duration-200">
           {/* Panel Header */}
           <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-slate-900/60">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+              <button
+                type="button"
+                onClick={() => setIsDealPanelOpen(false)}
+                className="md:hidden p-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl mr-1 flex items-center justify-center active:scale-95"
+                title="Повернутися до чату"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30 shrink-0">
                 <UserIcon className="w-4 h-4" />
               </div>
               <div className="truncate">
