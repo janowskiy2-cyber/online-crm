@@ -163,15 +163,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   }, [noteText]);
 
-  // Auto-expand quick note input in right sidebar proportionally to dictated/typed text
-  useEffect(() => {
-    if (quickNoteTextareaRef.current) {
-      quickNoteTextareaRef.current.style.height = 'auto';
-      const scrollHeight = quickNoteTextareaRef.current.scrollHeight;
-      quickNoteTextareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 48), 180)}px`;
-    }
-  }, [quickNoteText]);
-
   // AI Smart Assistant states
   const [isGeneratingAiDraft, setIsGeneratingAiDraft] = useState(false);
   const [aiDealScore, setAiDealScore] = useState<{ score: number; temperature: string; reason: string; nextAction: string } | null>(null);
@@ -293,6 +284,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isSavingQuickNote, setIsSavingQuickNote] = useState(false);
   const [isDictatingQuickNote, setIsDictatingQuickNote] = useState(false);
   const quickNoteRecognitionRef = useRef<any>(null);
+
+  // Auto-expand quick note input in right sidebar proportionally to dictated/typed text
+  useEffect(() => {
+    if (quickNoteTextareaRef.current) {
+      quickNoteTextareaRef.current.style.height = 'auto';
+      const scrollHeight = quickNoteTextareaRef.current.scrollHeight;
+      quickNoteTextareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 48), 180)}px`;
+    }
+  }, [quickNoteText]);
 
   // Direct Company Editing state
   const [isEditingCompany, setIsEditingCompany] = useState(false);
