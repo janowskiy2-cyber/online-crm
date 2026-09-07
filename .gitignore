@@ -25,4 +25,4 @@ robot-*.js
 push-to-github.bat
 antigravity-bridge/config.json
 antigravity-bridge/temp_media/
-
+CLIENT_PORTAL_INTEGRATION_SPEC.md
