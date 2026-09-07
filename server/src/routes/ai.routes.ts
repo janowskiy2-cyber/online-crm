@@ -369,5 +369,39 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
+  // AI: Speech-to-Text Transcription for audio / voice notes
+  router.post('/transcribe-audio', async (req, res) => {
+    try {
+      let { audioBase64, mediaUrl, mimeType } = req.body;
+
+      if (!audioBase64 && mediaUrl) {
+        if (typeof mediaUrl === 'string' && mediaUrl.startsWith('data:')) {
+          audioBase64 = mediaUrl;
+        } else if (typeof mediaUrl === 'string' && mediaUrl.startsWith('http')) {
+          try {
+            const resp = await fetch(mediaUrl);
+            const arrayBuffer = await resp.arrayBuffer();
+            audioBase64 = Buffer.from(arrayBuffer).toString('base64');
+            if (!mimeType) {
+              mimeType = resp.headers.get('content-type') || 'audio/ogg';
+            }
+          } catch (fetchErr: any) {
+            return res.status(400).json({ error: 'Не вдалося завантажити аудіо за посиланням: ' + fetchErr.message });
+          }
+        }
+      }
+
+      if (!audioBase64) {
+        return res.status(400).json({ error: 'Параметр audioBase64 або mediaUrl є обов’язковим' });
+      }
+
+      const result = await GeminiService.transcribeAudio(audioBase64, mimeType || 'audio/ogg');
+      res.json(result);
+    } catch (e: any) {
+      console.error('Error in /ai/transcribe-audio:', e);
+      res.status(500).json({ error: e.message || 'Помилка транскрибації аудіо' });
+    }
+  });
+
   return router;
 }

@@ -1189,13 +1189,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const handleRunAiMatch = async () => {
     setIsMatchingLoading(true);
     try {
-      const pool = [
-        ...assignedCandidates,
+      let dbCandidates: any[] = [];
+      try {
+        const contactsRes = await api.get('/contacts', { params: { type: 'candidate', limit: 100 } });
+        if (Array.isArray(contactsRes.data)) {
+          dbCandidates = contactsRes.data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            country: c.country || c.citizenship || 'Узбекистан',
+            profession: c.profession || c.position || 'Спеціаліст',
+            status: c.status || 'Кваліфіковано / Резюме',
+            experienceYears: c.experienceYears,
+            skills: c.skills
+          }));
+        }
+      } catch (fetchErr) {
+        console.warn('Could not fetch real db candidates:', fetchErr);
+      }
+
+      // Fallback pool if database is still fresh / empty
+      const fallbackPool = [
         { id: 'cand-pool-1', name: 'Фарход Карімов', country: 'Узбекистан', profession: 'Зварювальник MIG/MAG 135/136', status: 'Віза D готова' },
         { id: 'cand-pool-2', name: 'Раджеш Кумар', country: 'Індія', profession: 'Оператор CNC / токар', status: 'Оформлення візи D' },
         { id: 'cand-pool-3', name: 'Азізбек Норматов', country: 'Узбекистан', profession: 'Слюсар-складальник металоконструкцій', status: 'Кваліфіковано' },
         { id: 'cand-pool-4', name: 'Марк Дела Круз', country: 'Філіппіни', profession: 'Електрик промислового обладнання', status: 'Кваліфіковано' },
         { id: 'cand-pool-5', name: 'Нурлан Абдуллаєв', country: 'Азербайджан', profession: 'Водій навантажувача / карщик', status: 'Віза D готова' }
+      ];
+
+      const pool = [
+        ...dbCandidates,
+        ...(dbCandidates.length === 0 ? fallbackPool : []),
+        ...assignedCandidates
       ];
       // Filter duplicates by name
       const uniquePool = pool.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
@@ -1217,7 +1241,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       return;
     }
     const newCand = {
-      id: `cand-${Date.now()}`,
+      id: matchedCand.id || `cand-${Date.now()}`,
       name: matchedCand.name,
       country: matchedCand.country,
       profession: matchedCand.profession,
@@ -1232,6 +1256,33 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       onDealUpdated(res.data);
     } catch (err) {
       console.error('Failed to add matched candidate:', err);
+    }
+  };
+
+  const handleAddAllMatchedCandidates = async () => {
+    const toAdd = matchedResults.filter(
+      (m: any) => !assignedCandidates.some(c => c.name === m.name)
+    );
+    if (toAdd.length === 0) {
+      alert('Усі підібрані кандидати вже додані до замовлення!');
+      return;
+    }
+    const newItems = toAdd.map((m: any, idx: number) => ({
+      id: m.id || `cand-${Date.now()}-${idx}`,
+      name: m.name,
+      country: m.country,
+      profession: m.profession,
+      status: m.status || 'Кваліфіковано / Підібрано ШІ',
+      addedAt: new Date().toISOString()
+    }));
+    const updated = [...assignedCandidates, ...newItems];
+    const newCustomFields = { ...customFieldsObj, candidates: updated };
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { customFields: newCustomFields });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+    } catch (err) {
+      console.error('Failed to add all matched candidates:', err);
     }
   };
 
@@ -2565,7 +2616,18 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     {/* Matched Candidates List */}
                     {matchedResults.length > 0 && (
                       <div className="space-y-2 pt-1">
-                        <div className="text-[11px] font-bold text-slate-300">Найбільш відповідні кандидати з бази:</div>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="text-[11px] font-bold text-slate-300">Найбільш відповідні кандидати з бази:</div>
+                          <button
+                            type="button"
+                            onClick={handleAddAllMatchedCandidates}
+                            className="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition shadow-sm active:scale-95"
+                            title="Додати всіх кандидатів з високим збігом до замовлення"
+                          >
+                            <Sparkles className="w-3 h-3 text-amber-300" />
+                            <span>⚡ Прикріпити всіх підібраних</span>
+                          </button>
+                        </div>
                         <div className="grid grid-cols-1 gap-2">
                           {matchedResults.map((m) => {
                             const isAssigned = assignedCandidates.some(c => c.name === m.name);

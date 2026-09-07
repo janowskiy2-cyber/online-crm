@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Contact, Company, CandidateDocument } from '../../types';
 import { api, resolveMediaUrl } from '../../services/api';
+import { openPrintableCandidateDossier } from '../../utils/candidateDossierGenerator';
 
 interface CandidateDetailModalProps {
   isOpen: boolean;
@@ -267,7 +268,17 @@ export const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => openPrintableCandidateDossier(candidate)}
+              className="px-3 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 rounded-lg font-bold flex items-center gap-1.5 border border-emerald-500/40 transition shadow-sm active:scale-95"
+              title="Сформувати офіційне досьє для роботодавця (B2B PDF)"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-300" />
+              <span>📄 Досьє для роботодавця (PDF)</span>
+            </button>
+
             <a
               href={resolvedResumeUrl}
               target="_blank"

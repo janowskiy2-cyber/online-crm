@@ -35,6 +35,7 @@ import { ImportCsvModal } from '../modals/ImportCsvModal';
 import { ResumeImportModal } from '../modals/ResumeImportModal';
 import { CandidateFilesModal } from '../modals/CandidateFilesModal';
 import { CandidateDetailModal } from './CandidateDetailModal';
+import { openPrintableCandidateDossier } from '../../utils/candidateDossierGenerator';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 
 export const CandidatesView: React.FC = () => {
@@ -820,6 +821,19 @@ export const CandidatesView: React.FC = () => {
                       >
                         <FileText className="w-3 h-3 text-purple-300" />
                         <span>📄 Резюме</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPrintableCandidateDossier(cand);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-500/40 hover:bg-emerald-500/35 flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+                        title="Згенерувати офіційне B2B досьє для роботодавця (PDF)"
+                      >
+                        <FileText className="w-3 h-3 text-emerald-300" />
+                        <span>📋 Досьє B2B</span>
                       </button>
                     </div>
 

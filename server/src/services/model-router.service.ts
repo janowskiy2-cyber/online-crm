@@ -151,6 +151,61 @@ export class ModelRouterService {
   }
 
   /**
+   * Smart Multi-Modal Execution with Failover (supports inline audio / images)
+   */
+  public static async generateMediaContentWithFailover(
+    contents: any[],
+    fallbackFn: () => string
+  ): Promise<{ text: string; modelUsed: string }> {
+    ModelRouterService.checkMidnightReset();
+
+    const apiKey = process.env.GEMINI_API_KEY || ModelRouterService.apiKey;
+    if (!apiKey) {
+      return { text: fallbackFn(), modelUsed: 'Audio Speech Engine (Offline Backup)' };
+    }
+
+    const now = Date.now();
+
+    for (const m of ModelRouterService.models) {
+      ModelRouterService.cleanRpmWindow(m);
+
+      if (m.isExhausted || m.currentRpd >= m.rpdLimit) {
+        continue;
+      }
+
+      if (m.rpmWindow.length >= m.rpmLimit) {
+        console.warn(`[ModelRouter] Model ${m.id} reached RPM limit for media. Cascading...`);
+        continue;
+      }
+
+      try {
+        const modelInstance = ModelRouterService.genAI.getGenerativeModel({ model: m.id });
+        const result = await modelInstance.generateContent(contents);
+        const text = result.response.text();
+
+        m.currentRpd += 1;
+        m.rpmWindow.push(now);
+        m.lastUsedAt = new Date().toISOString();
+
+        return { text, modelUsed: m.name };
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        console.warn(`[ModelRouter] Media generation on ${m.id} returned error: ${errMsg}. Cascading...`);
+        m.lastError = errMsg;
+        if (errMsg.includes('429') || errMsg.includes('Quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+          m.isExhausted = true;
+          console.warn(`[ModelRouter] ⛔ Model ${m.id} quota reached. Disabled until next daily midnight reset.`);
+        }
+      }
+    }
+
+    return {
+      text: fallbackFn(),
+      modelUsed: 'Audio Speech Engine (Fallback)'
+    };
+  }
+
+  /**
    * Get live status of all models for dashboard / diagnostics
    */
   public static getModelsStatus(): {

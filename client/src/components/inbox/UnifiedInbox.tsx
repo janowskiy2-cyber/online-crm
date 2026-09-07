@@ -67,6 +67,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   const [replyText, setReplyText] = useState('');
   const [search, setSearch] = useState('');
   const [filterChannel, setFilterChannel] = useState<'all' | 'whatsapp' | 'telegram'>('all');
+
+  // Zero Data Loss: Restore unsubmitted draft when switching between dialogs
+  useEffect(() => {
+    if (!selectedChatKey) {
+      setReplyText('');
+      return;
+    }
+    const saved = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(`crm_draft_${selectedChatKey}`) || '' : '';
+    setReplyText(saved);
+  }, [selectedChatKey]);
   
   // Voice Recording & Telephony & Media View state
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
@@ -545,6 +555,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         });
         soundService.playOutgoing();
         setSelectedFile(null);
+        if (activeDialog?.key && typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem(`crm_draft_${activeDialog.key}`);
+        }
         setReplyText('');
         fetchMessages();
       } catch (err) {
@@ -567,6 +580,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         dealId: activeDialog.dealId
       });
       soundService.playOutgoing();
+      if (activeDialog?.key && typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(`crm_draft_${activeDialog.key}`);
+      }
       setReplyText('');
       fetchMessages();
     } catch (e: any) {
@@ -915,6 +931,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             filteredDialogs.map((d) => {
               const isActive = activeDialog?.key === d.key;
               const isWA = d.channel === 'whatsapp';
+              const isIncoming = !d.lastMessage.isOutgoing && !(d.lastMessage as any).isFromUser;
+              const elapsedMinutes = Math.floor((Date.now() - new Date(d.lastMessage.createdAt).getTime()) / 60000);
+
               return (
                 <div
                   key={d.key}
@@ -942,9 +961,22 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       <h4 className="font-bold text-xs text-white truncate group-hover:text-blue-300 transition">
                         {d.senderName}
                       </h4>
-                      <span className="text-[10px] text-slate-400 font-mono flex-shrink-0">
-                        {new Date(d.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isIncoming && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-extrabold border flex items-center gap-0.5 shadow-sm ${
+                            elapsedMinutes < 5
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : elapsedMinutes <= 15
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                              : 'bg-rose-500/25 text-rose-300 border-rose-500/40 animate-pulse'
+                          }`}>
+                            {elapsedMinutes < 5 ? '⚡ <5 хв' : (elapsedMinutes <= 15 ? `⏱️ ${elapsedMinutes} хв` : `🔥 ${elapsedMinutes > 60 ? Math.floor(elapsedMinutes / 60) + ' год' : elapsedMinutes + ' хв'} SLA!`)}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {new Date(d.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase tracking-wider ${
@@ -1443,6 +1475,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         onChange={(e) => {
                           const val = e.target.value;
                           setReplyText(val);
+                          if (activeDialog?.key && typeof sessionStorage !== 'undefined') {
+                            if (val.trim()) {
+                              sessionStorage.setItem(`crm_draft_${activeDialog.key}`, val);
+                            } else {
+                              sessionStorage.removeItem(`crm_draft_${activeDialog.key}`);
+                            }
+                          }
                           const match = val.match(/(^|\s)(\/[^\s]*)$/);
                           if (match) {
                             setSlashFilter(match[2]);

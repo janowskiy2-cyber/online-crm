@@ -312,4 +312,39 @@ export class GeminiService {
       summary: `Потреба: ${positions} (${headcount} чол.), оплата ${salary}, локація ${location}`
     };
   }
+
+  /**
+   * AI Voice-to-Text: transcribe voice message audio via Gemini multi-modal cascade
+   */
+  public static async transcribeAudio(
+    audioBase64: string,
+    mimeType: string = 'audio/ogg'
+  ): Promise<{ text: string; modelUsed: string }> {
+    // Strip data URL scheme if included (e.g. data:audio/ogg;base64,...)
+    const cleanBase64 = audioBase64.replace(/^data:[^;]+;base64,/, '');
+
+    // Normalize mimeType
+    let normalizedMime = mimeType;
+    if (!normalizedMime || normalizedMime.includes('octet-stream') || normalizedMime.includes('undefined')) {
+      normalizedMime = 'audio/ogg';
+    }
+
+    const prompt = 'Твоє завдання — точно і дослівно розпізнати це голосове аудіоповідомлення клієнта або кандидата. Перетвори мову на текст українською (або мовою мовця). Не додавай жодних вступних фраз, висновків або лапок — поверни ВИКЛЮЧНО розпізнаний текст.';
+
+    const contents = [
+      {
+        inlineData: {
+          mimeType: normalizedMime,
+          data: cleanBase64
+        }
+      },
+      prompt
+    ];
+
+    return ModelRouterService.generateMediaContentWithFailover(
+      contents,
+      () => 'Голосове повідомлення не вдалося автоматично розпізнати (низька якість аудіо або фоновий шум).'
+    );
+  }
 }
+
