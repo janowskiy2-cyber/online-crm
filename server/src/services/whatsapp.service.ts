@@ -620,12 +620,26 @@ export class WhatsAppService {
       }
 
       let deal = await this.prisma.deal.findFirst({
-        where: { contactId: contact.id },
+        where: { contactId: contact.id, isDeleted: false },
         orderBy: { updatedAt: 'desc' }
       });
 
-      // If new lead from WhatsApp -> Auto-Distribute via Round-Robin or Unassigned Stage ONLY for incoming messages!
-      if (!deal && !isFromMe) {
+      // Auto-restore deal if it was soft-deleted
+      if (!deal) {
+        const deletedDeal = await this.prisma.deal.findFirst({
+          where: { contactId: contact.id, isDeleted: true },
+          orderBy: { updatedAt: 'desc' }
+        });
+        if (deletedDeal) {
+          deal = await this.prisma.deal.update({
+            where: { id: deletedDeal.id },
+            data: { isDeleted: false, deletedAt: null }
+          });
+        }
+      }
+
+      // If new lead from WhatsApp -> Auto-Distribute via Round-Robin to CRM Leads Funnel!
+      if (!deal) {
         deal = await this.distributionService.processInboundLead({
           title: `Запит WhatsApp: ${contact.name}`,
           contactId: contact.id,

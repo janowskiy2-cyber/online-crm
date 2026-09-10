@@ -26,19 +26,24 @@ export class LeadDistributionService {
   // Get next responsible user (Guaranteed to return existing User ID)
   public async getNextResponsible(): Promise<{ id: string; name: string; isAutoAssigned: boolean }> {
     try {
-      // Find all active sales reps
+      // Find all active human sales reps (strictly exclude robot test accounts)
       const salesReps = await this.prisma.user.findMany({
         where: {
           isActive: true,
-          role: { in: ['sales_rep', 'manager', 'sales_lead'] }
+          isDeleted: false,
+          role: { in: ['sales_rep', 'manager', 'sales_lead'] },
+          email: { not: { contains: 'robot' } },
+          name: { not: { contains: 'Робот' } }
         },
         orderBy: { createdAt: 'asc' }
       });
 
       // Find or create Super Admin as root fallback
       let rootAdmin = await this.prisma.user.findFirst({
-        where: { role: 'super_admin' }
-      }) || await this.prisma.user.findFirst();
+        where: { role: 'super_admin', isDeleted: false, isActive: true }
+      }) || await this.prisma.user.findFirst({
+        where: { isDeleted: false, isActive: true }
+      });
 
       if (!rootAdmin) {
         rootAdmin = await this.prisma.user.create({
@@ -95,6 +100,8 @@ export class LeadDistributionService {
     text?: string;
     budget?: number;
     tags?: string[];
+    customFields?: string;
+    projectId?: string;
   }) {
     try {
       // 1. Find default pipeline & first stage
@@ -114,7 +121,7 @@ export class LeadDistributionService {
             isDefault: true,
             stages: {
               create: [
-                { name: 'Нова заявка підприємства', color: '#64748b', sortOrder: 0 },
+                { name: '📥 Нові ліди / Заявки з сайту', color: '#64748b', sortOrder: 0 },
                 { name: 'Дзвінок-кваліфікація (15 хв)', color: '#3b82f6', sortOrder: 1 },
                 { name: 'Відправка КП (PDF 4х25%)', color: '#8b5cf6', sortOrder: 2 },
                 { name: 'Прорахунок кошторису & Уточнення', color: '#06b6d4', sortOrder: 3 },
@@ -131,7 +138,7 @@ export class LeadDistributionService {
       const firstStage = defaultPipeline.stages[0];
       const { id: responsibleId, name: responsibleName, isAutoAssigned } = await this.getNextResponsible();
 
-      // 2. Create Deal
+      // 2. Create Deal in the Leads stage of the pipeline
       const deal = await this.prisma.deal.create({
         data: {
           title: data.title,
@@ -140,7 +147,9 @@ export class LeadDistributionService {
           stageId: firstStage.id,
           responsibleId,
           contactId: data.contactId,
-          companyId: data.companyId,
+          companyId: data.companyId || null,
+          customFields: data.customFields || null,
+          projectId: data.projectId || 'employers',
           tags: JSON.stringify([
             data.channel === 'whatsapp' ? 'WhatsApp' : (data.channel === 'telegram' ? 'Telegram' : 'Реклама'),
             isAutoAssigned ? 'Авто-розподіл' : 'Нерозібране',

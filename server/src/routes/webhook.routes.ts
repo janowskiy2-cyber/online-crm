@@ -25,21 +25,15 @@ export function createWebhookRouter(prisma: PrismaClient, distributionService: L
       const cleanPhone = String(rawPhone).replace(/\D/g, '');
       const formattedPhone = cleanPhone ? `+${cleanPhone}` : '+380734277174';
 
-      // 1. Create or Find Company
+      // 1. Check if Company ALREADY exists in verified database (never auto-create for unpaid leads)
       let company = null;
-      if (companyName) {
+      if (companyName && typeof companyName === 'string' && companyName.trim()) {
         company = await prisma.company.findFirst({
-          where: { name: { contains: companyName } }
+          where: { 
+            name: { equals: companyName.trim(), mode: 'insensitive' as const },
+            isDeleted: false 
+          }
         });
-        if (!company) {
-          company = await prisma.company.create({
-            data: {
-              name: companyName,
-              phone: formattedPhone,
-              email: email || undefined
-            }
-          });
-        }
       }
 
       // 2. Create or Find Contact
@@ -47,8 +41,9 @@ export function createWebhookRouter(prisma: PrismaClient, distributionService: L
         where: {
           OR: [
             ...(cleanPhone ? [{ phone: { contains: cleanPhone } }, { whatsapp: { contains: cleanPhone } }] : []),
-            ...(email ? [{ email }] : [])
-          ]
+            ...(email ? [{ email: { equals: email.trim(), mode: 'insensitive' as const } }] : [])
+          ],
+          isDeleted: false
         }
       });
 
@@ -59,20 +54,28 @@ export function createWebhookRouter(prisma: PrismaClient, distributionService: L
             phone: formattedPhone,
             whatsapp: formattedPhone,
             email: email || undefined,
-            companyId: company?.id,
-            position: 'Роботодавець (Реклама)'
+            companyId: company?.id || null,
+            position: companyName ? `Лід (${companyName})` : 'Лід із сайту',
+            type: 'b2b_contact'
           }
         });
       }
 
-      // 3. Process Lead Distribution via Round-Robin or Manual Admin Assignment
+      // 3. Process Lead Distribution into CRM Deals Funnel (Stage 0: "📥 Нові ліди / Заявки з сайту")
       const deal = await distributionService.processInboundLead({
-        title: `Лід з реклами: ${name} (${companyName || 'Підприємство'})`,
+        title: `Лід із сайту: ${name}${companyName ? ` (${companyName})` : ''}`,
         contactId: contact.id,
-        companyId: company?.id,
+        companyId: company?.id || undefined,
         channel: 'ads',
         budget: Number(headcount) * 1100,
-        tags: [utm_source, `${headcount} осіб`, utm_campaign]
+        tags: ['Вхідний лід', utm_source, `${headcount} осіб`, utm_campaign].filter(Boolean),
+        customFields: JSON.stringify({
+          rawCompanyName: companyName || '',
+          headcount: headcount || '5',
+          message: message || '',
+          isPaidEmployer: false,
+          source: utm_source || 'Сайт'
+        })
       });
 
       res.status(200).json({
