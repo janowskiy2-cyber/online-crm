@@ -30,6 +30,7 @@ import {
 import { Contact, Company, CandidateDocument } from '../../types';
 import { api, resolveMediaUrl } from '../../services/api';
 import { openPrintableCandidateDossier } from '../../utils/candidateDossierGenerator';
+import { getVideoEmbedUrl } from '../modals/CandidateFilesModal';
 
 interface CandidateDetailModalProps {
   isOpen: boolean;
@@ -673,17 +674,47 @@ export const CandidateDetailModal: React.FC<CandidateDetailModalProps> = ({
               
               {/* VIDEO BUSINESS CARD */}
               <div className="p-5 rounded-2xl bg-slate-900/80 border border-white/5 space-y-3">
-                <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-wider flex items-center gap-2">
-                  <Video className="w-4 h-4 text-purple-400" />
-                  <span>Відеовізитівка кандидата</span>
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-wider flex items-center gap-2">
+                    <Video className="w-4 h-4 text-purple-400" />
+                    <span>Відеовізитівка кандидата</span>
+                  </h3>
+                  {candidate.videoUrl && (
+                    <button
+                      onClick={() => onOpenFilesModal && onOpenFilesModal(candidate)}
+                      className="px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-lg text-xs font-bold border border-purple-500/30 transition flex items-center gap-1.5"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>Змінити / Керувати</span>
+                    </button>
+                  )}
+                </div>
+
                 {candidate.videoUrl ? (
-                  <div className="rounded-2xl overflow-hidden border border-white/10 bg-black max-w-xl mx-auto">
-                    <video
-                      src={resolveMediaUrl(candidate.videoUrl)}
-                      controls
-                      className="w-full max-h-80 object-cover"
-                    />
+                  <div className="rounded-2xl overflow-hidden border border-white/10 bg-black max-w-xl mx-auto aspect-video flex items-center justify-center">
+                    {(() => {
+                      const embed = getVideoEmbedUrl(candidate.videoUrl);
+                      if (!embed) return <p className="text-xs text-slate-400">Відео недоступне</p>;
+                      if (embed.type === 'iframe') {
+                        return (
+                          <iframe
+                            src={embed.url}
+                            className="w-full h-full border-0"
+                            allowFullScreen
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            title="Candidate Video"
+                          />
+                        );
+                      }
+                      return (
+                        <video
+                          src={embed.url}
+                          controls
+                          playsInline
+                          className="w-full max-h-80 object-contain"
+                        />
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div className="p-8 text-center border border-dashed border-white/10 rounded-2xl">

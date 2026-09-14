@@ -955,6 +955,23 @@ export const CandidatesView: React.FC = () => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Відеовізитівка (посилання)</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">Опціонально (або завантажте файл у картці)</span>
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://... (YouTube, Google Drive або пряме посилання)"
+                    value={formData.videoUrl}
+                    onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3.5 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 text-xs"
+                  />
+                </div>
+
                 <div className="pt-3 border-t border-white/10 flex justify-end gap-2">
                   <button
                     type="button"

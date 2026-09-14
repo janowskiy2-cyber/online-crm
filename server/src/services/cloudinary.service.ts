@@ -81,21 +81,22 @@ export class CloudinaryService {
     const uploadOptions: any = {
       folder: 'online_crm_media',
       public_id: publicId,
-      resource_type: resourceType,
-      quality: 'auto:eco', // Ultra-efficient compression to minimize disk usage without visual loss
-      fetch_format: 'auto'
+      resource_type: resourceType
     };
 
-    if (mimeType.startsWith('audio/')) {
-      // Keep native format if OGG/Opus or WebM to prevent transcoding errors
-      if (!mimeType.includes('ogg') && !mimeType.includes('opus')) {
-        uploadOptions.format = 'mp3';
-      }
+    if (resourceType === 'image') {
+      uploadOptions.quality = 'auto:eco';
+      uploadOptions.fetch_format = 'auto';
     } else if (resourceType === 'video') {
       // Downscale 4K / 1080p phone videos to 720p HD: reduces file size by 75-85% with zero visible loss
       uploadOptions.width = 1280;
       uploadOptions.crop = 'limit';
       uploadOptions.video_codec = 'auto';
+    } else if (mimeType.startsWith('audio/')) {
+      // Keep native format if OGG/Opus or WebM to prevent transcoding errors
+      if (!mimeType.includes('ogg') && !mimeType.includes('opus')) {
+        uploadOptions.format = 'mp3';
+      }
     }
 
     // Try starting from active account, failover if quota reached
@@ -152,13 +153,16 @@ export class CloudinaryService {
 
   private static saveLocalFallback(buffer: Buffer, fileName: string, mimeType: string): string {
     try {
-      const ext = fileName.includes('.') ? fileName.split('.').pop() : (mimeType.startsWith('audio/') ? 'webm' : 'bin');
+      const ext = fileName.includes('.') 
+        ? fileName.split('.').pop() 
+        : (mimeType.startsWith('audio/') ? 'webm' : (mimeType.startsWith('video/') ? 'mp4' : 'bin'));
       const uniqueName = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const uploadsDir = path.join(process.cwd(), 'uploads');
       if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
       fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
       return `/api/uploads/${uniqueName}`;
     } catch (e) {
+      console.error('Failed to save local upload fallback:', e);
       return '';
     }
   }

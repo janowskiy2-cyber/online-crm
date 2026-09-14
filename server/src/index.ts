@@ -104,11 +104,11 @@ automationService.setSocketIO(io);
 
 app.use(cors({ origin: corsOriginHandler, credentials: true }));
 
-// Default body limit: 1MB covers 99% of API requests (text, forms, JSON)
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ limit: '1mb', extended: true }));
+// Safe body limit: 100MB supports candidate video business cards (up to 50MB raw / ~67MB base64), audio, resumes and documents
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// Uploads directory for media files (voice, images, PDF)
+// Uploads directory for media files (voice, images, PDF, video)
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -133,14 +133,14 @@ app.get('/api/health', (req, res) => {
 // ── Protected routes (require JWT Bearer token) ──
 app.use('/api/deals', authRequired, createDealsRouter(prisma, io));
 app.use('/api/pipelines', authRequired, createPipelineRouter(prisma));
-app.use('/api/contacts', authRequired, createContactRouter(prisma));
+app.use('/api/contacts', authRequired, express.json({ limit: '100mb' }), createContactRouter(prisma));
 app.use('/api/tasks', authRequired, createTaskRouter(prisma, () => io));
 app.use('/api/chat', authRequired, express.json({ limit: '50mb' }), createChatRouter(prisma, waService, tgService));
 app.use('/api/users', authRequired, createUsersRouter(prisma));
 app.use('/api/analytics', authRequired, createAnalyticsRouter(prisma));
 app.use('/api/automation', authRequired, createAutomationRouter(prisma));
 app.use('/api/ai', authRequired, createAiRouter(prisma));
-app.use('/api/upload', authRequired, express.json({ limit: '50mb' }), createUploadRouter());
+app.use('/api/upload', authRequired, express.json({ limit: '100mb' }), createUploadRouter());
 app.use('/api/feed', authRequired, express.json({ limit: '10mb' }), createFeedRouter(prisma));
 app.use('/api/export', authRequired, createExportRouter(prisma));
 app.use('/api/import', authRequired, express.json({ limit: '50mb' }), createImportRouter(prisma));

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   Video, 
@@ -17,8 +17,40 @@ import {
   Plus,
   RefreshCw
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 import { Contact, CandidateDocument } from '../../types';
+
+export function getVideoEmbedUrl(url?: string | null): { type: 'iframe' | 'video'; url: string } | null {
+  if (!url || !url.trim()) return null;
+  const raw = url.trim();
+
+  // YouTube youtu.be/ID
+  const youtuBeMatch = raw.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+  if (youtuBeMatch) {
+    return { type: 'iframe', url: `https://www.youtube.com/embed/${youtuBeMatch[1]}` };
+  }
+
+  // YouTube watch?v=ID or shorts/ID
+  const ytMatch = raw.match(/youtube\.com\/(?:watch\?v=|shorts\/|embed\/)([a-zA-Z0-9_-]+)/);
+  if (ytMatch) {
+    return { type: 'iframe', url: `https://www.youtube.com/embed/${ytMatch[1]}` };
+  }
+
+  // Google Drive
+  const driveMatch = raw.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    return { type: 'iframe', url: `https://drive.google.com/file/d/${driveMatch[1]}/preview` };
+  }
+
+  // Loom
+  const loomMatch = raw.match(/loom\.com\/share\/([a-zA-Z0-9_-]+)/);
+  if (loomMatch) {
+    return { type: 'iframe', url: `https://www.loom.com/embed/${loomMatch[1]}` };
+  }
+
+  // Direct MP4 / WebM / Cloudinary / Local upload
+  return { type: 'video', url: resolveMediaUrl(raw) };
+}
 
 interface CandidateFilesModalProps {
   isOpen: boolean;
@@ -66,10 +98,10 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check size limit: max 50MB for video, 20MB for docs
-    const maxBytes = isVideoFile ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
+    // Check size limit: max 100MB for video, 25MB for docs
+    const maxBytes = isVideoFile ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
     if (file.size > maxBytes) {
-      setErrorMessage(`Файл занадто великий. Максимальний розмір: ${isVideoFile ? '50MB' : '20MB'}`);
+      setErrorMessage(`Файл занадто великий (${(file.size / (1024 * 1024)).toFixed(1)}MB). Максимальний розмір: ${isVideoFile ? '100MB' : '25MB'}`);
       return;
     }
 
@@ -90,11 +122,14 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
 
         if (res.data?.contact) {
           onUpdateCandidate(res.data.contact);
-          setSuccessMessage(isVideoFile ? 'Відеовізитівку успішно завантажено та стиснуто!' : 'Документ успішно збережено в хмарі!');
+          setSuccessMessage(isVideoFile ? 'Відеовізитівку успішно збережено!' : 'Документ успішно збережено в хмарі!');
           setTimeout(() => setSuccessMessage(null), 3500);
         }
       } catch (err: any) {
-        setErrorMessage(err.response?.data?.error || err.message || 'Помилка завантаження файлу');
+        const errorMsg = err.response?.data?.error 
+          || (err.response?.status === 413 ? 'Файл занадто великий для сервера (максимум 100MB)' : err.message)
+          || 'Помилка завантаження файлу';
+        setErrorMessage(errorMsg);
       } finally {
         setIsUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -268,23 +303,31 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
                 <div className="space-y-3">
                   {/* Video Player Box */}
                   <div className="rounded-2xl overflow-hidden bg-black/90 border border-white/10 aspect-video flex items-center justify-center relative shadow-2xl">
-                    {candidate.videoUrl.includes('youtube.com') || candidate.videoUrl.includes('youtu.be') ? (
-                      <iframe
-                        src={candidate.videoUrl.replace('watch?v=', 'embed/')}
-                        className="w-full h-full border-0"
-                        allowFullScreen
-                        title="Candidate Video"
-                      />
-                    ) : (
-                      <video
-                        src={candidate.videoUrl}
-                        controls
-                        playsInline
-                        className="w-full h-full max-h-[400px] object-contain"
-                      >
-                        Ваш браузер не підтримує тег video.
-                      </video>
-                    )}
+                    {(() => {
+                      const embed = getVideoEmbedUrl(candidate.videoUrl);
+                      if (!embed) return <p className="text-xs text-slate-400">Відео недоступне</p>;
+                      if (embed.type === 'iframe') {
+                        return (
+                          <iframe
+                            src={embed.url}
+                            className="w-full h-full border-0"
+                            allowFullScreen
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            title="Candidate Video"
+                          />
+                        );
+                      }
+                      return (
+                        <video
+                          src={embed.url}
+                          controls
+                          playsInline
+                          className="w-full h-full max-h-[400px] object-contain"
+                        >
+                          Ваш браузер не підтримує тег video.
+                        </video>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5 text-xs">
@@ -294,7 +337,7 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <a
-                        href={candidate.videoUrl}
+                        href={resolveMediaUrl(candidate.videoUrl)}
                         target="_blank"
                         rel="noreferrer"
                         className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
@@ -322,7 +365,7 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
                       type="file"
                       ref={videoInputRef}
                       onChange={(e) => handleFileUpload(e, true)}
-                      accept="video/mp4,video/webm,video/quicktime"
+                      accept="video/*,.mp4,.webm,.mov,.avi,.mkv"
                       className="hidden"
                     />
                     <div className="w-14 h-14 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300 group-hover:scale-110 transition shadow-lg">
@@ -334,10 +377,10 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
                     </div>
                     <div>
                       <h4 className="text-sm font-extrabold text-white">
-                        {isUploading ? 'Стиснення та передача в хмару...' : 'Завантажити відеопрезентацію кандидата'}
+                        {isUploading ? 'Передача та збереження у сховищі...' : 'Завантажити відеопрезентацію кандидата'}
                       </h4>
                       <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                        Підтримуються формати MP4, WebM та MOV (до 50MB). Відео автоматично оптимізується до 720p HD для економії диска.
+                        Підтримуються формати MP4, WebM, MOV тощо (до 100MB). Відео оптимізується для швидкого перегляду.
                       </p>
                     </div>
                   </div>
@@ -465,7 +508,7 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
 
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <a
-                          href={doc.url}
+                          href={resolveMediaUrl(doc.url)}
                           target="_blank"
                           rel="noreferrer"
                           className="p-2 text-slate-400 hover:text-purple-300 hover:bg-slate-800 rounded-lg transition"

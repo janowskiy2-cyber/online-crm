@@ -618,9 +618,15 @@ export function createContactRouter(prisma: PrismaClient) {
       // Convert base64 to buffer
       const base64Data = fileBase64.replace(/^data:.*?;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.length === 0) {
+        return res.status(400).json({ error: 'Порожній файл або помилка читання base64' });
+      }
 
       // Upload through CloudinaryService with auto compression & 720p HD downscaling
       const url = await CloudinaryService.uploadBuffer(buffer, fileName, mimeType || 'application/octet-stream');
+      if (!url) {
+        return res.status(500).json({ error: 'Не вдалося зберегти файл (хмарне сховище та локальний диск недоступні)' });
+      }
 
       let currentDocs: any[] = [];
       try {
@@ -721,10 +727,11 @@ export function createContactRouter(prisma: PrismaClient) {
     try {
       const { id } = req.params;
       const { videoUrl } = req.body;
+      const cleanVideoUrl = (typeof videoUrl === 'string' && videoUrl.trim()) ? videoUrl.trim() : null;
 
       const updated = await prisma.contact.update({
         where: { id },
-        data: { videoUrl },
+        data: { videoUrl: cleanVideoUrl },
         include: { company: true }
       });
 
