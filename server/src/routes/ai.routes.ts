@@ -6,6 +6,7 @@ import { EmbeddingService } from '../services/embedding.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { CloudinaryService } from '../services/cloudinary.service';
 import { SemanticSearchService } from '../services/semantic-search.service';
+import { AiCacheService } from '../services/ai-cache.service';
 
 export function createAiRouter(prisma: PrismaClient) {
   const router = Router();
@@ -14,32 +15,50 @@ export function createAiRouter(prisma: PrismaClient) {
   router.get('/models-status', (req, res) => {
     try {
       const status = ModelRouterService.getModelsStatus();
-      res.json(status);
+      const cacheStats = AiCacheService.stats();
+      res.json({ ...status, cache: cacheStats });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  // AI: Analyze employer brief
+  // AI: Analyze employer brief (cached 30 min)
   router.post('/analyze-brief', async (req, res) => {
     try {
       const { briefText } = req.body;
       if (!briefText) return res.status(400).json({ error: 'briefText required' });
+      
+      const cacheKey = AiCacheService.makeKey('brief', briefText);
+      const cached = AiCacheService.get<{ analysis: string; modelUsed: string }>(cacheKey);
+      if (cached) {
+        return res.json({ ...cached, cached: true });
+      }
+
       const { text, modelUsed } = await GeminiService.analyzeEmployerBrief(briefText);
-      res.json({ analysis: text, modelUsed });
+      const responsePayload = { analysis: text, modelUsed };
+      AiCacheService.set(cacheKey, responsePayload, 30 * 60 * 1000);
+      res.json(responsePayload);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  // AI: Parse employer job requisition & candidate requirements
+  // AI: Parse employer job requisition & candidate requirements (cached 30 min)
   router.post('/parse-requisition', async (req, res) => {
     try {
       const { text } = req.body;
       if (!text || typeof text !== 'string' || !text.trim()) {
         return res.status(400).json({ error: 'Текст заявки обов’язковий' });
       }
+
+      const cacheKey = AiCacheService.makeKey('requisition', text.trim());
+      const cached = AiCacheService.get<any>(cacheKey);
+      if (cached) {
+        return res.json({ ...cached, cached: true });
+      }
+
       const result = await GeminiService.parseEmployerRequisition(text.trim());
+      AiCacheService.set(cacheKey, result, 30 * 60 * 1000);
       res.json(result);
     } catch (e: any) {
       console.error('Error parsing employer requisition:', e);
@@ -47,23 +66,41 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
-  // AI: Generate Candidate Pitch for factory director
+  // AI: Generate Candidate Pitch for factory director (cached 20 min)
   router.post('/pitch-candidate', async (req, res) => {
     try {
       const { companyName, vacancy, candidate } = req.body;
+      const cacheKey = AiCacheService.makeKey('pitch', { companyName, vacancy, candidateId: candidate?.id || candidate?.name });
+      const cached = AiCacheService.get<{ pitch: string; modelUsed: string }>(cacheKey);
+      if (cached) {
+        return res.json({ ...cached, cached: true });
+      }
+
       const { text, modelUsed } = await GeminiService.generateCandidatePitch(companyName, vacancy, candidate);
-      res.json({ pitch: text, modelUsed });
+      const responsePayload = { pitch: text, modelUsed };
+      AiCacheService.set(cacheKey, responsePayload, 20 * 60 * 1000);
+      res.json(responsePayload);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  // AI: Handle recruitment objection
+  // AI: Handle recruitment objection (cached 30 min)
   router.post('/objection', async (req, res) => {
     try {
       const { objectionText } = req.body;
+      if (!objectionText) return res.status(400).json({ error: 'objectionText required' });
+
+      const cacheKey = AiCacheService.makeKey('objection', objectionText);
+      const cached = AiCacheService.get<{ answer: string; modelUsed: string }>(cacheKey);
+      if (cached) {
+        return res.json({ ...cached, cached: true });
+      }
+
       const { text, modelUsed } = await GeminiService.answerObjection(objectionText);
-      res.json({ answer: text, modelUsed });
+      const responsePayload = { answer: text, modelUsed };
+      AiCacheService.set(cacheKey, responsePayload, 30 * 60 * 1000);
+      res.json(responsePayload);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -81,10 +118,16 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
-  // AI: Smart Message Draft in Deal Chat
+  // AI: Smart Message Draft in Deal Chat (cached 15 min)
   router.post('/draft-reply', async (req, res) => {
     try {
       const { clientName, stageName, dealTitle, lastMessage, intent } = req.body;
+      const cacheKey = AiCacheService.makeKey('draft', { clientName, stageName, dealTitle, lastMessage, intent });
+      const cached = AiCacheService.get<{ draft: string; modelUsed: string }>(cacheKey);
+      if (cached) {
+        return res.json({ ...cached, cached: true });
+      }
+
       const { text, modelUsed } = await GeminiService.draftMessageReply({
         clientName,
         stageName,
@@ -92,17 +135,26 @@ export function createAiRouter(prisma: PrismaClient) {
         lastMessage,
         intent
       });
-      res.json({ draft: text, modelUsed });
+      const responsePayload = { draft: text, modelUsed };
+      AiCacheService.set(cacheKey, responsePayload, 15 * 60 * 1000);
+      res.json(responsePayload);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  // AI: Deal Health & Win Probability Scoring
+  // AI: Deal Health & Win Probability Scoring (cached 10 min)
   router.post('/deal-score', async (req, res) => {
     try {
       const { title, budget, stageName, daysSinceCreation, hasTasks, hasNotes } = req.body;
       if (!title) return res.status(400).json({ error: 'title required' });
+
+      const cacheKey = AiCacheService.makeKey('score', { title, budget, stageName, daysSinceCreation, hasTasks, hasNotes });
+      const cached = AiCacheService.get<any>(cacheKey);
+      if (cached) {
+        return res.json({ ...cached, cached: true });
+      }
+
       const { text, modelUsed } = await GeminiService.scoreDeal({
         title,
         budget,
@@ -117,7 +169,9 @@ export function createAiRouter(prisma: PrismaClient) {
       } catch (err) {
         parsed = { score: 75, temperature: '⚡ Перспективна', reason: text, nextAction: 'Узгодити наступний крок з клієнтом' };
       }
-      res.json({ ...parsed, modelUsed });
+      const responsePayload = { ...parsed, modelUsed };
+      AiCacheService.set(cacheKey, responsePayload, 10 * 60 * 1000);
+      res.json(responsePayload);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
