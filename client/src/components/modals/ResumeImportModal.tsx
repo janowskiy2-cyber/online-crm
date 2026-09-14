@@ -18,7 +18,12 @@ import {
   Trash2,
   Check,
   Layers,
-  ExternalLink
+  ExternalLink,
+  DollarSign,
+  Calendar,
+  Award,
+  Languages,
+  Car
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Company } from '../../types';
@@ -80,16 +85,26 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
   const [candidateData, setCandidateData] = useState<{
     name: string;
     phone: string;
+    phone2?: string;
     whatsapp: string;
     telegram: string;
     email: string;
     country: string;
+    citizenship?: string;
     profession: string;
+    position?: string;
     experienceYears: number;
+    salaryExpectation?: string;
     skills: string[];
+    languages?: string;
+    driverLicense?: string;
+    birthDate?: string;
+    bio?: string;
     summary: string;
     companyId: string;
     status: string;
+    wasTranslated?: boolean;
+    detectedLanguage?: string;
   } | null>(null);
 
   if (!isOpen) return null;
@@ -214,18 +229,32 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
       setCandidateData({
         name: parsed.name || 'Новий Кандидат',
         phone: parsed.phone || '+380',
-        whatsapp: parsed.phone || '+380',
-        telegram: '@',
-        email: '',
+        phone2: parsed.phone2 || '',
+        whatsapp: parsed.whatsapp || parsed.phone || '+380',
+        telegram: parsed.telegram || '@',
+        email: parsed.email || '',
         country: parsed.country || 'Узбекистан',
+        citizenship: parsed.citizenship || parsed.country || 'Узбекистан',
         profession: parsed.profession || 'Оператор виробництва',
-        experienceYears: parsed.experienceYears || 2,
+        position: parsed.position || parsed.profession || 'Оператор виробництва',
+        experienceYears: parsed.experienceYears !== undefined ? Number(parsed.experienceYears) : 2,
+        salaryExpectation: parsed.salaryExpectation || '',
         skills: Array.isArray(parsed.skills) ? parsed.skills : ['Досвід роботи', 'Готовність до виїзду'],
+        languages: parsed.languages || '',
+        driverLicense: parsed.driverLicense || '',
+        birthDate: parsed.birthDate || '',
+        bio: parsed.bio || parsed.summary || '',
         summary: parsed.summary || '',
         companyId: '',
-        status: 'Кваліфіковано / Резюме'
+        status: parsed.status || 'Кваліфіковано / Резюме',
+        wasTranslated: Boolean(parsed.wasTranslated),
+        detectedLanguage: parsed.detectedLanguage || ''
       });
-      setSuccessMessage('Дані кандидата успішно розпізнано! Перевірте інформацію та підтвердіть створення.');
+      setSuccessMessage(
+        parsed.wasTranslated
+          ? '🇺🇦 Дані кандидата успішно розпізнано та адаптовано українською мовою!'
+          : 'Дані кандидата успішно розпізнано! Перевірте інформацію та підтвердіть створення.'
+      );
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       setErrorMessage(err.message || 'Помилка розпізнавання резюме');
@@ -241,17 +270,26 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
     setErrorMessage(null);
 
     try {
-      // 1. Create candidate contact
+      // 1. Create candidate contact with ALL rich fields
       const contactRes = await api.post('/contacts', {
         name: candidateData.name,
         phone: candidateData.phone,
+        phone2: candidateData.phone2 || undefined,
         whatsapp: candidateData.whatsapp || candidateData.phone,
         telegram: candidateData.telegram,
         email: candidateData.email || undefined,
         type: 'candidate',
         country: candidateData.country,
+        citizenship: candidateData.citizenship || candidateData.country,
         profession: candidateData.profession,
-        position: candidateData.profession,
+        position: candidateData.position || candidateData.profession,
+        experienceYears: candidateData.experienceYears,
+        salaryExpectation: candidateData.salaryExpectation || undefined,
+        skills: candidateData.skills,
+        languages: candidateData.languages || undefined,
+        driverLicense: candidateData.driverLicense || undefined,
+        birthDate: candidateData.birthDate || undefined,
+        bio: candidateData.bio || candidateData.summary || undefined,
         companyId: candidateData.companyId || null,
         status: candidateData.status
       });
@@ -649,24 +687,44 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
           ) : (
             /* Step 2: Review & Edit Parsed Data */
             <div className="space-y-4">
-              <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2 text-purple-300 text-xs font-semibold">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Розпізнано дані кандидата. Перевірте та відкоригуйте за потреби:</span>
+              {candidateData.wasTranslated ? (
+                <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-300 text-xs font-semibold">
+                    <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+                    <span>🇺🇦 Резюме розпізнано та автоматично перекладено українською мовою:</span>
+                  </div>
+                  <button
+                    onClick={() => setCandidateData(null)}
+                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Вставити інше
+                  </button>
                 </div>
-                <button
-                  onClick={() => setCandidateData(null)}
-                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> Вставити інше
-                </button>
-              </div>
+              ) : (
+                <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-purple-300 text-xs font-semibold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Розпізнано дані кандидата. Перевірте та відкоригуйте за потреби:</span>
+                  </div>
+                  <button
+                    onClick={() => setCandidateData(null)}
+                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Вставити інше
+                  </button>
+                </div>
+              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs max-h-[50vh] overflow-y-auto pr-1">
                 {/* Full Name */}
                 <div className="md:col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                    ПІБ Кандидата *
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>ПІБ Кандидата (українською) *</span>
+                    {candidateData.wasTranslated && (
+                      <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> Адаптовано кирилицею
+                      </span>
+                    )}
                   </label>
                   <input
                     type="text"
@@ -676,16 +734,30 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
                   />
                 </div>
 
-                {/* Profession / Position */}
+                {/* Profession */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
                     <Briefcase className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Спеціальність / Професія</span>
+                    <span>Основна спеціальність (українською)</span>
                   </label>
                   <input
                     type="text"
                     value={candidateData.profession}
                     onChange={(e) => setCandidateData({ ...candidateData, profession: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
+                {/* Target Position */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <User className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Бажана посада</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={candidateData.position || candidateData.profession}
+                    onChange={(e) => setCandidateData({ ...candidateData, position: e.target.value })}
                     className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
                   />
                 </div>
@@ -698,7 +770,7 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
                   </label>
                   <select
                     value={candidateData.country}
-                    onChange={(e) => setCandidateData({ ...candidateData, country: e.target.value })}
+                    onChange={(e) => setCandidateData({ ...candidateData, country: e.target.value, citizenship: candidateData.citizenship || e.target.value })}
                     className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition cursor-pointer"
                   >
                     <option value="Узбекистан">Узбекистан</option>
@@ -713,11 +785,25 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
                   </select>
                 </div>
 
+                {/* Citizenship */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <Globe2 className="w-3.5 h-3.5 text-teal-400" />
+                    <span>Громадянство</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={candidateData.citizenship || candidateData.country}
+                    onChange={(e) => setCandidateData({ ...candidateData, citizenship: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
                 {/* Phone */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
                     <Phone className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Номер телефону</span>
+                    <span>Номер телефону (E.164)</span>
                   </label>
                   <input
                     type="text"
@@ -734,7 +820,7 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
                 {/* WhatsApp */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
-                    <span className="text-emerald-400 font-bold">WA</span>
+                    <span className="text-emerald-400 font-bold text-[10px]">WA</span>
                     <span>WhatsApp номер</span>
                   </label>
                   <input
@@ -748,13 +834,100 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
                 {/* Telegram */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
-                    <span className="text-sky-400 font-bold">TG</span>
-                    <span>Telegram username</span>
+                    <span className="text-sky-400 font-bold text-[10px]">TG</span>
+                    <span>Telegram username / телефон</span>
                   </label>
                   <input
                     type="text"
                     value={candidateData.telegram}
                     onChange={(e) => setCandidateData({ ...candidateData, telegram: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <span>Email адреса</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={candidateData.email}
+                    onChange={(e) => setCandidateData({ ...candidateData, email: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
+                {/* Experience Years */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Досвід роботи (років)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={candidateData.experienceYears}
+                    onChange={(e) => setCandidateData({ ...candidateData, experienceYears: Number(e.target.value) || 0 })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
+                {/* Salary Expectation */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Очікувана зарплата</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={candidateData.salaryExpectation || ''}
+                    placeholder="напр. €1200 - €1500 / міс"
+                    onChange={(e) => setCandidateData({ ...candidateData, salaryExpectation: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
+                {/* Languages */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <Languages className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Володіння мовами (українською)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={candidateData.languages || ''}
+                    placeholder="напр. Англійська (A2), Узбецька (рідна)"
+                    onChange={(e) => setCandidateData({ ...candidateData, languages: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
+                {/* Driver License */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <Car className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Водійське посвідчення</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={candidateData.driverLicense || ''}
+                    placeholder="напр. B, C, CE або Немає"
+                    onChange={(e) => setCandidateData({ ...candidateData, driverLicense: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
+                  />
+                </div>
+
+                {/* Birth Date / Year */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Дата або рік народження</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={candidateData.birthDate || ''}
+                    placeholder="напр. 1993 або 1993-05-18"
+                    onChange={(e) => setCandidateData({ ...candidateData, birthDate: e.target.value })}
                     className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white font-medium focus:border-purple-500 transition"
                   />
                 </div>
@@ -777,6 +950,23 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Detailed Bio / Work Experience translated into Ukrainian */}
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Детальний досвід роботи, підприємства та обов'язки (українською мовою):</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">Формує картку та досьє</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={candidateData.bio || ''}
+                    onChange={(e) => setCandidateData({ ...candidateData, bio: e.target.value })}
+                    className="w-full bg-slate-900/90 border border-white/10 rounded-xl px-3 py-2 text-white text-xs leading-relaxed focus:border-purple-500 transition font-sans"
+                  />
                 </div>
               </div>
 

@@ -263,19 +263,27 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
-  // AI: Resume Auto-Parser (Extracts Candidate Data from text or PDF)
+  // AI: Resume Auto-Parser (Extracts Candidate Data from text or PDF with Ukrainian translation & caching)
   router.post('/parse-resume', async (req, res) => {
     try {
       const { text } = req.body;
       if (!text) return res.status(400).json({ error: 'text required' });
+
+      const cacheKey = AiCacheService.makeKey('resume', text);
+      const cached = AiCacheService.get<any>(cacheKey);
+      if (cached) {
+        return res.json({ candidate: cached, cached: true });
+      }
+
       const candidate = await ResumeParserService.parseResumeText(text);
+      AiCacheService.set(cacheKey, candidate, 30 * 60 * 1000);
       res.json({ candidate });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  // AI: Batch Multi-Resume Parser & Automatic Candidate Creator
+  // AI: Batch Multi-Resume Parser & Automatic Candidate Creator with full field mapping
   router.post('/batch-parse-resumes', async (req, res) => {
     try {
       const { items } = req.body;
@@ -307,24 +315,35 @@ export function createAiRouter(prisma: PrismaClient) {
             };
           }
 
-          // 2. Parse candidate text with Gemini AI
+          // 2. Parse candidate text with Gemini AI (translating to Ukrainian if foreign)
           const textToParse = (item.textContent && item.textContent.trim().length > 10)
             ? item.textContent
             : (item.fileName ? `Резюме кандидата: ${item.fileName.replace(/\.[^/.]+$/, '').replace(/[_.-]/g, ' ')}` : 'Кандидат');
 
           const parsed = await ResumeParserService.parseResumeText(textToParse);
 
-          // 3. Create candidate contact in database
+          // 3. Create candidate contact in database with ALL rich parsed fields
           const candidate = await prisma.contact.create({
             data: {
               name: parsed.name || 'Новий Кандидат',
               type: 'candidate',
               phone: parsed.phone || null,
-              whatsapp: parsed.phone || null,
+              phone2: parsed.phone2 || null,
+              whatsapp: parsed.whatsapp || parsed.phone || null,
+              telegram: parsed.telegram || null,
+              email: parsed.email || null,
               country: parsed.country || 'Узбекистан',
-              profession: parsed.profession || 'Спеціаліст',
-              position: parsed.profession || 'Спеціаліст',
+              citizenship: parsed.citizenship || parsed.country || 'Узбекистан',
+              profession: parsed.profession || 'Оператор виробництва',
+              position: parsed.position || parsed.profession || 'Оператор виробництва',
               status: parsed.status || 'screening',
+              experienceYears: parsed.experienceYears !== undefined ? Number(parsed.experienceYears) : 2,
+              salaryExpectation: parsed.salaryExpectation || null,
+              skills: parsed.skills ? JSON.stringify(parsed.skills) : null,
+              languages: parsed.languages || null,
+              driverLicense: parsed.driverLicense || null,
+              bio: parsed.bio || parsed.summary || null,
+              birthDate: parsed.birthDate || null,
               companyId: item.companyId || null,
               resumeUrl: resumeUrl,
               documents: docItem ? JSON.stringify([docItem]) : null
