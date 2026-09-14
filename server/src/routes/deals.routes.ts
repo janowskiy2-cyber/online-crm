@@ -5,12 +5,37 @@ import { SemanticSearchService } from '../services/semantic-search.service';
 export function createDealsRouter(prisma: PrismaClient, io?: any) {
   const router = Router();
 
-  // Get deals with strict RBAC isolation
+  // ── In-memory RBAC cache (TTL 5 min) to avoid repeated user lookups ──
+  const rbacCache = new Map<string, { canViewAll: boolean; canViewDept: boolean; department: string; expiry: number }>();
+  const RBAC_TTL = 5 * 60 * 1000;
+
+  async function getUserRbac(userId: string) {
+    const cached = rbacCache.get(userId);
+    if (cached && Date.now() < cached.expiry) return cached;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { canViewAllDeals: true, canViewDeptDeals: true, department: true }
+    });
+    if (!user) return null;
+    const entry = {
+      canViewAll: user.canViewAllDeals,
+      canViewDept: user.canViewDeptDeals,
+      department: user.department,
+      expiry: Date.now() + RBAC_TTL
+    };
+    rbacCache.set(userId, entry);
+    return entry;
+  }
+
+  // Get deals with strict RBAC isolation + pagination + lightweight selects
   router.get('/', async (req, res) => {
     try {
-      const { pipelineId, stageId, search, projectId } = req.query;
-      // Identity comes strictly from the verified JWT (authRequired), never from client headers
+      const { pipelineId, stageId, search, projectId, page, limit: rawLimit } = req.query;
       const currentUserId = (req as any).userId as string | undefined;
+
+      // Pagination: default 100, max 200 per page
+      const pageNum = Math.max(1, Number(page) || 1);
+      const limit = Math.min(Math.max(1, Number(rawLimit) || 100), 200);
 
       const where: any = { isDeleted: false };
 
@@ -20,23 +45,18 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
         where.projectId = String(projectId);
       }
 
-      // Strict user-level access isolation
+      // Strict user-level access isolation (cached)
       if (currentUserId) {
-        const user = await prisma.user.findUnique({ where: { id: currentUserId } });
-        if (user) {
-          if (!user.canViewAllDeals) {
-            if (user.canViewDeptDeals) {
-              // Department managers view only their department's users deals
-              const deptUsers = await prisma.user.findMany({
-                where: { department: user.department },
-                select: { id: true }
-              });
-              const deptUserIds = deptUsers.map(u => u.id);
-              where.responsibleId = { in: deptUserIds };
-            } else {
-              // Standard rep sees ONLY their personal deals
-              where.responsibleId = user.id;
-            }
+        const rbac = await getUserRbac(currentUserId);
+        if (rbac && !rbac.canViewAll) {
+          if (rbac.canViewDept) {
+            const deptUsers = await prisma.user.findMany({
+              where: { department: rbac.department },
+              select: { id: true }
+            });
+            where.responsibleId = { in: deptUsers.map(u => u.id) };
+          } else {
+            where.responsibleId = currentUserId;
           }
         }
       }
@@ -44,35 +64,42 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
       if (search) {
         const terms = await SemanticSearchService.expandQuery(String(search));
         where.OR = terms.flatMap(term => [
-          { title: { contains: term, mode: 'insensitive' } },
-          { contact: { name: { contains: term, mode: 'insensitive' } } },
-          { contact: { phone: { contains: term, mode: 'insensitive' } } },
-          { contact: { profession: { contains: term, mode: 'insensitive' } } },
-          { company: { name: { contains: term, mode: 'insensitive' } } },
-          { stage: { name: { contains: term, mode: 'insensitive' } } },
-          { tags: { contains: term, mode: 'insensitive' } }
+          { title: { contains: term, mode: 'insensitive' as const } },
+          { contact: { name: { contains: term, mode: 'insensitive' as const } } },
+          { contact: { phone: { contains: term, mode: 'insensitive' as const } } },
+          { contact: { profession: { contains: term, mode: 'insensitive' as const } } },
+          { company: { name: { contains: term, mode: 'insensitive' as const } } },
+          { stage: { name: { contains: term, mode: 'insensitive' as const } } },
+          { tags: { contains: term, mode: 'insensitive' as const } }
         ]);
       }
 
       const deals = await prisma.deal.findMany({
         where,
         include: {
-          contact: true,
-          company: true,
+          contact: {
+            select: { id: true, name: true, phone: true, avatar: true, type: true, whatsapp: true, telegram: true, email: true }
+          },
+          company: {
+            select: { id: true, name: true, phone: true }
+          },
           responsible: {
             select: { id: true, name: true, avatar: true, department: true, role: true }
           },
           stage: true,
           tasks: {
-            where: { isCompleted: false },
-            include: { responsible: true }
+            where: { isCompleted: false, isDeleted: false },
+            select: { id: true, text: true, type: true, dueDate: true, responsibleId: true }
           },
           messages: {
             take: 1,
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, text: true, createdAt: true, channel: true, direction: true }
           }
         },
-        orderBy: { updatedAt: 'desc' }
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+        skip: (pageNum - 1) * limit
       });
 
       res.json(deals);
@@ -136,10 +163,12 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     }
   });
 
-  // Get single deal with full relations
+  // Get single deal with full relations (messages paginated to last 50)
   router.get('/:id', async (req, res) => {
     try {
       const { id } = req.params;
+      const msgLimit = Math.min(Number(req.query.msgLimit) || 50, 200);
+
       const deal = await prisma.deal.findUnique({
         where: { id },
         include: {
@@ -148,20 +177,24 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           responsible: true,
           stage: true,
           tasks: {
-            include: { responsible: true },
+            include: { responsible: { select: { id: true, name: true, avatar: true } } },
             orderBy: { dueDate: 'asc' }
           },
           notes: {
-            include: { user: true },
+            include: { user: { select: { id: true, name: true, avatar: true } } },
             orderBy: { createdAt: 'desc' }
           },
           messages: {
-            orderBy: { createdAt: 'asc' }
+            take: msgLimit,
+            orderBy: { createdAt: 'desc' }
           }
         }
       });
 
       if (!deal) return res.status(404).json({ error: 'Deal not found' });
+
+      // Reverse messages to chronological order for the frontend
+      deal.messages.reverse();
       res.json(deal);
     } catch (e) {
       res.status(500).json({ error: 'Failed to fetch deal' });
@@ -268,11 +301,25 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           customFields: typeof data.customFields === 'string' ? data.customFields : (data.customFields ? JSON.stringify(data.customFields) : undefined)
         },
         include: {
-          contact: true,
-          company: true,
-          responsible: true,
+          contact: {
+            select: { id: true, name: true, phone: true, avatar: true, type: true, whatsapp: true, telegram: true, email: true }
+          },
+          company: {
+            select: { id: true, name: true, phone: true }
+          },
+          responsible: {
+            select: { id: true, name: true, avatar: true, department: true, role: true }
+          },
           stage: true,
-          tasks: { where: { isCompleted: false } }
+          tasks: {
+            where: { isCompleted: false, isDeleted: false },
+            select: { id: true, text: true, type: true, dueDate: true, responsibleId: true }
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: 'desc' as const },
+            select: { id: true, text: true, createdAt: true, channel: true, direction: true }
+          }
         }
       });
 
@@ -372,34 +419,11 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
         }).catch(() => {});
       }
 
-      // Return fully loaded deal identical to GET /deals for rock-solid frontend synchronization
-      const fullDeal = await prisma.deal.findUnique({
-        where: { id },
-        include: {
-          contact: true,
-          company: true,
-          responsible: {
-            select: { id: true, name: true, avatar: true, department: true, role: true }
-          },
-          stage: true,
-          tasks: {
-            where: { isCompleted: false },
-            include: { responsible: true }
-          },
-          messages: {
-            take: 1,
-            orderBy: { createdAt: 'desc' }
-          }
-        }
-      });
-
-      const finalDeal = fullDeal || updated;
-
       if (io) {
-        io.emit('deal_updated', finalDeal);
+        io.emit('deal_updated', updated);
       }
 
-      res.json(finalDeal);
+      res.json(updated);
     } catch (e) {
       console.error('Failed to update deal:', e);
       res.status(500).json({ error: 'Failed to update deal' });

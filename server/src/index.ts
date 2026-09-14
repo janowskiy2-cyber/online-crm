@@ -89,7 +89,9 @@ const io = new SocketIOServer(server, {
   }
 });
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: IS_PRODUCTION ? ['error'] : ['error', 'warn']
+});
 const leadDistributionService = new LeadDistributionService(prisma);
 const waService = new WhatsAppService(prisma, leadDistributionService);
 const tgService = new TelegramService(prisma, leadDistributionService);
@@ -102,9 +104,9 @@ automationService.setSocketIO(io);
 
 app.use(cors({ origin: corsOriginHandler, credentials: true }));
 
-// Safe memory limits: 50mb max JSON payload supports video & media uploads
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Default body limit: 1MB covers 99% of API requests (text, forms, JSON)
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
 // Uploads directory for media files (voice, images, PDF)
 const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -133,15 +135,15 @@ app.use('/api/deals', authRequired, createDealsRouter(prisma, io));
 app.use('/api/pipelines', authRequired, createPipelineRouter(prisma));
 app.use('/api/contacts', authRequired, createContactRouter(prisma));
 app.use('/api/tasks', authRequired, createTaskRouter(prisma, () => io));
-app.use('/api/chat', authRequired, createChatRouter(prisma, waService, tgService));
+app.use('/api/chat', authRequired, express.json({ limit: '50mb' }), createChatRouter(prisma, waService, tgService));
 app.use('/api/users', authRequired, createUsersRouter(prisma));
 app.use('/api/analytics', authRequired, createAnalyticsRouter(prisma));
 app.use('/api/automation', authRequired, createAutomationRouter(prisma));
 app.use('/api/ai', authRequired, createAiRouter(prisma));
-app.use('/api/upload', authRequired, createUploadRouter());
-app.use('/api/feed', authRequired, createFeedRouter(prisma));
+app.use('/api/upload', authRequired, express.json({ limit: '50mb' }), createUploadRouter());
+app.use('/api/feed', authRequired, express.json({ limit: '10mb' }), createFeedRouter(prisma));
 app.use('/api/export', authRequired, createExportRouter(prisma));
-app.use('/api/import', authRequired, createImportRouter(prisma));
+app.use('/api/import', authRequired, express.json({ limit: '50mb' }), createImportRouter(prisma));
 
 // Unknown API route → JSON 404 (instead of falling through to the SPA index.html)
 app.use('/api', (req: Request, res: Response) => {
@@ -171,8 +173,13 @@ io.on('connection', (socket) => {
     socket.leave(room);
     if (dialogViewers.has(dialogKey)) {
       dialogViewers.get(dialogKey)!.delete(socket.id);
-      const viewers = Array.from(dialogViewers.get(dialogKey)!.values());
-      io.to(room).emit('dialog_viewers', { dialogKey, viewers });
+      const viewersMap = dialogViewers.get(dialogKey)!;
+      if (viewersMap.size === 0) {
+        dialogViewers.delete(dialogKey);
+      } else {
+        const viewers = Array.from(viewersMap.values());
+        io.to(room).emit('dialog_viewers', { dialogKey, viewers });
+      }
     }
   });
 
@@ -180,9 +187,13 @@ io.on('connection', (socket) => {
     dialogViewers.forEach((viewersMap, dialogKey) => {
       if (viewersMap.has(socket.id)) {
         viewersMap.delete(socket.id);
-        const room = `dialog_${dialogKey}`;
-        const viewers = Array.from(viewersMap.values());
-        io.to(room).emit('dialog_viewers', { dialogKey, viewers });
+        if (viewersMap.size === 0) {
+          dialogViewers.delete(dialogKey);
+        } else {
+          const room = `dialog_${dialogKey}`;
+          const viewers = Array.from(viewersMap.values());
+          io.to(room).emit('dialog_viewers', { dialogKey, viewers });
+        }
       }
     });
   });

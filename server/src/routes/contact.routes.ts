@@ -51,7 +51,12 @@ export function createContactRouter(prisma: PrismaClient) {
   // Get contacts (supports ?type=candidate or ?type=b2b_contact) with Synaptic Semantic Search
   router.get('/', async (req, res) => {
     try {
-      const { search, type, companyId } = req.query;
+      const { search, type, companyId, page, limit: rawLimit } = req.query;
+
+      // Pagination: default 100, max 200 per page
+      const pageNum = Math.max(1, Number(page) || 1);
+      const limit = Math.min(Math.max(1, Number(rawLimit) || 100), 200);
+
       let where: any = { isDeleted: false };
       if (type) {
         where.type = String(type);
@@ -62,14 +67,14 @@ export function createContactRouter(prisma: PrismaClient) {
       if (search) {
         const terms = await SemanticSearchService.expandQuery(String(search));
         const searchConditions = terms.flatMap(term => [
-          { name: { contains: term, mode: 'insensitive' } },
-          { phone: { contains: term, mode: 'insensitive' } },
-          { email: { contains: term, mode: 'insensitive' } },
-          { telegram: { contains: term, mode: 'insensitive' } },
-          { country: { contains: term, mode: 'insensitive' } },
-          { profession: { contains: term, mode: 'insensitive' } },
-          { position: { contains: term, mode: 'insensitive' } },
-          { company: { name: { contains: term, mode: 'insensitive' } } }
+          { name: { contains: term, mode: 'insensitive' as const } },
+          { phone: { contains: term, mode: 'insensitive' as const } },
+          { email: { contains: term, mode: 'insensitive' as const } },
+          { telegram: { contains: term, mode: 'insensitive' as const } },
+          { country: { contains: term, mode: 'insensitive' as const } },
+          { profession: { contains: term, mode: 'insensitive' as const } },
+          { position: { contains: term, mode: 'insensitive' as const } },
+          { company: { name: { contains: term, mode: 'insensitive' as const } } }
         ]);
         if (where.type) {
           where.AND = [
@@ -89,13 +94,18 @@ export function createContactRouter(prisma: PrismaClient) {
       const contacts = await prisma.contact.findMany({
         where,
         include: {
-          company: true,
+          company: {
+            select: { id: true, name: true, phone: true }
+          },
           deals: {
-            select: { id: true, title: true, budget: true, stage: true }
+            where: { isDeleted: false },
+            select: { id: true, title: true, budget: true, stage: { select: { id: true, name: true, color: true } } }
           },
           _count: { select: { messages: true } }
         },
-        orderBy: { updatedAt: 'desc' }
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+        skip: (pageNum - 1) * limit
       });
       res.json(contacts);
     } catch (e) {

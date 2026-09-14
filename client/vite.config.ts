@@ -10,7 +10,9 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-icons': ['lucide-react'],
           'vendor-dnd': ['@hello-pangea/dnd'],
-          'vendor-network': ['axios', 'socket.io-client']
+          'vendor-network': ['axios', 'socket.io-client'],
+          'vendor-charts': ['recharts'],
+          'vendor-date': ['date-fns']
         }
       }
     },

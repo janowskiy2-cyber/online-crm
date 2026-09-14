@@ -2,10 +2,6 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
-import { KanbanBoard } from './components/kanban/KanbanBoard';
-import { UnifiedInbox } from './components/inbox/UnifiedInbox';
-import { TasksView } from './components/tasks/TasksView';
-import { ContactsView } from './components/contacts/ContactsView';
 import { RightWidgetSidebar } from './components/layout/RightWidgetSidebar';
 import { RightQuickDock } from './components/layout/RightQuickDock';
 import { CreateDealModal } from './components/modals/CreateDealModal';
@@ -17,6 +13,12 @@ import { api, socket } from './services/api';
 import { Pipeline, Deal } from './types';
 import { Kanban, MessageSquare, Globe2, CheckSquare, Menu, Users } from 'lucide-react';
 import { triggerNativePush } from './utils/webPush';
+
+// Code-Splitting: Lazy load ALL heavy page-level modules for fast initial paint
+const KanbanBoard = lazy(() => import('./components/kanban/KanbanBoard').then(m => ({ default: m.KanbanBoard })));
+const UnifiedInbox = lazy(() => import('./components/inbox/UnifiedInbox').then(m => ({ default: m.UnifiedInbox })));
+const ContactsView = lazy(() => import('./components/contacts/ContactsView').then(m => ({ default: m.ContactsView })));
+const TasksView = lazy(() => import('./components/tasks/TasksView').then(m => ({ default: m.TasksView })));
 
 // Code-Splitting: Lazy load heavy modules for fast initial paint (<150KB)
 const LiveFeedView = lazy(() => import('./components/feed/LiveFeedView').then(m => ({ default: m.LiveFeedView })));
