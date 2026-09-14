@@ -213,8 +213,8 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
   };
 
   const handleParseResume = async () => {
-    if (!resumeText.trim() && !uploadedFile) {
-      setErrorMessage('Будь ласка, вставте текст резюме або завантажте файл');
+    if (!resumeText.trim() && !uploadedFile && !fileBase64) {
+      setErrorMessage('Будь ласка, завантажте файл резюме (PDF/DOCX/TXT) або вставте текст');
       return;
     }
 
@@ -222,7 +222,13 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
     setErrorMessage(null);
 
     try {
-      const res = await api.post('/ai/parse-resume', { text: resumeText });
+      const cleanText = resumeText && !resumeText.startsWith('[Файл') ? resumeText : '';
+      const res = await api.post('/ai/parse-resume', { 
+        text: cleanText,
+        fileBase64: fileBase64 || undefined,
+        mimeType: uploadedFile?.type || 'application/pdf',
+        fileName: uploadedFile?.name
+      });
       const parsed = res.data?.candidate;
       if (!parsed) throw new Error('Не вдалося розпізнати резюме');
 
@@ -688,30 +694,14 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
             /* Step 2: Review & Edit Parsed Data */
             <div className="space-y-4">
               {candidateData.wasTranslated ? (
-                <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-emerald-300 text-xs font-semibold">
-                    <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                    <span>🇺🇦 Резюме розпізнано та автоматично перекладено українською мовою:</span>
-                  </div>
-                  <button
-                    onClick={() => setCandidateData(null)}
-                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> Вставити інше
-                  </button>
+                <div className="p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center gap-2 text-emerald-300 text-xs font-semibold">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+                  <span>🇺🇦 Резюме розпізнано та автоматично перекладено українською мовою. Перевірте дані:</span>
                 </div>
               ) : (
-                <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-purple-300 text-xs font-semibold">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Розпізнано дані кандидата. Перевірте та відкоригуйте за потреби:</span>
-                  </div>
-                  <button
-                    onClick={() => setCandidateData(null)}
-                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> Вставити інше
-                  </button>
+                <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center gap-2 text-purple-300 text-xs font-semibold">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Розпізнано дані кандидата. Перевірте та за потреби відкоригуйте поля:</span>
                 </div>
               )}
 
@@ -1002,9 +992,10 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setCandidateData(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
                 >
-                  Назад до тексту
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>← Завантажити інше резюме</span>
                 </button>
                 <button
                   type="button"

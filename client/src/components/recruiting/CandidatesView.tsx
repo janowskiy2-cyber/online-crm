@@ -341,20 +341,12 @@ export const CandidatesView: React.FC = () => {
 
             <div className="flex items-center gap-2.5 flex-wrap">
               <button
-                onClick={() => navigate('/contacts')}
-                className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-              >
-                <Building2 className="w-4 h-4 text-blue-400" />
-                <span>База роботодавців ({companies.length})</span>
-              </button>
-
-              <button
                 onClick={handleExportCsv}
                 className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
                 title="Завантажити список кандидатів у форматі Excel (CSV)"
               >
                 <Download className="w-4 h-4 text-emerald-400" />
-                <span>Експорт в Excel (CSV)</span>
+                <span>Експорт в Excel</span>
               </button>
 
               <button
@@ -368,27 +360,14 @@ export const CandidatesView: React.FC = () => {
 
               <button
                 onClick={() => {
-                  setResumeTab('batch');
-                  setIsResumeModalOpen(true);
-                }}
-                className="px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 transition shadow-lg shadow-orange-500/25 active:scale-95 border border-amber-400/40"
-                title="Масове завантаження до 20 резюме у форматі PDF/DOCX"
-              >
-                <Layers className="w-4 h-4 text-amber-100" />
-                <span>⚡ Масовий імпорт резюме</span>
-                <span className="px-1.5 py-0.5 bg-black/30 text-[10px] rounded-md font-mono text-amber-200">до 20 PDF</span>
-              </button>
-
-              <button
-                onClick={() => {
                   setResumeTab('single');
                   setIsResumeModalOpen(true);
                 }}
-                className="px-3.5 py-2 bg-gradient-to-r from-purple-600/25 to-indigo-600/25 hover:from-purple-600/40 hover:to-indigo-600/40 text-purple-200 border border-purple-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-purple-600/20"
-                title="ШІ-скринінг окремого резюме або тексту"
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 transition shadow-lg shadow-purple-600/25 active:scale-95 border border-purple-400/40"
+                title="ШІ-парсер та автоматичний переклад резюме (PDF/DOCX або текст)"
               >
-                <Sparkles className="w-4 h-4 text-purple-300" />
-                <span>✨ ШІ-Скринінг</span>
+                <Sparkles className="w-4 h-4 text-purple-200" />
+                <span>✨ ШІ-Парсинг резюме</span>
               </button>
 
               <button

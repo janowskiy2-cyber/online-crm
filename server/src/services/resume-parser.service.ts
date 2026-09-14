@@ -24,33 +24,37 @@ export interface ParsedCandidateData {
   wasTranslated?: boolean;
 }
 
-export class ResumeParserService {
-  /**
-   * Parse resume text or structured document using Gemini AI with automatic translation to Ukrainian
-   */
-  public static async parseResumeText(text: string): Promise<ParsedCandidateData> {
-    const prompt = `Ти — висококваліфікований експертний AI-парсер та лінгвістичний перекладач резюме міжнародного рекрутингового агентства.
-Твоє завдання — глибоко проаналізувати текст резюме (CV) або анкети кандидата, витягнути ВСІ ключові поля та сформувати структурований JSON для CRM-системи.
+export interface ParseResumeOptions {
+  text?: string;
+  fileBase64?: string;
+  mimeType?: string;
+  fileName?: string;
+}
 
-⚠️ НАЙВАЖЛИВІШІ ПРАВИЛА ТА ВИМОГИ:
+export class ResumeParserService {
+  private static getBasePrompt(): string {
+    return `Ти — провідний експертний AI-парсер та лінгвістичний перекладач резюме (CV) міжнародного рекрутингового агентства Recruiter I Club.
+Твоє завдання — УВАЖНО прочитати наданий документ або текст резюме кандидата, витягнути ВСІ реальні фактичні дані та повернути СТРОГО валідний JSON об'єкт для CRM-системи.
+
+⚠️ СТРОГІ ПРАВИЛА:
 1. МОВА ЗАПОВНЕННЯ — СТРОГО УКРАЇНСЬКА!
-   - Якщо резюме складено іноземною мовою (англійська, російська, узбецька, турецька, хінді, польська, арабська, бенгальська тощо) — ВСІ текстові поля (професія, посада, навички, мови, водійські права, біографія, опис досвіду, обов'язки, освіта) ПОВИННІ БУТИ ГРАМОТНО ТА ПРОФЕСІЙНО ПЕРЕКЛАДЕНІ НА УКРАЇНСЬКУ МОВУ!
-   - ПІБ кандидата: якщо ім'я написано латиницею або іноземною мовою, запиши його українською транслітерацією, а в дужках збережи оригінал, наприклад: "Абдуллаєв Джамшид Баходирович (Abdullaev Jamshid)".
-2. НОРМАЛІЗАЦІЯ ТЕЛЕФОНІВ:
-   - Форматуй номери у міжнародний стандарт E.164 (+380..., +998..., +91..., +90... тощо).
-   - Якщо є окремий номер для WhatsApp — вкажи його, якщо ні — використовуй основний номер.
-3. ПРОФЕСІЯ ТА ПОСАДА:
-   - Вказуй точну технічну спеціальність українською: напр. "Зварювальник MIG/MAG", "Оператор верстатів з ЧПК", "Водій автонавантажувача", "Арматурник-бетоняр", "Електрик промислового устаткування", "Фасувальник-пакувальник".
-4. СТРУКТУРОВАНЕ БІО (BIO):
-   - Сформуй чіткий, структурований розділ українською мовою: хронологія останніх місць роботи, ключові виробничі обов'язки, освіта та професійні сертифікати.
+   - Якщо резюме складено будь-якою іноземною мовою (англійська, російська, узбецька, турецька, хінді, польська, німецька, бенгальська тощо) — ВСІ текстові поля (професія, посада, навички, мови, водійські права, біографія, опис досвіду, обов'язки, освіта) ПОВИННІ БУТИ ГРАМОТНО ТА ПРОФЕСІЙНО ПЕРЕКЛАДЕНІ НА УКРАЇНСЬКУ МОВУ!
+   - ПІБ кандидата: якщо ім'я написано латиницею або іноземною мовою, запиши його українською транслітерацією з оригіналом у дужках, наприклад: "Абдуллаєв Джамшид Баходирович (Abdullaev Jamshid)". Не вигадуй імена — бери реальне ім'я з документу!
+2. НОРМАЛІЗАЦІЯ ТЕЛЕФОНІВ ТА КОНТАКТІВ:
+   - Шукай реальні номери телефонів у документі. Форматуй у міжнародний стандарт E.164 (+380..., +998..., +91... тощо).
+   - Шукай окремий WhatsApp номер, Telegram або Email.
+3. ПРОФЕСІЯ ТА СПЕЦІАЛЬНІСТЬ:
+   - Визнач точну професію кандидата українською мовою: напр. "Зварювальник MIG/MAG", "Оператор верстатів з ЧПК", "Водій автонавантажувача", "Арматурник-бетоняр", "Електрик промислового устаткування", "Кухар-універсал", "Комплектувальник складу".
+4. СТРУКТУРОВАНЕ БІО (BIO) ТА ДОСВІД:
+   - Опиши хронологію реального досвіду роботи кандидата українською мовою: де працював (компанії, роки), які функції виконував, яку освіту має.
 5. НАВИЧКИ (SKILLS):
-   - Масив конкретних професійних навичок українською (напр. ["Напівавтоматичне зварювання MIG/MAG", "Читання технічних креслень", "Контроль якості швів", "Слюсарна обробка металу"]).
+   - Масив конкретних професійних навичок українською мовою.
 
 ФОРМАТ ВІДПОВІДІ (СТРОГО ВАЛІДНИЙ JSON БЕЗ ЗАЙВОГО ТЕКСТУ ТА MARKDOWN):
 {
   "name": "ПІБ кандидата українською (оригінал латиницею)",
-  "country": "Країна походження/проживання (напр. Узбекистан, Індія, Туреччина, Україна)",
-  "citizenship": "Громадянство (напр. Узбекистан, Україна)",
+  "country": "Країна походження/проживання кандидата (напр. Узбекистан, Індія, Туреччина, Україна)",
+  "citizenship": "Громадянство кандидата",
   "profession": "Основна спеціальність українською",
   "position": "Бажана або поточна посада українською",
   "phone": "+998901234567",
@@ -62,14 +66,83 @@ export class ResumeParserService {
   "salaryExpectation": "€1200 - €1500 / міс",
   "skills": ["навичка 1", "навичка 2", "навичка 3"],
   "languages": "Володіння мовами українською, напр. Англійська (розмовний A2), Узбецька (рідна)",
-  "driverLicense": "Категорії водійських прав, напр. B, C, CE або Немає",
-  "birthDate": "Дата або рік народження, напр. 1992",
-  "bio": "Структурований досвід роботи та освіта українською мовою: останні підприємства, стаж, обов'язки.",
+  "driverLicense": "Категорії водійських прав (напр. B, C, CE або Немає)",
+  "birthDate": "Дата або рік народження (напр. 1993)",
+  "bio": "Структурований опис досвіду роботи та освіти українською мовою: останні підприємства, стаж, обов'язки.",
   "status": "Кваліфіковано / Резюме",
   "summary": "Короткий висновок рекрутера про кандидата українською (1-2 речення)",
   "detectedLanguage": "en",
   "wasTranslated": true
-}
+}`;
+  }
+
+  /**
+   * Main entry point: parses resume from either fileBase64 (PDF/images/text) or direct text string
+   */
+  public static async parseResume(options: ParseResumeOptions | string): Promise<ParsedCandidateData> {
+    const opts: ParseResumeOptions = typeof options === 'string' ? { text: options } : options;
+    const text = (opts.text || '').trim();
+    const fileBase64 = (opts.fileBase64 || '').trim();
+    let mimeType = opts.mimeType || 'application/pdf';
+    const fileName = opts.fileName || '';
+
+    // If file is plain text, decode to string and run text parser
+    if (fileBase64 && (mimeType.includes('text') || fileName.endsWith('.txt'))) {
+      try {
+        const cleanB64 = fileBase64.replace(/^data:.*?,/, '').replace(/^data:.*?;base64,/, '').trim();
+        const decodedText = Buffer.from(cleanB64, 'base64').toString('utf-8');
+        if (decodedText && decodedText.length > 10) {
+          return ResumeParserService.parseResumeText(decodedText);
+        }
+      } catch (e) {
+        console.warn('Failed to decode base64 text file:', e);
+      }
+    }
+
+    // Multimodal parsing: if PDF, PNG, JPG, WEBP base64 is provided, pass directly to Gemini
+    if (fileBase64) {
+      const cleanB64 = fileBase64.replace(/^data:.*?,/, '').replace(/^data:.*?;base64,/, '').trim();
+      if (cleanB64.length > 50) {
+        // Resolve precise mimeType
+        if (fileName.endsWith('.pdf')) mimeType = 'application/pdf';
+        else if (fileName.endsWith('.png')) mimeType = 'image/png';
+        else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) mimeType = 'image/jpeg';
+        else if (fileName.endsWith('.webp')) mimeType = 'image/webp';
+
+        const prompt = `${ResumeParserService.getBasePrompt()}
+${text ? `\nДодатковий супровідний текст від рекрутера:\n"""\n${text}\n"""` : ''}`;
+
+        const contents = [
+          prompt,
+          {
+            inlineData: {
+              data: cleanB64,
+              mimeType
+            }
+          }
+        ];
+
+        try {
+          const { text: aiResponse } = await ModelRouterService.generateMediaContentWithFailover(
+            contents,
+            () => JSON.stringify(ResumeParserService.fallbackRegexParser(text || fileName))
+          );
+          return ResumeParserService.cleanAndFormatResponse(aiResponse, text || fileName);
+        } catch (mediaErr) {
+          console.warn('Media resume parsing failed, falling back to text parsing:', mediaErr);
+        }
+      }
+    }
+
+    // Default: text-only parsing
+    return ResumeParserService.parseResumeText(text || fileName || 'Кандидат');
+  }
+
+  /**
+   * Parse resume text using Gemini AI with automatic translation to Ukrainian
+   */
+  public static async parseResumeText(text: string): Promise<ParsedCandidateData> {
+    const prompt = `${ResumeParserService.getBasePrompt()}
 
 ТЕКСТ РЕЗЮМЕ ДЛЯ РОЗПІЗНАВАННЯ:
 """
@@ -81,15 +154,20 @@ ${text}
       () => JSON.stringify(ResumeParserService.fallbackRegexParser(text))
     );
 
+    return ResumeParserService.cleanAndFormatResponse(aiResponse, text);
+  }
+
+  /**
+   * Parse and format AI response to validated candidate data
+   */
+  private static cleanAndFormatResponse(aiResponse: string, originalContent: string): ParsedCandidateData {
     try {
-      // Clean possible markdown ```json ... ``` tags
       const cleaned = aiResponse
         .replace(/```json/gi, '')
         .replace(/```/g, '')
         .trim();
       const parsed = JSON.parse(cleaned);
 
-      // Clean phone numbers
       const cleanPhone = (p?: string) => {
         if (!p) return '';
         const digits = p.replace(/[^\d+]/g, '');
@@ -102,10 +180,10 @@ ${text}
 
       const isNonUkrainian = (parsed.detectedLanguage && parsed.detectedLanguage !== 'uk') || 
                             parsed.wasTranslated === true ||
-                            /[a-zA-Z]{4,}/.test(text);
+                            /[a-zA-Z]{4,}/.test(originalContent);
 
       return {
-        name: parsed.name || 'Кандидат',
+        name: parsed.name || 'Новий Кандидат',
         country: parsed.country || 'Узбекистан',
         citizenship: parsed.citizenship || parsed.country || 'Узбекистан',
         profession: parsed.profession || 'Оператор виробництва',
@@ -131,7 +209,7 @@ ${text}
       };
     } catch (e) {
       console.warn('AI JSON parsing fallback:', e);
-      return ResumeParserService.fallbackRegexParser(text);
+      return ResumeParserService.fallbackRegexParser(originalContent);
     }
   }
 

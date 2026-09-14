@@ -263,19 +263,22 @@ export function createAiRouter(prisma: PrismaClient) {
     }
   });
 
-  // AI: Resume Auto-Parser (Extracts Candidate Data from text or PDF with Ukrainian translation & caching)
+  // AI: Resume Auto-Parser (Extracts Candidate Data from fileBase64 or text with Ukrainian translation & caching)
   router.post('/parse-resume', async (req, res) => {
     try {
-      const { text } = req.body;
-      if (!text) return res.status(400).json({ error: 'text required' });
+      const { text, fileBase64, mimeType, fileName } = req.body;
+      if (!text && !fileBase64) return res.status(400).json({ error: 'text or fileBase64 required' });
 
-      const cacheKey = AiCacheService.makeKey('resume', text);
+      const cacheKey = fileBase64
+        ? AiCacheService.makeKey('resume_file', `${fileName || ''}_${fileBase64.slice(-120)}`)
+        : AiCacheService.makeKey('resume_text', text);
+
       const cached = AiCacheService.get<any>(cacheKey);
       if (cached) {
         return res.json({ candidate: cached, cached: true });
       }
 
-      const candidate = await ResumeParserService.parseResumeText(text);
+      const candidate = await ResumeParserService.parseResume({ text, fileBase64, mimeType, fileName });
       AiCacheService.set(cacheKey, candidate, 30 * 60 * 1000);
       res.json({ candidate });
     } catch (e: any) {
@@ -315,12 +318,13 @@ export function createAiRouter(prisma: PrismaClient) {
             };
           }
 
-          // 2. Parse candidate text with Gemini AI (translating to Ukrainian if foreign)
-          const textToParse = (item.textContent && item.textContent.trim().length > 10)
-            ? item.textContent
-            : (item.fileName ? `Резюме кандидата: ${item.fileName.replace(/\.[^/.]+$/, '').replace(/[_.-]/g, ' ')}` : 'Кандидат');
-
-          const parsed = await ResumeParserService.parseResumeText(textToParse);
+          // 2. Parse candidate with Gemini AI directly using the actual PDF fileBase64!
+          const parsed = await ResumeParserService.parseResume({
+            text: item.textContent,
+            fileBase64: item.fileBase64,
+            mimeType: item.mimeType || 'application/pdf',
+            fileName: item.fileName
+          });
 
           // 3. Create candidate contact in database with ALL rich parsed fields
           const candidate = await prisma.contact.create({
