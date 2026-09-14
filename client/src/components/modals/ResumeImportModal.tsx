@@ -23,7 +23,8 @@ import {
   Calendar,
   Award,
   Languages,
-  Car
+  Car,
+  Plus
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Company } from '../../types';
@@ -56,12 +57,6 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
 }) => {
   // Mode: Batch (Multi-file) vs Single
   const [activeTab, setActiveTab] = useState<'batch' | 'single'>(initialTab);
-
-  useEffect(() => {
-    if (isOpen && initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [isOpen, initialTab]);
 
   // Batch Multi-file state
   const [batchFiles, setBatchFiles] = useState<BatchItem[]>([]);
@@ -106,6 +101,47 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
     wasTranslated?: boolean;
     detectedLanguage?: string;
   } | null>(null);
+
+  const resetBatch = () => {
+    setBatchFiles([]);
+    setBatchFinished(false);
+    setIsBatchProcessing(false);
+    setBatchProgress({ current: 0, total: 0 });
+    setErrorMessage(null);
+    if (batchFileInputRef.current) {
+      batchFileInputRef.current.value = '';
+    }
+  };
+
+  const resetSingle = () => {
+    setResumeText('');
+    setUploadedFile(null);
+    setFileBase64(null);
+    setCandidateData(null);
+    setIsParsing(false);
+    setIsSaving(false);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleClose = () => {
+    resetBatch();
+    resetSingle();
+    onClose();
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetBatch();
+      resetSingle();
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
@@ -317,7 +353,7 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
       }
 
       onSuccess();
-      onClose();
+      handleClose();
     } catch (err: any) {
       setErrorMessage(err.message || 'Помилка збереження кандидата');
     } finally {
@@ -348,7 +384,7 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
           >
             <X className="w-5 h-5" />
@@ -561,24 +597,34 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
               )}
 
               {/* Action Buttons for Batch */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/10">
                 {batchFinished ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSuccess();
-                      onClose();
-                    }}
-                    className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-600/30"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Готово ➔ Перейти до бази кандидатів</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={resetBatch}
+                      className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Завантажити ще резюме</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSuccess();
+                        handleClose();
+                      }}
+                      className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-600/30"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Готово ➔ Перейти до бази кандидатів</span>
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button
                       type="button"
-                      onClick={onClose}
+                      onClick={handleClose}
                       disabled={isBatchProcessing}
                       className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition disabled:opacity-50"
                     >
@@ -665,7 +711,7 @@ export const ResumeImportModal: React.FC<ResumeImportModalProps> = ({
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition"
                 >
                   Скасувати
