@@ -17,11 +17,12 @@ export default defineConfig({
           'vendor-dnd': ['@hello-pangea/dnd'],
           'vendor-network': ['axios', 'socket.io-client'],
           'vendor-charts': ['recharts'],
-          'vendor-date': ['date-fns']
+          'vendor-date': ['date-fns'],
+          'vendor-media': ['mediabunny']
         }
       }
     },
-    chunkSizeWarningLimit: 600
+    chunkSizeWarningLimit: 800
   },
   server: {
     port: 3000,

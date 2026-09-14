@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { api, resolveMediaUrl } from '../../services/api';
 import { Contact, CandidateDocument } from '../../types';
+import { compressVideoClientSide } from '../../utils/videoCompressor';
 
 export function getVideoEmbedUrl(url?: string | null): { type: 'iframe' | 'video'; url: string } | null {
   if (!url || !url.trim()) return null;
@@ -67,6 +68,7 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'video' | 'documents'>('video');
   const [isUploading, setIsUploading] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState<number | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -95,18 +97,41 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isVideoFile = false) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
 
     // Check size limit: max 100MB for video, 25MB for docs
     const maxBytes = isVideoFile ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      setErrorMessage(`Файл занадто великий (${(file.size / (1024 * 1024)).toFixed(1)}MB). Максимальний розмір: ${isVideoFile ? '100MB' : '25MB'}`);
+    if (rawFile.size > maxBytes) {
+      setErrorMessage(`Файл занадто великий (${(rawFile.size / (1024 * 1024)).toFixed(1)}MB). Максимальний розмір: ${isVideoFile ? '100MB' : '25MB'}`);
       return;
     }
 
     setIsUploading(true);
     setErrorMessage(null);
+
+    let fileToUpload = rawFile;
+    let compressionMsg = '';
+
+    // Smart client-side compression for videos over 15MB
+    if (isVideoFile && rawFile.size > 15 * 1024 * 1024) {
+      setCompressionProgress(0);
+      try {
+        const compressResult = await compressVideoClientSide(rawFile, (percent) => {
+          setCompressionProgress(percent);
+        });
+        if (compressResult.wasCompressed) {
+          fileToUpload = compressResult.file;
+          const origMb = (compressResult.originalSize / (1024 * 1024)).toFixed(1);
+          const compMb = (compressResult.compressedSize / (1024 * 1024)).toFixed(1);
+          compressionMsg = ` (стиснено з ${origMb}MB до ${compMb}MB)`;
+        }
+      } catch (cErr) {
+        console.warn('[VideoCompressor] Compression skipped, proceeding with original file:', cErr);
+      } finally {
+        setCompressionProgress(null);
+      }
+    }
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -114,16 +139,16 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
         const base64 = reader.result as string;
         const category = isVideoFile ? 'video' : selectedCategory;
         const res = await api.post(`/contacts/${candidate.id}/files`, {
-          fileName: file.name,
+          fileName: fileToUpload.name,
           fileBase64: base64,
-          mimeType: file.type || (isVideoFile ? 'video/mp4' : 'application/octet-stream'),
+          mimeType: fileToUpload.type || (isVideoFile ? 'video/mp4' : 'application/octet-stream'),
           category
         });
 
         if (res.data?.contact) {
           onUpdateCandidate(res.data.contact);
-          setSuccessMessage(isVideoFile ? 'Відеовізитівку успішно збережено!' : 'Документ успішно збережено в хмарі!');
-          setTimeout(() => setSuccessMessage(null), 3500);
+          setSuccessMessage(isVideoFile ? `Відеовізитівку успішно збережено!${compressionMsg}` : 'Документ успішно збережено в хмарі!');
+          setTimeout(() => setSuccessMessage(null), 4000);
         }
       } catch (err: any) {
         const errorMsg = err.response?.data?.error 
@@ -132,15 +157,17 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
         setErrorMessage(errorMsg);
       } finally {
         setIsUploading(false);
+        setCompressionProgress(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
         if (videoInputRef.current) videoInputRef.current.value = '';
       }
     };
     reader.onerror = () => {
       setIsUploading(false);
+      setCompressionProgress(null);
       setErrorMessage('Помилка читання файлу з диска');
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(fileToUpload);
   };
 
   const handleDeleteDocument = async (docId: string, docName: string) => {
@@ -370,17 +397,27 @@ export const CandidateFilesModal: React.FC<CandidateFilesModalProps> = ({
                     />
                     <div className="w-14 h-14 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300 group-hover:scale-110 transition shadow-lg">
                       {isUploading ? (
-                        <Loader2 className="w-7 h-7 animate-spin" />
+                        <Loader2 className="w-7 h-7 animate-spin text-purple-400" />
                       ) : (
                         <Video className="w-7 h-7" />
                       )}
                     </div>
                     <div>
                       <h4 className="text-sm font-extrabold text-white">
-                        {isUploading ? 'Передача та збереження у сховищі...' : 'Завантажити відеопрезентацію кандидата'}
+                        {compressionProgress !== null ? (
+                          `⚡ Оптимізація відео: ${compressionProgress}% (стиснення 720p HD)...`
+                        ) : isUploading ? (
+                          '🚀 Передача та збереження у хмарі...'
+                        ) : (
+                          'Завантажити відеопрезентацію кандидата'
+                        )}
                       </h4>
                       <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                        Підтримуються формати MP4, WebM, MOV тощо (до 100MB). Відео оптимізується для швидкого перегляду.
+                        {compressionProgress !== null ? (
+                          'Браузерне апаратне стиснення: зменшення ваги файлу без втрати чіткості обличчя та звуку'
+                        ) : (
+                          'Підтримуються формати MP4, WebM, MOV тощо (до 100MB). Важкі відео автоматично стискаються.'
+                        )}
                       </p>
                     </div>
                   </div>
