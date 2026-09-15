@@ -8,11 +8,12 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: {
-    fileSize: 15 * 1024 * 1024 // Max 15 MB per file
+    fileSize: 100 * 1024 * 1024 // Max 100 MB per file (supports video, heavy PDF, etc.)
   },
   fileFilter: (req, file, cb) => {
     const allowed = [
       'image/',
+      'video/',
       'audio/',
       'application/pdf',
       'application/msword',
@@ -23,7 +24,7 @@ const upload = multer({
     if (isAllowed) {
       cb(null, true);
     } else {
-      cb(new Error('Недозволений тип файлу. Дозволено: PDF, Word, аудіо та зображення.'));
+      cb(new Error('Недозволений тип файлу. Дозволено: PDF, Word, відео, аудіо та зображення.'));
     }
   }
 });

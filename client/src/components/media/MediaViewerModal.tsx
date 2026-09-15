@@ -12,6 +12,8 @@ import {
   Maximize2
 } from 'lucide-react';
 
+import { resolveMediaUrl } from '../../services/api';
+
 interface MediaViewerModalProps {
   mediaUrl: string;
   mediaType: 'image' | 'pdf' | 'video' | 'document';
@@ -27,15 +29,33 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
 }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [hasError, setHasError] = useState(false);
 
   const resolvedUrl = React.useMemo(() => {
-    if (!mediaUrl) return '';
-    if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://') || mediaUrl.startsWith('data:') || mediaUrl.startsWith('blob:')) {
-      return mediaUrl;
-    }
-    const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'https://online-crm.onrender.com';
-    return `${apiBase}${mediaUrl.startsWith('/') ? '' : '/'}${mediaUrl}`;
+    return resolveMediaUrl(mediaUrl);
   }, [mediaUrl]);
+
+  React.useEffect(() => {
+    setHasError(false);
+    if (!resolvedUrl) {
+      setHasError(true);
+      return;
+    }
+    // Pre-flight check for PDF or document to detect 404 before iframe displays blank/broken page
+    if (mediaType === 'pdf' || mediaType === 'document') {
+      let active = true;
+      fetch(resolvedUrl, { method: 'HEAD' })
+        .then(res => {
+          if (active && (res.status === 404 || res.status === 410)) {
+            setHasError(true);
+          }
+        })
+        .catch(() => {
+          // If CORS prevents HEAD request to external CDN, let iframe handle it naturally
+        });
+      return () => { active = false; };
+    }
+  }, [resolvedUrl, mediaType]);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
@@ -117,11 +137,58 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
 
       {/* Main Media Canvas */}
       <div className="flex-1 flex items-center justify-center overflow-hidden relative rounded-2xl bg-[#080c14] border border-slate-800/60 p-2">
-        {mediaType === 'image' ? (
+        {hasError ? (
+          <div className="max-w-md w-full bg-[#111827]/95 border border-amber-500/30 rounded-2xl p-6 text-center space-y-4 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+              <FileText className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="font-bold text-white text-sm sm:text-base">Файл недоступний у сховищі</h4>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Тимчасове посилання на цей файл застаріло або сервер оновлювався (HTTP 404).
+              </p>
+              {title && (
+                <div className="mt-2 text-[11px] font-mono text-slate-300 bg-slate-900/90 px-3 py-1.5 rounded-lg truncate border border-slate-800">
+                  {title}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-left text-[11px] text-blue-300 space-y-1.5">
+              <p className="font-semibold text-blue-200">💡 Що робити:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-slate-300">
+                {title?.toLowerCase().includes('кп') || title?.toLowerCase().includes('комерці') || title?.toLowerCase().includes('кошторис') ? (
+                  <li>Сформуйте свіжу Комерційну Пропозицію (КП) у картці угоди в один клік.</li>
+                ) : null}
+                <li>Усі нові файли та відео тепер надійно зберігаються на постійному хмарному сховищі.</li>
+                <li>Ви можете завантажити та надіслати файл повторно у діалог.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <a
+                href={resolvedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Спробувати пряме посилання</span>
+              </a>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30"
+              >
+                Зрозуміло
+              </button>
+            </div>
+          </div>
+        ) : mediaType === 'image' ? (
           <div className="w-full h-full flex items-center justify-center overflow-auto">
             <img
               src={resolvedUrl}
               alt={title}
+              onError={() => setHasError(true)}
               style={{
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
                 transition: 'transform 0.2s ease-out'
@@ -148,6 +215,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
             <iframe
               src={`${resolvedUrl}#toolbar=1&navpanes=0`}
               title={title}
+              onError={() => setHasError(true)}
               className="w-full flex-1 border-0 bg-white"
             />
           </div>
@@ -156,6 +224,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
             controls
             autoPlay
             src={resolvedUrl}
+            onError={() => setHasError(true)}
             className="max-h-full max-w-full rounded-2xl shadow-2xl border border-slate-800"
           />
         ) : (

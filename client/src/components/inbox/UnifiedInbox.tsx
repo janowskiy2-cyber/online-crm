@@ -41,7 +41,7 @@ import {
   AlertCircle,
   Briefcase
 } from 'lucide-react';
-import { api, socket } from '../../services/api';
+import { api, socket, resolveMediaUrl } from '../../services/api';
 import { soundService } from '../../services/sound.service';
 import { ChatMessage, Deal, Pipeline, Company, Task } from '../../types';
 import { ErrorBoundary } from '../common/ErrorBoundary';
@@ -1205,7 +1205,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     {isVoice ? (
                       <div className="max-w-[85%] sm:max-w-md w-full">
                         <AudioMessagePlayer
-                          audioUrl={m.mediaUrl || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'}
+                          audioUrl={resolveMediaUrl(m.mediaUrl) || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'}
                           duration={12}
                           transcription={m.text.replace('🎤 Голосове повідомлення', '').replace('🎤', '').trim()}
                           isOutgoing={isOut}
@@ -1216,7 +1216,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         <video
                           controls
                           preload="metadata"
-                          src={m.mediaUrl}
+                          src={resolveMediaUrl(m.mediaUrl)}
                           className="w-full max-h-64 object-contain bg-black rounded-t-2xl"
                         />
                         <div className="p-2.5 bg-slate-900/95 flex items-center justify-between text-xs text-slate-300 border-t border-slate-800">
@@ -1226,7 +1226,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                           </div>
                           <button
                             type="button"
-                            onClick={() => setViewingMedia({ url: m.mediaUrl!, type: 'video', title: m.text || 'Відеоповідомлення' })}
+                            onClick={() => setViewingMedia({ url: resolveMediaUrl(m.mediaUrl), type: 'video', title: m.text || 'Відеоповідомлення' })}
                             className="p-1 hover:text-blue-400 text-slate-400 hover:bg-slate-800 rounded-lg transition ml-2 flex-shrink-0"
                             title="Відкрити у вікні перегляду"
                           >
@@ -1236,10 +1236,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       </div>
                     ) : isImage && m.mediaUrl ? (
                       <div
-                        onClick={() => setViewingMedia({ url: m.mediaUrl, type: 'image', title: 'Фото' })}
+                        onClick={() => setViewingMedia({ url: resolveMediaUrl(m.mediaUrl), type: 'image', title: 'Фото' })}
                         className="cursor-pointer max-w-xs rounded-2xl overflow-hidden border border-slate-700/80 shadow-lg hover:opacity-90 transition"
                       >
-                        <img src={m.mediaUrl} alt="Зображення" className="w-full object-cover max-h-48" />
+                        <img src={resolveMediaUrl(m.mediaUrl)} alt="Зображення" className="w-full object-cover max-h-48" />
                       </div>
                     ) : (
                       <div className={`flex items-center gap-1.5 max-w-[88%] sm:max-w-xl ${isOut ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -1247,9 +1247,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                           onClick={() => {
                             if (isFile && m.mediaUrl) {
                               setViewingMedia({
-                                url: m.mediaUrl,
-                                type: 'pdf',
-                                title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '')
+                                url: resolveMediaUrl(m.mediaUrl),
+                                type: m.mediaType === 'image' ? 'image' : (m.mediaType === 'video' ? 'video' : 'pdf'),
+                                title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '').replace('📄 [Документ PDF] ', '').replace('📄 [Документ] ', '')
                               });
                             }
                           }}

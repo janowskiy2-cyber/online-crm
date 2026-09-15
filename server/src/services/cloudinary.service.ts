@@ -49,6 +49,10 @@ export class CloudinaryService {
   }
 
   private static configureAccount(account: CloudinaryAccount) {
+    // Prevent "unable to verify the first certificate" error in Node.js HTTPS requests to api.cloudinary.com
+    if (typeof process !== 'undefined' && process.env) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
     cloudinary.config({
       cloud_name: account.cloudName,
       api_key: account.apiKey,
@@ -124,25 +128,34 @@ export class CloudinaryService {
         console.log(`✅ [Cloudinary Pool] Uploaded to account "${acc.cloudName}":`, url);
         return url;
       } catch (err: any) {
-        console.warn(`⚠️ [Cloudinary Pool] Account "${acc.cloudName}" failed (${err?.message || 'Quota error'}). Trying next account...`);
-        // If format was set, retry once without format
-        if (uploadOptions.format) {
-          delete uploadOptions.format;
+        console.warn(`⚠️ [Cloudinary Pool] Account "${acc.cloudName}" failed (${err?.message || 'Quota error'}). Trying raw fallback or next account...`);
+        // If video or specialized format failed, retry once as raw (bypasses all format transcoding)
+        if (uploadOptions.resource_type !== 'raw') {
           try {
+            const rawOptions = { ...uploadOptions, resource_type: 'raw' as const };
+            delete rawOptions.format;
+            delete rawOptions.quality;
+            delete rawOptions.fetch_format;
+            delete rawOptions.video_codec;
+            delete rawOptions.width;
+            delete rawOptions.crop;
+
             const retryUrl = await new Promise<string>((resolve, reject) => {
               const uploadStream = cloudinary.uploader.upload_stream(
-                uploadOptions,
+                rawOptions,
                 (error, result) => {
-                  if (error || !result) reject(error || new Error('Retry without format failed'));
+                  if (error || !result) reject(error || new Error('Raw fallback upload failed'));
                   else resolve(result.secure_url);
                 }
               );
               uploadStream.end(buffer);
             });
             this.activeAccountIndex = accIdx;
-            console.log(`✅ [Cloudinary Pool] Uploaded without format to "${acc.cloudName}":`, retryUrl);
+            console.log(`✅ [Cloudinary Pool] Uploaded with raw mode to "${acc.cloudName}":`, retryUrl);
             return retryUrl;
-          } catch (rErr) {}
+          } catch (rawErr) {
+            console.warn(`⚠️ [Cloudinary Pool] Raw fallback for "${acc.cloudName}" failed:`, rawErr);
+          }
         }
       }
     }
@@ -157,9 +170,19 @@ export class CloudinaryService {
         ? fileName.split('.').pop() 
         : (mimeType.startsWith('audio/') ? 'webm' : (mimeType.startsWith('video/') ? 'mp4' : 'bin'));
       const uniqueName = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const uploadsDir = path.join(process.cwd(), 'uploads');
+      
+      const cwdUploads = path.join(process.cwd(), 'uploads');
+      const serverUploads = path.resolve(__dirname, '../../uploads');
+      const uploadsDir = fs.existsSync(serverUploads) ? serverUploads : cwdUploads;
+      
       if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
       fs.writeFileSync(path.join(uploadsDir, uniqueName), buffer);
+
+      // If cwdUploads is different and exists, also write there so static serves reliably from both
+      if (fs.existsSync(cwdUploads) && cwdUploads !== uploadsDir) {
+        try { fs.writeFileSync(path.join(cwdUploads, uniqueName), buffer); } catch (e) {}
+      }
+
       return `/api/uploads/${uniqueName}`;
     } catch (e) {
       console.error('Failed to save local upload fallback:', e);

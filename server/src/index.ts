@@ -108,12 +108,22 @@ app.use(cors({ origin: corsOriginHandler, credentials: true }));
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// Uploads directory for media files (voice, images, PDF, video)
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-app.use('/api/uploads', express.static(uploadsDir));
+// Uploads directories for media files (voice, images, PDF, video)
+const uploadPaths = [
+  path.join(process.cwd(), 'uploads'),
+  path.resolve(__dirname, '../uploads'),
+  path.resolve(__dirname, '../../uploads')
+];
+
+uploadPaths.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {}
+  }
+  if (fs.existsSync(dir)) {
+    app.use('/api/uploads', express.static(dir));
+    app.use('/uploads', express.static(dir));
+  }
+});
 
 // ── Rate Limiting ──
 app.use('/api', apiLimiter);
