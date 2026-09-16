@@ -61,7 +61,8 @@ async function main() {
             { name: 'Прорахунок кошторису & Уточнення', color: '#06b6d4', sortOrder: 3 },
             { name: 'Узгодження договору (25%)', color: '#f59e0b', sortOrder: 4 },
             { name: 'Договір підписано / В роботі', color: '#10b981', isWon: true, sortOrder: 5 },
-            { name: 'Відмова', color: '#ef4444', isLost: true, sortOrder: 6 }
+            { name: '⏸️ Відкладений попит', color: '#6366f1', sortOrder: 6 },
+            { name: 'Відмова', color: '#ef4444', isLost: true, sortOrder: 7 }
           ]
         }
       }
@@ -81,7 +82,8 @@ async function main() {
             { name: 'Тестування мови / Спеціальності', color: '#06b6d4', sortOrder: 2 },
             { name: 'Інтерв\'ю з роботодавцем', color: '#f59e0b', sortOrder: 3 },
             { name: 'Кандидата затверджено', color: '#10b981', isWon: true, sortOrder: 4 },
-            { name: 'Відхилено', color: '#ef4444', isLost: true, sortOrder: 5 }
+            { name: '⏸️ Відкладений резерв', color: '#6366f1', sortOrder: 5 },
+            { name: 'Відхилено', color: '#ef4444', isLost: true, sortOrder: 6 }
           ]
         }
       }

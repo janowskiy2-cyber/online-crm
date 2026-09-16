@@ -107,6 +107,13 @@ export const DealCard: React.FC<DealCardProps> = ({
     ? 'no_task' 
     : (isTaskOverdue ? 'overdue' : 'future');
 
+  const currentStage = stages.find(s => s.id === deal.stageId) || (deal.stage as any);
+  const isPaused = currentStage && (
+    (currentStage.name || '').toLowerCase().includes('відкладений') ||
+    (currentStage.name || '').toLowerCase().includes('отложенный') ||
+    (currentStage.name || '').toLowerCase().includes('пауз')
+  );
+
   const formatTaskTime = (dueDateStr: string) => {
     try {
       const d = new Date(dueDateStr);
@@ -374,6 +381,14 @@ export const DealCard: React.FC<DealCardProps> = ({
           >
             {aiBadge.text}
           </span>
+          {isPaused && (
+            <span 
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg border bg-indigo-500/15 text-indigo-400 border-indigo-500/30 flex items-center gap-1 shadow-sm"
+              title="Угода знаходиться в режимі відкладеного попиту"
+            >
+              <span>⏸️ Відкладено</span>
+            </span>
+          )}
         </div>
 
         {/* 1-Click Quick Contact Icons (WhatsApp, TG, Phone) */}

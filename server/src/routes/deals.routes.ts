@@ -345,6 +345,36 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
         }).catch(() => {});
       }
 
+      // Handle explicit Delayed Demand (Відкладений попит / Пауза) metadata and reminder task
+      if (data.pauseData) {
+        const { wakeUpDate, reason, autoCreateTask } = data.pauseData;
+        const noteUserId = (req as any).userId || existingDeal?.responsibleId || 'usr-admin';
+        const formattedDate = wakeUpDate ? new Date(wakeUpDate).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'не визначено';
+
+        await prisma.dealNote.create({
+          data: {
+            dealId: id,
+            userId: noteUserId,
+            content: `⏸️ Угоду переведено в режим "Відкладений попит" до ${formattedDate}.\n📌 Причина паузи: ${reason || 'За домовленістю з клієнтом'}`,
+            type: 'status_change',
+            metadata: JSON.stringify({ pauseReason: reason, wakeUpDate })
+          }
+        }).catch(() => {});
+
+        if (autoCreateTask && wakeUpDate) {
+          await prisma.task.create({
+            data: {
+              dealId: id,
+              responsibleId: existingDeal?.responsibleId || noteUserId,
+              createdById: noteUserId,
+              type: 'call',
+              text: `📞 Відкладений попит: контрольний зв'язок (${reason || 'планове повернення'})`,
+              dueDate: new Date(wakeUpDate)
+            }
+          }).catch(() => {});
+        }
+      }
+
       if (data.budget !== undefined && existingDeal && existingDeal.budget !== Number(data.budget)) {
         const noteUserId = (req as any).userId || existingDeal?.responsibleId || 'usr-admin';
         await prisma.dealNote.create({

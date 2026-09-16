@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, socket } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { LossReasonModal } from '../modals/LossReasonModal';
+import { PauseDealModal } from '../modals/PauseDealModal';
 import { AnalyticsDashboardModal } from '../analytics/AnalyticsDashboardModal';
 import { ArchivedDealsModal } from '../modals/ArchivedDealsModal';
 import { DealCard } from './DealCard';
@@ -50,7 +51,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'future_tasks' | 'no_tasks' | 'overdue' | 'my_deals'>('all');
+  const [pendingPauseDeal, setPendingPauseDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'future_tasks' | 'no_tasks' | 'overdue' | 'my_deals' | 'deferred'>('all');
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [recentlyMovedDealId, setRecentlyMovedDealId] = useState<string | null>(null);
@@ -65,6 +67,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const noTaskCount = deals.filter(d => !d.tasks || d.tasks.filter(t => !t.isCompleted && !t.isDeleted).length === 0).length;
   const overdueCount = deals.filter(d => (d.tasks || []).some(t => !t.isCompleted && !t.isDeleted && new Date(t.dueDate).getTime() < Date.now())).length;
   const myDealsCount = deals.filter(d => d.responsibleId === currentUserId).length;
+  const deferredCount = deals.filter(d => {
+    const stg = stagesList.find(s => s.id === d.stageId);
+    return stg && (
+      stg.name.toLowerCase().includes('відкладений') || 
+      stg.name.toLowerCase().includes('отложенный') || 
+      stg.name.toLowerCase().includes('пауз')
+    );
+  }).length;
 
   const filteredDeals = deals.map(d => {
     // Safety fallback: if deal has an unknown stageId not in stagesList, assign it to stagesList[0].id so it never vanishes
@@ -89,6 +99,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
     if (activeFilter === 'my_deals') {
       return d.responsibleId === currentUserId;
+    }
+    if (activeFilter === 'deferred') {
+      const stg = stagesList.find(s => s.id === d.stageId);
+      return !!stg && (
+        stg.name.toLowerCase().includes('відкладений') || 
+        stg.name.toLowerCase().includes('отложенный') || 
+        stg.name.toLowerCase().includes('пауз')
+      );
     }
     return true;
   });
@@ -162,10 +180,27 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       targetStage.isLost === true
     );
 
+    const isPauseStage = targetStage && (
+      targetStage.name.toLowerCase().includes('відкладений') ||
+      targetStage.name.toLowerCase().includes('отложенный') ||
+      targetStage.name.toLowerCase().includes('пауз')
+    );
+
     // If moving to a loss stage from a different stage, open modal
     if (isLossStage && source.droppableId !== newStageId) {
       const movedDeal = deals.find(d => d.id === draggableId);
       setPendingLossDeal({
+        id: draggableId,
+        title: movedDeal?.title || 'Угода',
+        targetStageId: newStageId
+      });
+      return;
+    }
+
+    // If moving to a pause stage from a different stage, open pause modal
+    if (isPauseStage && source.droppableId !== newStageId) {
+      const movedDeal = deals.find(d => d.id === draggableId);
+      setPendingPauseDeal({
         id: draggableId,
         title: movedDeal?.title || 'Угода',
         targetStageId: newStageId
@@ -236,6 +271,37 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
+  const handleConfirmPause = async (data: { reason: string; wakeUpDate: string; autoCreateTask: boolean }) => {
+    if (!pendingPauseDeal) return;
+    const { id, targetStageId } = pendingPauseDeal;
+    setPendingPauseDeal(null);
+
+    setRecentlyMovedDealId(id);
+    setTimeout(() => setRecentlyMovedDealId(null), 8000);
+
+    setDeals((prev) =>
+      prev.map((deal) =>
+        deal.id === id ? { ...deal, stageId: targetStageId } : deal
+      )
+    );
+
+    try {
+      const res = await api.put(`/deals/${id}`, { 
+        stageId: targetStageId,
+        pauseData: data
+      });
+      if (res.data) {
+        setDeals((prev) =>
+          prev.map((d) => (d.id === id ? { ...d, ...res.data, stageId: targetStageId } : d))
+        );
+      }
+      fetchDeals();
+    } catch (e) {
+      console.error('Failed to pause deal:', e);
+      fetchDeals();
+    }
+  };
+
   const handleMoveDealStage = async (dealId: string, newStageId: string) => {
     if (!dealId || !newStageId) return;
     const currentDeal = deals.find((d) => d.id === dealId);
@@ -244,6 +310,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     const targetStage = stagesList.find((s) => s.id === newStageId);
     if (targetStage && targetStage.name.toLowerCase().includes('відмова')) {
       setPendingLossDeal({ id: dealId, title: currentDeal.title, targetStageId: newStageId });
+      return;
+    }
+
+    if (targetStage && (
+      targetStage.name.toLowerCase().includes('відкладений') ||
+      targetStage.name.toLowerCase().includes('отложенный') ||
+      targetStage.name.toLowerCase().includes('пауз')
+    )) {
+      setPendingPauseDeal({ id: dealId, title: currentDeal.title, targetStageId: newStageId });
       return;
     }
 
@@ -426,6 +501,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               {myDealsCount}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveFilter('deferred')}
+            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+              activeFilter === 'deferred'
+                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10'
+            }`}
+          >
+            <span className="text-[11px]">⏸️</span>
+            <span>Відкладений попит</span>
+            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
+              activeFilter === 'deferred' ? 'bg-white/20' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+            }`}>
+              {deferredCount}
+            </span>
+          </button>
         </div>
 
         {/* Pipeline Selector & Actions */}
@@ -580,6 +672,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           dealTitle={pendingLossDeal.title}
           onClose={() => setPendingLossDeal(null)}
           onConfirm={handleConfirmLoss}
+        />
+      )}
+
+      {/* Pause / Delayed Demand Modal */}
+      {pendingPauseDeal && (
+        <PauseDealModal
+          dealTitle={pendingPauseDeal.title}
+          onClose={() => setPendingPauseDeal(null)}
+          onConfirm={handleConfirmPause}
         />
       )}
 

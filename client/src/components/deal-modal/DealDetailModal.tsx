@@ -41,7 +41,8 @@ import {
   CheckSquare,
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  PauseCircle
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -60,6 +61,7 @@ import { openPrintableInvoice } from '../../utils/invoiceGenerator';
 import { SlashCommandsPopup } from '../chat/SlashCommandsPopup';
 import { CannedResponse } from '../../constants/cannedResponses';
 import { ClientDetailModal } from '../contacts/ClientDetailModal';
+import { PauseDealModal } from '../modals/PauseDealModal';
 
 const resolveMediaUrl = (url?: string) => {
   if (!url) return '';
@@ -123,6 +125,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
+  const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string; messageId?: string; channel?: string } | null>(null);
 
   // Documents state
@@ -448,12 +451,42 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   if (!deal) return null;
 
   const handleStageChange = async (newStageId: string) => {
+    const targetStage = currentStages.find(s => s.id === newStageId) || pipeline.stages?.find(s => s.id === newStageId);
+    if (targetStage && (
+      targetStage.name.toLowerCase().includes('відкладений') ||
+      targetStage.name.toLowerCase().includes('отложенный') ||
+      targetStage.name.toLowerCase().includes('пауз')
+    )) {
+      setIsPauseModalOpen(true);
+      return;
+    }
     try {
       const res = await api.put(`/deals/${deal.id}`, { stageId: newStageId });
       setDeal(res.data);
       onDealUpdated(res.data);
     } catch (e) {
       console.error('Failed to change stage:', e);
+    }
+  };
+
+  const handleConfirmPauseDeal = async (data: { reason: string; wakeUpDate: string; autoCreateTask: boolean }) => {
+    setIsPauseModalOpen(false);
+    const pauseStage = (currentStages || pipeline.stages || []).find(s => 
+      s.name.toLowerCase().includes('відкладений') || 
+      s.name.toLowerCase().includes('отложенный') || 
+      s.name.toLowerCase().includes('пауз')
+    );
+    const targetStageId = pauseStage ? pauseStage.id : deal.stageId;
+    try {
+      const res = await api.put(`/deals/${deal.id}`, { 
+        stageId: targetStageId,
+        pauseData: data
+      });
+      setDeal(res.data);
+      onDealUpdated(res.data);
+      fetchDealDetails();
+    } catch (e) {
+      console.error('Failed to pause deal:', e);
     }
   };
 
@@ -1656,6 +1689,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               <span className="hidden sm:inline">{aiDealScore ? `${aiDealScore.temperature} (${aiDealScore.score}%)` : (isScoringDeal ? 'Оцінка...' : 'ШІ-Скоринг')}</span>
             </button>
 
+            {/* Pause / Delayed Demand Action Button */}
+            <button
+              type="button"
+              onClick={() => setIsPauseModalOpen(true)}
+              className="px-2.5 sm:px-3 py-1 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(99,102,241,0.15)]"
+              title="Перевести в режим відкладеного попиту (пауза)"
+            >
+              <PauseCircle className="w-3.5 h-3.5" strokeWidth={2} />
+              <span className="hidden sm:inline">Пауза</span>
+            </button>
+
             {currentUser?.canDeleteDeals && (
               <button
                 type="button"
@@ -1694,6 +1738,40 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </button>
           </div>
         )}
+
+        {/* Deal Paused Banner */}
+        {(() => {
+          const currentStageName = (deal.stage?.name || currentStages.find(s => s.id === deal.stageId)?.name || pipeline.stages?.find(s => s.id === deal.stageId)?.name || '').toLowerCase();
+          const isDealPaused = currentStageName.includes('відкладений') || currentStageName.includes('отложенный') || currentStageName.includes('пауз');
+          if (!isDealPaused) return null;
+          return (
+            <div className="bg-gradient-to-r from-indigo-950/90 via-purple-950/80 to-indigo-950/90 border-b border-indigo-500/40 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs text-indigo-200 animate-in fade-in flex-shrink-0 backdrop-blur-md">
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-lg bg-indigo-500/25 text-indigo-300 flex items-center justify-center border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                  <PauseCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-white">Угода на паузі (Відкладений попит).</span>
+                  <span className="text-indigo-300 ml-1.5 hidden sm:inline">Контакт заплановано на пізніший термін. Всі матеріали збережені.</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const activeStage = currentStages.find(s => !s.isWon && !s.isLost && !s.name.toLowerCase().includes('відкладений') && !s.name.toLowerCase().includes('пауз')) || pipeline.stages?.find(s => !s.isWon && !s.isLost && !s.name.toLowerCase().includes('відкладений') && !s.name.toLowerCase().includes('пауз'));
+                    if (activeStage) {
+                      handleStageChange(activeStage.id);
+                    }
+                  }}
+                  className="px-3 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold flex items-center gap-1 transition shadow-sm active:scale-95"
+                >
+                  <span>▶️ Повернути в роботу</span>
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Luxury Pipeline Stage Stepper Bar */}
         <div className="px-3 sm:px-6 py-2 bg-[#080c14]/90 border-b border-white/[0.08] flex items-center gap-2 overflow-x-auto scrollbar-none flex-shrink-0 z-10">
@@ -4352,6 +4430,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             }
           }}
           onUpdated={() => fetchDealDetail()}
+        />
+      )}
+
+      {/* Pause / Delayed Demand Modal */}
+      {isPauseModalOpen && deal && (
+        <PauseDealModal
+          dealTitle={deal.title}
+          onClose={() => setIsPauseModalOpen(false)}
+          onConfirm={handleConfirmPauseDeal}
         />
       )}
     </div>
