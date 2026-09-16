@@ -5,6 +5,7 @@ import {
   Clock, 
   CheckCircle2, 
   AlertCircle,
+  AlertTriangle,
   MessageSquare,
   Phone,
   Link2,
@@ -46,8 +47,42 @@ export const DealCard: React.FC<DealCardProps> = ({
   };
 
   const tags: string[] = deal.tags ? (typeof deal.tags === 'string' ? JSON.parse(deal.tags) : deal.tags) : [];
-  const activeTask = deal.tasks && deal.tasks.length > 0 ? deal.tasks[0] : null;
-  const isTaskOverdue = activeTask ? new Date(activeTask.dueDate) < new Date() : false;
+
+  // 3 Distinct Task States requested by user:
+  // 1. Future Task: Green indicator (Active task exists, dueDate in future)
+  // 2. Overdue Task: Red indicator (Active task exists, dueDate in past)
+  // 3. No Task: Yellow/Amber Triangle warning indicator (No active tasks)
+  const activeTasks = (deal.tasks || []).filter((t: any) => !t.isCompleted && !t.isDeleted);
+  const overdueTasks = activeTasks.filter((t: any) => new Date(t.dueDate).getTime() < Date.now());
+  const isTaskOverdue = overdueTasks.length > 0;
+
+  // Earliest active task (if overdue, show earliest overdue; else earliest upcoming)
+  const sortedTasks = [...activeTasks].sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const activeTask = isTaskOverdue 
+    ? [...overdueTasks].sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]
+    : (sortedTasks.length > 0 ? sortedTasks[0] : null);
+
+  const taskStatus: 'future' | 'overdue' | 'no_task' = activeTasks.length === 0 
+    ? 'no_task' 
+    : (isTaskOverdue ? 'overdue' : 'future');
+
+  const formatTaskTime = (dueDateStr: string) => {
+    try {
+      const d = new Date(dueDateStr);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isTomorrow = d.toDateString() === tomorrow.toDateString();
+
+      const timeStr = d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return `Сьогодні, ${timeStr}`;
+      if (isTomorrow) return `Завтра, ${timeStr}`;
+      return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
 
   const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
   const tgUser = deal.contact?.telegram ? deal.contact.telegram.replace('@', '') : '';
@@ -75,11 +110,30 @@ export const DealCard: React.FC<DealCardProps> = ({
       style={{ borderLeftColor: stageColor }}
       className="group relative bg-white dark:bg-[#0f1422] hover:bg-slate-50/90 dark:hover:bg-[#141b2e] border border-slate-200/90 dark:border-white/[0.08] border-l-[3.5px] rounded-xl p-3 shadow-sm hover:shadow-card-hover transition-all duration-150 cursor-pointer"
     >
-      {/* Top Header: Title & Direct Link Copy Button */}
+      {/* Top Header: Status Indicator + Title & Direct Link Copy Button */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition leading-snug line-clamp-2 flex-1">
-          {deal.title}
-        </h4>
+        <div className="flex items-start gap-1.5 min-w-0 flex-1">
+          {taskStatus === 'future' && (
+            <span 
+              className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] mt-0.5 flex-shrink-0" 
+              title={`Завдання заплановано на майбутнє: ${activeTask ? formatTaskTime(activeTask.dueDate) : ''}`}
+            />
+          )}
+          {taskStatus === 'overdue' && (
+            <span 
+              className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)] mt-0.5 flex-shrink-0 animate-ping" 
+              title={`Увага! Завдання прострочено: ${activeTask ? formatTaskTime(activeTask.dueDate) : ''}`}
+            />
+          )}
+          {taskStatus === 'no_task' && (
+            <span title="Увага! Лід без задачі!">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0 animate-pulse" />
+            </span>
+          )}
+          <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition leading-snug line-clamp-2">
+            {deal.title}
+          </h4>
+        </div>
         <button
           onClick={handleCopyLink}
           className={`opacity-0 group-hover:opacity-100 p-1 rounded transition flex-shrink-0 ${
@@ -175,20 +229,36 @@ export const DealCard: React.FC<DealCardProps> = ({
 
       {/* Bottom Footer: Next Task & Responsible User */}
       <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
-        {/* Next Task Indicator */}
-        <div className="flex items-center gap-1.5 text-[11px]">
-          {activeTask ? (
-            <div className={`flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${
-              isTaskOverdue 
-                ? 'text-rose-400 bg-rose-500/15 border-rose-500/30 font-bold' 
-                : 'text-amber-300 bg-amber-500/10 border-amber-500/20'
-            }`}>
-              <AlertCircle className="w-3 h-3 flex-shrink-0" strokeWidth={1.75} />
-              <span className="truncate max-w-[120px]">{activeTask.text}</span>
+        {/* Next Task Indicator - 3 States: Green (Future), Red (Overdue), Yellow Triangle (No task) */}
+        <div className="flex items-center gap-1.5 text-[11px] min-w-0 pr-1">
+          {taskStatus === 'future' && activeTask && (
+            <div 
+              className="flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shadow-sm"
+              title={`Завдання на майбутнє: ${activeTask.text} (${formatTaskTime(activeTask.dueDate)})`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+              <Clock className="w-3 h-3 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
+              <span className="truncate max-w-[125px]">{formatTaskTime(activeTask.dueDate)}</span>
             </div>
-          ) : (
-            <div className="flex items-center gap-1 text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-bold animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+          )}
+
+          {taskStatus === 'overdue' && activeTask && (
+            <div 
+              className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/35 shadow-sm"
+              title={`Прострочена задача: ${activeTask.text} (${formatTaskTime(activeTask.dueDate)})`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.9)] animate-ping" />
+              <AlertCircle className="w-3 h-3 text-rose-500 dark:text-rose-400 flex-shrink-0" />
+              <span className="truncate max-w-[125px]">Прострочено ({formatTaskTime(activeTask.dueDate)})</span>
+            </div>
+          )}
+
+          {taskStatus === 'no_task' && (
+            <div 
+              className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shadow-sm"
+              title="Увага! У ліда немає жодної запланованої задачі. Призначте дію!"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
               <span>Без задачі!</span>
             </div>
           )}

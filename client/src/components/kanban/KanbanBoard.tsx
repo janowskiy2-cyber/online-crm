@@ -8,6 +8,7 @@ import {
   CheckCircle2, 
   Clock, 
   Flame, 
+  AlertTriangle,
   Globe2, 
   Calendar,
   TrendingUp,
@@ -49,7 +50,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'no_tasks' | 'overdue' | 'my_deals'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'future_tasks' | 'no_tasks' | 'overdue' | 'my_deals'>('all');
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [recentlyMovedDealId, setRecentlyMovedDealId] = useState<string | null>(null);
@@ -57,8 +58,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
   const currentUserId = currentUser?.id || (typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin') || 'usr-admin';
 
-  const noTaskCount = deals.filter(d => !d.tasks || d.tasks.length === 0 || d.tasks.every(t => t.isCompleted)).length;
-  const overdueCount = deals.filter(d => d.tasks && d.tasks.some(t => !t.isCompleted && new Date(t.dueDate) < new Date())).length;
+  const futureTaskCount = deals.filter(d => {
+    const active = (d.tasks || []).filter(t => !t.isCompleted && !t.isDeleted);
+    return active.length > 0 && active.every(t => new Date(t.dueDate).getTime() >= Date.now());
+  }).length;
+  const noTaskCount = deals.filter(d => !d.tasks || d.tasks.filter(t => !t.isCompleted && !t.isDeleted).length === 0).length;
+  const overdueCount = deals.filter(d => (d.tasks || []).some(t => !t.isCompleted && !t.isDeleted && new Date(t.dueDate).getTime() < Date.now())).length;
   const myDealsCount = deals.filter(d => d.responsibleId === currentUserId).length;
 
   const filteredDeals = deals.map(d => {
@@ -72,11 +77,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     if (recentlyMovedDealId && d.id === recentlyMovedDealId) {
       return true;
     }
+    if (activeFilter === 'future_tasks') {
+      const active = (d.tasks || []).filter(t => !t.isCompleted && !t.isDeleted);
+      return active.length > 0 && active.every(t => new Date(t.dueDate).getTime() >= Date.now());
+    }
     if (activeFilter === 'no_tasks') {
-      return !d.tasks || d.tasks.length === 0 || d.tasks.every(t => t.isCompleted);
+      return !d.tasks || d.tasks.filter(t => !t.isCompleted && !t.isDeleted).length === 0;
     }
     if (activeFilter === 'overdue') {
-      return d.tasks && d.tasks.some(t => !t.isCompleted && new Date(t.dueDate) < new Date());
+      return (d.tasks || []).some(t => !t.isCompleted && !t.isDeleted && new Date(t.dueDate).getTime() < Date.now());
     }
     if (activeFilter === 'my_deals') {
       return d.responsibleId === currentUserId;
@@ -351,17 +360,34 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveFilter('future_tasks')}
+            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+              activeFilter === 'future_tasks'
+                ? 'bg-emerald-600 text-white font-semibold shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+            <span>З задачами</span>
+            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
+              activeFilter === 'future_tasks' ? 'bg-white/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            }`}>
+              {futureTaskCount}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveFilter('no_tasks')}
             className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeFilter === 'no_tasks'
-                ? 'bg-rose-500 text-white font-semibold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10'
+                ? 'bg-amber-500 text-slate-900 font-bold shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
             <span>Без задач</span>
             <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
-              activeFilter === 'no_tasks' ? 'bg-white/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+              activeFilter === 'no_tasks' ? 'bg-black/20 text-slate-900' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
             }`}>
               {noTaskCount}
             </span>
@@ -371,14 +397,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             onClick={() => setActiveFilter('overdue')}
             className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeFilter === 'overdue'
-                ? 'bg-amber-500 text-white font-semibold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10'
+                ? 'bg-rose-500 text-white font-semibold shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10'
             }`}
           >
-            <Clock className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <Flame className="w-3.5 h-3.5 text-rose-500 flex-shrink-0 animate-pulse" />
             <span>Прострочені</span>
             <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
-              activeFilter === 'overdue' ? 'bg-white/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              activeFilter === 'overdue' ? 'bg-white/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
             }`}>
               {overdueCount}
             </span>

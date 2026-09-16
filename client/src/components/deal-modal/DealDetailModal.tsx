@@ -14,6 +14,7 @@ import {
   Trash2,
   Calendar,
   AlertCircle,
+  AlertTriangle,
   FileText,
   Sparkles,
   Calculator,
@@ -1436,6 +1437,36 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     );
   }
 
+  const modalActiveTasks = (deal?.tasks || []).filter((t: any) => !t.isCompleted && !t.isDeleted);
+  const modalOverdueTasks = modalActiveTasks.filter((t: any) => new Date(t.dueDate).getTime() < Date.now());
+  const isModalTaskOverdue = modalOverdueTasks.length > 0;
+  const modalSortedTasks = [...modalActiveTasks].sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const modalEarliestTask = isModalTaskOverdue 
+    ? [...modalOverdueTasks].sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]
+    : (modalSortedTasks.length > 0 ? modalSortedTasks[0] : null);
+
+  const modalTaskStatus: 'future' | 'overdue' | 'no_task' = modalActiveTasks.length === 0 
+    ? 'no_task' 
+    : (isModalTaskOverdue ? 'overdue' : 'future');
+
+  const formatModalTaskTime = (dueDateStr: string) => {
+    try {
+      const d = new Date(dueDateStr);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isTomorrow = d.toDateString() === tomorrow.toDateString();
+
+      const timeStr = d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return `Сьогодні, ${timeStr}`;
+      if (isTomorrow) return `Завтра, ${timeStr}`;
+      return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
+
   return (
     <div className={`fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
       <div 
@@ -1462,6 +1493,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             <span className="text-emerald-400 font-bold font-mono text-[11px] sm:text-sm px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg whitespace-nowrap">
               {formatCurrency(deal.budget || 0)}
             </span>
+
+            {/* Task Status Indicator in Modal Top Bar */}
+            {modalTaskStatus === 'future' && modalEarliestTask && (
+              <span 
+                className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                title={`Завдання на майбутнє: ${modalEarliestTask.text}`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Заплановано: {formatModalTaskTime(modalEarliestTask.dueDate)}</span>
+              </span>
+            )}
+            {modalTaskStatus === 'overdue' && modalEarliestTask && (
+              <span 
+                className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse"
+                title={`Увага! Прострочена задача: ${modalEarliestTask.text}`}
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.9)]" />
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Прострочено ({formatModalTaskTime(modalEarliestTask.dueDate)})</span>
+              </span>
+            )}
+            {modalTaskStatus === 'no_task' && (
+              <span 
+                className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                title="Увага! У ліда немає жодної запланованої задачі. Призначте дію!"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                <span>Без задачі!</span>
+              </span>
+            )}
           </div>
 
           {/* Quick Action Tools: Direct Link, Open in Tab, Fullscreen, Call, AI, KP, Calc */}
@@ -3771,14 +3833,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </button>
             </div>
 
-            {/* amoCRM Warning & Quick Presets: No Open Tasks */}
-            {(!deal.tasks || deal.tasks.filter((t: any) => !t.isCompleted).length === 0) && (
-              <div className="p-3 bg-rose-950/40 border border-rose-500/50 rounded-2xl space-y-2.5 animate-in fade-in">
-                <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                  <span>Угода без наступного кроку!</span>
+            {/* Task Status Banners */}
+            {modalTaskStatus === 'no_task' && (
+              <div className="p-3 bg-amber-950/40 border border-amber-500/50 rounded-2xl space-y-2.5 animate-in fade-in">
+                <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span>Увага: лід без наступного кроку!</span>
                 </div>
-                <p className="text-[11px] text-slate-400 leading-tight">
+                <p className="text-[11px] text-slate-300 leading-tight">
                   Клієнт без запланованої задачі буде втрачений. Призначте дію в 1 клік:
                 </p>
                 <div className="grid grid-cols-1 gap-1.5">

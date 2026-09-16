@@ -89,6 +89,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           stage: true,
           tasks: {
             where: { isCompleted: false, isDeleted: false },
+            orderBy: { dueDate: 'asc' },
             select: { id: true, text: true, type: true, dueDate: true, responsibleId: true }
           },
           messages: {
@@ -313,6 +314,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           stage: true,
           tasks: {
             where: { isCompleted: false, isDeleted: false },
+            orderBy: { dueDate: 'asc' },
             select: { id: true, text: true, type: true, dueDate: true, responsibleId: true }
           },
           messages: {
@@ -323,7 +325,7 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
         }
       });
 
-      // Digital Pipeline: Automatic follow-up tasks upon stage transition
+      // Digital Pipeline: Audit note upon stage transition (auto-task creation disabled to avoid clutter)
       if (isStageChanged) {
         const targetStage = await prisma.stage.findUnique({ where: { id: data.stageId } });
         
@@ -341,70 +343,6 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
             metadata: JSON.stringify({ oldStageName, newStageName })
           }
         }).catch(() => {});
-
-        if (targetStage && !targetStage.isLost && !targetStage.isWon) {
-          const stageNameLower = targetStage.name.toLowerCase();
-          let taskText = `Контроль переходу на етап: ${targetStage.name}`;
-          let hours = 24;
-          let taskType = 'call';
-
-          if (stageNameLower.includes('кп') || stageNameLower.includes('пропозиці')) {
-            taskText = '📞 Контроль розгляду КП та зворотний зв\'язок щодо розрахунку (4х25%)';
-            hours = 24;
-            taskType = 'call';
-          } else if (stageNameLower.includes('договір') || stageNameLower.includes('узгодження')) {
-            taskText = '⚖️ Узгодження правок до договору та отримання підписаного екземпляра';
-            hours = 48;
-            taskType = 'meeting';
-          } else if (stageNameLower.includes('оплат') || stageNameLower.includes('транш')) {
-            taskText = '💳 Контроль надходження 25% авансу від бухгалтерії підприємства';
-            hours = 24;
-            taskType = 'invoice';
-          } else if (stageNameLower.includes('підбір') || stageNameLower.includes('кандидат')) {
-            taskText = '👥 Формування та узгодження пулу кандидатів (візи D, паспорти)';
-            hours = 48;
-            taskType = 'other';
-          }
-
-          const dueDate = new Date(Date.now() + hours * 3600 * 1000);
-          let assignee = data.responsibleId || existingDeal?.responsibleId || 'usr-admin';
-          
-          // Verify assignee exists in User table to strictly prevent Foreign Key violations
-          const userExists = await prisma.user.findUnique({ where: { id: assignee } });
-          if (!userExists) {
-            const firstUser = await prisma.user.findFirst();
-            assignee = firstUser ? firstUser.id : assignee;
-          }
-
-          try {
-            const autoTask = await prisma.task.create({
-              data: {
-                dealId: id,
-                responsibleId: assignee,
-                createdById: assignee,
-                text: taskText,
-                type: taskType,
-                dueDate
-              }
-            });
-
-            // Log system activity note
-            await prisma.dealNote.create({
-              data: {
-                dealId: id,
-                userId: assignee,
-                content: `🤖 Digital Pipeline: Створено автоматичне завдання: "${taskText}" (термін: ${hours}г)`,
-                type: 'system'
-              }
-            }).catch(() => {});
-
-            if (io) {
-              io.emit('task_created', autoTask);
-            }
-          } catch (taskErr) {
-            console.warn('Digital pipeline task auto-creation non-blocking notice:', taskErr);
-          }
-        }
       }
 
       if (data.budget !== undefined && existingDeal && existingDeal.budget !== Number(data.budget)) {
