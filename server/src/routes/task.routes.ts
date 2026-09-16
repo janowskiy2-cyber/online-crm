@@ -47,11 +47,64 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
     }
   });
 
+  // Get active deals that have NO pending tasks (amoCRM red flag)
+  router.get('/deals-without-tasks', async (req, res) => {
+    try {
+      const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
+      const { responsibleId } = req.query;
+
+      let where: any = {
+        isDeleted: false,
+        closedAt: null,
+        tasks: {
+          none: {
+            isCompleted: false,
+            isDeleted: false
+          }
+        }
+      };
+
+      if (responsibleId) {
+        where.responsibleId = String(responsibleId);
+      } else if (currentUserId) {
+        const user = await prisma.user.findUnique({ where: { id: currentUserId } });
+        if (user && !user.canViewAllDeals) {
+          if (user.canViewDeptDeals) {
+            const deptUsers = await prisma.user.findMany({
+              where: { department: user.department },
+              select: { id: true }
+            });
+            where.responsibleId = { in: deptUsers.map(u => u.id) };
+          } else {
+            where.responsibleId = user.id;
+          }
+        }
+      }
+
+      const dealsWithoutTasks = await prisma.deal.findMany({
+        where,
+        include: {
+          responsible: { select: { id: true, name: true, avatar: true } },
+          contact: { select: { id: true, name: true, phone: true, position: true } },
+          company: { select: { id: true, name: true, phone: true } },
+          stage: { select: { id: true, name: true, color: true } },
+          pipeline: { select: { id: true, name: true } }
+        },
+        orderBy: { updatedAt: 'desc' }
+      });
+
+      res.json(dealsWithoutTasks);
+    } catch (e) {
+      console.error('Failed to fetch deals without tasks:', e);
+      res.status(500).json({ error: 'Failed to fetch deals without tasks' });
+    }
+  });
+
   // Get tasks for user or team with Synaptic Semantic Search
   router.get('/', async (req, res) => {
     try {
       const currentUserId = (req as any).userId || (req.headers['x-user-id'] as string);
-      const { status, dealId, search, companyId } = req.query;
+      const { status, dealId, search, companyId, responsibleId } = req.query;
 
       let where: any = { isDeleted: false };
 
@@ -67,6 +120,10 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
         where.isCompleted = true;
       }
 
+      if (responsibleId) {
+        where.responsibleId = String(responsibleId);
+      }
+
       if (search) {
         const terms = await SemanticSearchService.expandQuery(String(search));
         where.OR = terms.flatMap(term => [
@@ -77,7 +134,7 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
         ]);
       }
 
-      if (currentUserId) {
+      if (!responsibleId && currentUserId) {
         const user = await prisma.user.findUnique({ where: { id: currentUserId } });
         if (user && !user.canViewAllDeals) {
           if (user.canViewDeptDeals) {
@@ -98,7 +155,14 @@ export function createTaskRouter(prisma: PrismaClient, getIo: () => SocketIOServ
           responsible: { select: { id: true, name: true, avatar: true } },
           createdBy: { select: { id: true, name: true } },
           deal: {
-            select: { id: true, title: true, budget: true, stage: true, contact: true }
+            select: {
+              id: true,
+              title: true,
+              budget: true,
+              stage: { select: { id: true, name: true, color: true } },
+              contact: { select: { id: true, name: true, phone: true } },
+              company: { select: { id: true, name: true, phone: true } }
+            }
           }
         },
         orderBy: { dueDate: 'asc' }

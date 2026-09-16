@@ -7,11 +7,16 @@ import {
   CheckCircle2, 
   FileText, 
   MessageSquare, 
-  ExternalLink,
+  ExternalLink, 
   PhoneCall,
-  Info
+  Info,
+  Calendar,
+  Clock,
+  CheckSquare,
+  AlertTriangle
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { soundService } from '../../services/sound.service';
 import { startSpeechToText } from '../../utils/speechRecognition';
 
 interface CallModalProps {
@@ -38,6 +43,13 @@ export const CallModal: React.FC<CallModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Mandatory / Automatic next task state
+  const [createNextTask, setCreateNextTask] = useState(true);
+  const [nextTaskType, setNextTaskType] = useState('call');
+  const [nextTaskPreset, setNextTaskPreset] = useState<'tomorrow_morning' | 'tomorrow_afternoon' | 'in_2_days' | 'in_week' | 'custom'>('tomorrow_morning');
+  const [nextTaskCustomDate, setNextTaskCustomDate] = useState('');
+  const [nextTaskText, setNextTaskText] = useState(`Передзвонити ${contactName || 'клієнту'} за підсумками розмови`);
 
   const cleanPhone = (phoneNumber || '').replace(/\D/g, '');
 
@@ -73,16 +85,49 @@ export const CallModal: React.FC<CallModalProps> = ({
 
     setIsSaving(true);
     try {
+      // 1. Save Call Note to Deal Timeline
       await api.post(`/deals/${dealId}/notes`, {
         type: 'call',
         content: `📞 Дзвінок клієнту (${contactName}, ${phoneNumber}):\n${callNote.trim()}`
       });
+
+      // 2. Automatically create Next Task in CRM
+      if (createNextTask) {
+        let due = new Date();
+        if (nextTaskPreset === 'tomorrow_morning') {
+          due.setDate(due.getDate() + 1);
+          due.setHours(10, 0, 0, 0);
+        } else if (nextTaskPreset === 'tomorrow_afternoon') {
+          due.setDate(due.getDate() + 1);
+          due.setHours(15, 0, 0, 0);
+        } else if (nextTaskPreset === 'in_2_days') {
+          due.setDate(due.getDate() + 2);
+          due.setHours(11, 0, 0, 0);
+        } else if (nextTaskPreset === 'in_week') {
+          due.setDate(due.getDate() + 7);
+          due.setHours(11, 0, 0, 0);
+        } else if (nextTaskCustomDate) {
+          due = new Date(nextTaskCustomDate);
+        } else {
+          due.setDate(due.getDate() + 1);
+          due.setHours(11, 0, 0, 0);
+        }
+
+        await api.post('/tasks', {
+          dealId,
+          text: nextTaskText.trim() || `Передзвонити ${contactName}`,
+          dueDate: due.toISOString(),
+          type: nextTaskType
+        });
+      }
+
+      soundService.playSuccess();
       setSavedSuccess(true);
       setTimeout(() => {
         onClose();
       }, 1200);
     } catch (e) {
-      console.error('Failed to log call note:', e);
+      console.error('Failed to log call note or create task:', e);
       onClose();
     } finally {
       setIsSaving(false);
@@ -201,36 +246,108 @@ export const CallModal: React.FC<CallModalProps> = ({
           <span>Дзвінок здійснюється через встановлені додатки вашого телефону або комп'ютера без штучних таймерів.</span>
         </div>
 
-        {/* Real Call Outcome Logger for Deal */}
+        {/* Real Call Outcome Logger for Deal with Mandatory Next Task */}
         {dealId && (
-          <form onSubmit={handleSaveCallSummary} className="space-y-2 pt-1 border-t border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-amber-400" />
-                <span>Зафіксувати підсумок розмови в угоду:</span>
-              </span>
+          <form onSubmit={handleSaveCallSummary} className="space-y-3 pt-2 border-t border-white/10">
+            {/* 1. Call Note */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Підсумок розмови:</span>
+                </span>
 
-              <button
-                type="button"
-                onClick={toggleVoiceDictation}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition ${
-                  isDictating ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
-                }`}
-              >
-                <Mic className="w-3 h-3 text-rose-400" />
-                <span>{isDictating ? 'Слухаю голос...' : '🎙️ Надиктувати'}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={toggleVoiceDictation}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition ${
+                    isDictating ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
+                  }`}
+                >
+                  <Mic className="w-3 h-3 text-rose-400" />
+                  <span>{isDictating ? 'Слухаю...' : '🎙️ Надиктувати'}</span>
+                </button>
+              </div>
+
+              <textarea
+                rows={2}
+                placeholder="Про що домовилися під час дзвінка? (наприклад: погодили ставку 26 PLN, чекаємо підписання договору)..."
+                value={callNote}
+                onChange={(e) => setCallNote(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
+              />
             </div>
 
-            <textarea
-              rows={2}
-              placeholder="Про що домовилися під час дзвінка? (наприклад: погодили ставку 26 PLN, чекаємо підписання договору 4х25%)..."
-              value={callNote}
-              onChange={(e) => setCallNote(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
-            />
+            {/* 2. Mandatory / Automatic Next Task Section */}
+            <div className="p-3 bg-slate-900/90 border border-blue-500/30 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={createNextTask}
+                    onChange={(e) => setCreateNextTask(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 bg-slate-800 border-slate-700 focus:ring-0 focus:ring-offset-0"
+                  />
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Призначити наступне завдання (контроль ліда)</span>
+                  </span>
+                </label>
+                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                  Обов'язково в CRM
+                </span>
+              </div>
 
-            <div className="flex justify-end gap-2 pt-1">
+              {createNextTask && (
+                <div className="space-y-2 pt-1">
+                  {/* Task Text */}
+                  <input
+                    type="text"
+                    value={nextTaskText}
+                    onChange={(e) => setNextTaskText(e.target.value)}
+                    placeholder="Що зробити наступним кроком..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                  />
+
+                  {/* Task Type & Presets */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <select
+                      value={nextTaskType}
+                      onChange={(e) => setNextTaskType(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none font-medium"
+                    >
+                      <option value="call">📞 Наступний дзвінок</option>
+                      <option value="meeting">🤝 Зустріч / Онлайн</option>
+                      <option value="presentation">📄 Надіслати КП / Договір</option>
+                      <option value="invoice">💳 Оплата / Рахунок</option>
+                    </select>
+
+                    <select
+                      value={nextTaskPreset}
+                      onChange={(e: any) => setNextTaskPreset(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none font-medium"
+                    >
+                      <option value="tomorrow_morning">⏰ Завтра, 10:00</option>
+                      <option value="tomorrow_afternoon">⏰ Завтра, 15:00</option>
+                      <option value="in_2_days">📅 Через 2 дні</option>
+                      <option value="in_week">📅 Через тиждень</option>
+                      <option value="custom">⚙️ Вказати свій час</option>
+                    </select>
+                  </div>
+
+                  {nextTaskPreset === 'custom' && (
+                    <input
+                      type="datetime-local"
+                      value={nextTaskCustomDate}
+                      onChange={(e) => setNextTaskCustomDate(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
               <button
                 type="button"
                 onClick={onClose}
@@ -241,7 +358,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               <button
                 type="submit"
                 disabled={isSaving || !callNote.trim()}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30 flex items-center gap-1.5 active:scale-95"
               >
                 {savedSuccess ? (
                   <>
@@ -249,7 +366,7 @@ export const CallModal: React.FC<CallModalProps> = ({
                     <span>Збережено!</span>
                   </>
                 ) : (
-                  <span>{isSaving ? 'Збереження...' : 'Зберегти в угоду'}</span>
+                  <span>{isSaving ? 'Збереження...' : 'Зберегти дзвінок і завдання'}</span>
                 )}
               </button>
             </div>

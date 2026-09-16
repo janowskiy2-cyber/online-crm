@@ -38,7 +38,9 @@ import {
   Link2,
   Copy,
   CheckSquare,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -328,6 +330,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const reqFileInputRef = useRef<HTMLInputElement | null>(null);
   const contractFileInputRef = useRef<HTMLInputElement | null>(null);
   const receiptFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDocsAccordionOpen, setIsDocsAccordionOpen] = useState(false);
 
 
   const checkMessengers = async (phone: string) => {
@@ -1437,7 +1440,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     <div className={`fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
       <div 
         className={`relative flex flex-col shadow-2xl overflow-hidden transition-all duration-200 border border-white/15 ${
-          isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-3xl sm:max-w-7xl sm:h-[94vh] animate-in fade-in zoom-in-95 duration-150'
+          isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-3xl sm:max-w-[1500px] 2xl:max-w-[1750px] sm:h-[95vh] animate-in fade-in zoom-in-95 duration-150'
         }`}
         style={{
           backgroundImage: `
@@ -2143,17 +2146,54 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               )}
             </div>
 
-            {/* Dedicated Documents & Contract Execution Block */}
-            <div className="space-y-2.5 p-3.5 bg-slate-900/90 border border-blue-500/25 rounded-2xl">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-extrabold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Документи та оформлення</span>
-                </label>
-                <span className="text-[10px] text-slate-400 font-semibold">3 ключові слоти</span>
-              </div>
+            {/* Dedicated Documents & Contract Execution Block (Collapsible Accordion) */}
+            <div className="bg-slate-900/90 border border-blue-500/25 rounded-2xl overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setIsDocsAccordionOpen(prev => !prev)}
+                className="w-full p-3.5 flex items-center justify-between hover:bg-slate-800/60 transition text-left group"
+                title="Натисніть щоб розгорнути або сховати документи"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400 group-hover:bg-blue-500/30 transition">
+                    <FileText className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <span className="text-xs font-bold text-white uppercase tracking-wider block">
+                      Документи та оформлення
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {documentsList.length > 0 ? `${documentsList.length} файлів у базі` : 'Заявка, договір, рахунок (3 слоти)'}
+                    </span>
+                  </div>
+                </div>
 
-              {/* Slot 1: Employer Requisition (Заявка / Бриф) */}
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const st = (customFieldsObj as any).contractStatus || 'not_sent';
+                    if (st === 'signed_active') {
+                      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 Договір діє</span>;
+                    }
+                    if (st === 'signed_unpaid') {
+                      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">🔵 Договір підписано</span>;
+                    }
+                    if (documentsList.length > 0) {
+                      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-blue-300 border border-blue-500/30">{documentsList.length} прикріплено</span>;
+                    }
+                    return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-400">Додати документи</span>;
+                  })()}
+                  {isDocsAccordionOpen ? (
+                    <ChevronUp className="w-4 h-4 text-blue-400 transition" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-white transition" />
+                  )}
+                </div>
+              </button>
+
+              {/* Accordion Body */}
+              {isDocsAccordionOpen && (
+                <div className="p-3.5 pt-0 space-y-2.5 border-t border-white/5 mt-1 animate-in fade-in duration-150">
+                  {/* Slot 1: Employer Requisition (Заявка / Бриф) */}
               <div className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5">
@@ -2381,6 +2421,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 </button>
               </div>
             </div>
+          )}
+        </div>
 
             {/* Tags */}
             <div className="space-y-2">
@@ -3543,170 +3585,95 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </select>
             </div>
 
-            {/* Quick Notes & Customer Insights with Voice Dictation & Deletion */}
-            <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-3.5 space-y-3">
+            {/* Spacious Client Notes & Customer Insights with Voice Dictation */}
+            <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl flex-1 flex flex-col">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="w-4 h-4 text-amber-400" />
-                  <span>Замітки по клієнту</span>
+                  <span>Замітки та домовленості по клієнту</span>
                 </h3>
-                <span className="text-[10px] text-slate-500">{(deal.notes || []).length} записів</span>
+                <span className="text-[11px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-slate-800 border border-white/5">
+                  {(deal.notes || []).length} записів
+                </span>
               </div>
 
-              <form onSubmit={handleAddQuickNote} className="space-y-2">
+              {/* Note creation input */}
+              <form onSubmit={handleAddQuickNote} className="space-y-2.5">
                 <textarea
                   ref={quickNoteTextareaRef}
-                  rows={2}
-                  placeholder={isDictatingQuickNote ? "Слухаю голос... Говоріть..." : "Запишіть деталі про клієнта під час листування..."}
+                  rows={3}
+                  placeholder={isDictatingQuickNote ? "Слухаю голос... Говоріть деталі розмови..." : "Запишіть важливі деталі, умови, домовленості або статус клієнта..."}
                   value={quickNoteText}
                   onChange={(e) => setQuickNoteText(e.target.value)}
-                  className={`w-full bg-slate-800/90 border rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                  className={`w-full bg-slate-800/90 border rounded-xl p-3 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
                     isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700/80 focus:border-amber-500'
                   }`}
-                  style={{ minHeight: '48px', maxHeight: '200px' }}
+                  style={{ minHeight: '68px', maxHeight: '200px' }}
                 />
                 <div className="flex items-center justify-between">
                   <button
                     type="button"
                     onClick={toggleQuickNoteDictation}
-                    className={`px-2 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition ${
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
                       isDictatingQuickNote
                         ? 'bg-rose-600 text-white border-rose-500 animate-pulse'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
                     }`}
                     title={isDictatingQuickNote ? "Слухаю... Натисніть щоб зупинити" : "Надиктувати замітку голосом"}
                   >
                     <Mic className={`w-3.5 h-3.5 ${isDictatingQuickNote ? 'text-white' : 'text-emerald-400'}`} />
-                    <span className="text-[10px]">{isDictatingQuickNote ? 'Слухаю...' : '🎙️ Голос'}</span>
+                    <span className="text-xs">{isDictatingQuickNote ? 'Слухаю...' : '🎙️ Надиктувати'}</span>
                   </button>
 
                   <button
                     type="submit"
                     disabled={isSavingQuickNote || !quickNoteText.trim()}
-                    className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-amber-600/20 active:scale-95"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>{isSavingQuickNote ? '...' : 'Зберегти замітку'}</span>
+                    <span>{isSavingQuickNote ? 'Збереження...' : 'Додати замітку'}</span>
                   </button>
                 </div>
               </form>
 
-              {/* Recent Notes Stream with Delete Button */}
-              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+              {/* Spacious Notes List with high readability */}
+              <div className="space-y-2.5 min-h-[260px] max-h-[500px] xl:max-h-[620px] overflow-y-auto pr-1">
                 {(deal.notes || []).length === 0 ? (
-                  <p className="text-[11px] text-slate-500 italic">Поки немає заміток</p>
+                  <div className="py-8 text-center bg-slate-800/40 rounded-2xl border border-white/5 space-y-2">
+                    <FileText className="w-8 h-8 text-slate-600 mx-auto" />
+                    <p className="text-xs text-slate-400">Поки немає заміток по цьому клієнту</p>
+                    <p className="text-[11px] text-slate-500">Зафіксуйте першу домовленість у формі вище</p>
+                  </div>
                 ) : (
                   (deal.notes || []).map((n: any) => (
-                    <div key={n.id} className="p-2 bg-slate-800/80 border border-slate-700/60 rounded-xl text-xs space-y-1 group">
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span className="font-bold text-amber-300">{n.user?.name || 'Менеджер'}</span>
-                        <div className="flex items-center gap-1">
-                          <span>{new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    <div 
+                      key={n.id} 
+                      className="p-3.5 bg-slate-800/90 border border-slate-700/70 rounded-2xl space-y-2 group hover:border-amber-500/40 transition shadow-sm"
+                    >
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <div className="flex items-center gap-2 font-bold text-amber-300">
+                          <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-black uppercase border border-amber-500/30">
+                            {(n.user?.name || 'М').charAt(0)}
+                          </span>
+                          <span>{n.user?.name || 'Менеджер'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </span>
                           <button
                             type="button"
                             onClick={() => handleDeleteNote(n.id)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-500 hover:text-rose-400 transition"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
                             title="Видалити замітку"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
-                      <p className="text-slate-200 leading-snug whitespace-pre-line text-[11px]">{n.content}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Quick Documents & Contracts Widget (Accessible while chatting) */}
-            <div className="bg-slate-900/90 border border-cyan-500/30 rounded-2xl p-3.5 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-cyan-400" />
-                  <span>Документи & Договори</span>
-                </h3>
-                <span className="text-[10px] text-slate-500">{documentsList.length} файлів</span>
-              </div>
-
-              {/* Fast Upload Bar */}
-              <div className="space-y-2 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
-                <div className="flex items-center justify-between gap-1.5">
-                  <select
-                    value={sidebarDocCategory}
-                    onChange={(e: any) => setSidebarDocCategory(e.target.value)}
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-200 focus:outline-none"
-                  >
-                    <option value="Договір з підприємством">📄 Договір</option>
-                    <option value="Заявка на персонал">📋 Бриф-заявка</option>
-                    <option value="Акт виконаних робіт">📑 Акт</option>
-                    <option value="Інше">📁 Інше</option>
-                  </select>
-
-                  <label className="cursor-pointer px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1 flex-shrink-0">
-                    <UploadCloud className="w-3.5 h-3.5" />
-                    <span>{isUploadingDoc ? '...' : '+ Додати'}</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={async (e) => {
-                        setDocCategory(sidebarDocCategory);
-                        await handleUploadDocumentFile(e);
-                      }}
-                      disabled={isUploadingDoc}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              {/* Attached Documents List with 1-Click Delete */}
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {documentsList.length === 0 ? (
-                  <p className="text-[11px] text-slate-500 italic">Договір або заявку ще не завантажено</p>
-                ) : (
-                  documentsList.map((d) => (
-                    <div
-                      key={d.id}
-                      className="p-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/70 rounded-xl flex items-center justify-between gap-2 text-xs transition group"
-                    >
-                      <div
-                        onClick={() => setViewingMedia({ url: resolveMediaUrl(d.url), type: 'pdf', title: d.name })}
-                        className="min-w-0 flex items-center gap-2 cursor-pointer flex-1"
-                        title="Натисніть для перегляду документа"
-                      >
-                        <FileText className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <span className="font-semibold text-white block truncate text-[11px] group-hover:text-cyan-300">
-                            {d.name}
-                          </span>
-                          <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                            <span className="text-cyan-300 font-medium">{d.category}</span>
-                            <span>•</span>
-                            <span>{d.sizeKb} KB</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <a
-                          href={resolveMediaUrl(d.url)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1 text-slate-400 hover:text-white transition"
-                          title="Завантажити / Відкрити"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDocument(d.id)}
-                          className="p-1 text-slate-500 hover:text-rose-400 transition"
-                          title="Видалити файл"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <p className="text-slate-100 leading-relaxed whitespace-pre-line text-xs sm:text-sm pl-0.5">
+                        {n.content}
+                      </p>
                     </div>
                   ))
                 )}

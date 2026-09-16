@@ -178,14 +178,18 @@ export const DealCard: React.FC<DealCardProps> = ({
         {/* Next Task Indicator */}
         <div className="flex items-center gap-1.5 text-[11px]">
           {activeTask ? (
-            <div className={`flex items-center gap-1 font-medium ${isTaskOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+            <div className={`flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${
+              isTaskOverdue 
+                ? 'text-rose-400 bg-rose-500/15 border-rose-500/30 font-bold' 
+                : 'text-amber-300 bg-amber-500/10 border-amber-500/20'
+            }`}>
               <AlertCircle className="w-3 h-3 flex-shrink-0" strokeWidth={1.75} />
               <span className="truncate max-w-[120px]">{activeTask.text}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500 text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500/80" />
-              <span>Без задачі</span>
+            <div className="flex items-center gap-1 text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded-md text-[10px] font-bold animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+              <span>Без задачі!</span>
             </div>
           )}
         </div>

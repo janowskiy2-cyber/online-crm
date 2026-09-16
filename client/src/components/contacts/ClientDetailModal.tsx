@@ -399,7 +399,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 font-['Inter',sans-serif]">
       <div 
-        className="relative flex flex-col w-full h-full sm:max-w-6xl sm:h-[92vh] rounded-3xl shadow-2xl overflow-hidden border border-white/15 animate-in fade-in zoom-in-95 duration-200"
+        className="relative flex flex-col w-full h-full sm:max-w-[1500px] 2xl:max-w-[1750px] sm:h-[95vh] rounded-3xl shadow-2xl overflow-hidden border border-white/15 animate-in fade-in zoom-in-95 duration-200"
         style={{
           backgroundImage: `
             linear-gradient(180deg, rgba(10, 16, 32, 0.88) 0%, rgba(6, 10, 22, 0.95) 100%),
