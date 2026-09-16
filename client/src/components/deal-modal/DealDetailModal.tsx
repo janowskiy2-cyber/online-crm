@@ -1043,9 +1043,53 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   };
 
+  // Task completion with result & postpone state
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [taskCompleteResultText, setTaskCompleteResultText] = useState('');
+  const [isSubmittingTaskResult, setIsSubmittingTaskResult] = useState(false);
+
+  const handlePostponeTask = async (taskId: string, currentDueDate: string, hoursToAdd: number = 24) => {
+    try {
+      const baseTime = new Date(currentDueDate).getTime() > Date.now() 
+        ? new Date(currentDueDate).getTime() 
+        : Date.now();
+      const newDueDate = new Date(baseTime + hoursToAdd * 60 * 60 * 1000).toISOString();
+      await api.put(`/tasks/${taskId}`, { dueDate: newDueDate });
+      soundService.playSuccess();
+      fetchDealDetails();
+    } catch (e) {
+      console.error('Failed to postpone task:', e);
+    }
+  };
+
+  const handleCompleteTaskWithResult = async (task: any) => {
+    setIsSubmittingTaskResult(true);
+    try {
+      await api.put(`/tasks/${task.id}`, {
+        isCompleted: true,
+        resultText: taskCompleteResultText.trim() || undefined
+      });
+      if (taskCompleteResultText.trim() && deal) {
+        await api.post(`/deals/${deal.id}/notes`, {
+          content: `✅ Завдання виконано: "${task.text}"\n📝 Результат контакту: ${taskCompleteResultText.trim()}`,
+          type: 'task'
+        }).catch(() => {});
+      }
+      soundService.playSuccess();
+      setCompletingTaskId(null);
+      setTaskCompleteResultText('');
+      fetchDealDetails();
+    } catch (e) {
+      console.error('Failed to complete task:', e);
+    } finally {
+      setIsSubmittingTaskResult(false);
+    }
+  };
+
   const handleToggleTask = async (taskId: string, isCompleted: boolean) => {
     try {
       await api.put(`/tasks/${taskId}`, { isCompleted: !isCompleted });
+      soundService.playSuccess();
       fetchDealDetails();
     } catch (e) {
       console.error('Failed to toggle task:', e);
@@ -3647,6 +3691,251 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </select>
             </div>
 
+            {/* VIP Prominent Task Control Widget (Always Visible at the Top of Right Column) */}
+            <div className="bg-slate-900/95 border border-amber-500/40 rounded-2xl p-3.5 space-y-3 shadow-xl backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                    Завдання по клієнту
+                  </h3>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    modalActiveTasks.length > 0 
+                      ? (isModalTaskOverdue ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40')
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  }`}>
+                    {modalActiveTasks.length > 0 ? `${modalActiveTasks.length} активні` : 'Без задачі'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingTask(!isAddingTask)}
+                  className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAddingTask ? 'Сховати' : 'Завдання'}</span>
+                </button>
+              </div>
+
+              {/* No task warning banner with 1-click action presets */}
+              {modalTaskStatus === 'no_task' && (
+                <div className="p-3 bg-amber-950/60 border border-amber-500/60 rounded-xl space-y-2 animate-in fade-in">
+                  <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 animate-bounce" />
+                    <span>Увага! У ліда немає наступного кроку</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Клієнт без завдання швидко «остигає». Поставте наступну дію в 1 клік:
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickTaskPreset('Зателефонувати клієнту', 24, 'call')}
+                      className="px-3 py-1.5 bg-slate-800/90 hover:bg-amber-900/40 text-slate-200 border border-slate-700 hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group"
+                    >
+                      <span className="font-semibold text-slate-100 group-hover:text-amber-300">📞 Дзвінок завтра</span>
+                      <span className="text-[10px] text-slate-400 group-hover:text-amber-300 font-mono">10:00 (+24г)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickTaskPreset('Контроль вивчення КП та розрахунку', 48, 'meeting')}
+                      className="px-3 py-1.5 bg-slate-800/90 hover:bg-amber-900/40 text-slate-200 border border-slate-700 hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group"
+                    >
+                      <span className="font-semibold text-slate-100 group-hover:text-amber-300">📄 Контроль КП</span>
+                      <span className="text-[10px] text-slate-400 group-hover:text-amber-300 font-mono">+2 дні</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickTaskPreset('Узгодити правки до договору', 72, 'other')}
+                      className="px-3 py-1.5 bg-slate-800/90 hover:bg-amber-900/40 text-slate-200 border border-slate-700 hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group"
+                    >
+                      <span className="font-semibold text-slate-100 group-hover:text-amber-300">⚖️ Договір</span>
+                      <span className="text-[10px] text-slate-400 group-hover:text-amber-300 font-mono">+3 дні</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Overdue alert banner if there are overdue tasks */}
+              {modalTaskStatus === 'overdue' && (
+                <div className="p-2.5 bg-rose-950/50 border border-rose-500/60 rounded-xl flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2 text-rose-300 text-xs font-bold min-w-0">
+                    <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 animate-pulse" />
+                    <span className="truncate">Є прострочені завдання! Потрібен контакт.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* New Task Inline Form */}
+              {isAddingTask && (
+                <form onSubmit={handleCreateTask} className="bg-slate-800/90 border border-amber-500/40 rounded-xl p-3 space-y-2.5 animate-in fade-in">
+                  <input
+                    type="text"
+                    placeholder="Що саме потрібно зробити з клієнтом?"
+                    value={taskText}
+                    onChange={(e) => setTaskText(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-500"
+                    autoFocus
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={taskType}
+                      onChange={(e) => setTaskType(e.target.value)}
+                      className="bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white"
+                    >
+                      <option value="call">📞 Дзвінок</option>
+                      <option value="meeting">🤝 Зустріч / Зум</option>
+                      <option value="email">📄 Відправка КП</option>
+                      <option value="invoice">💳 Оплата (25%)</option>
+                      <option value="other">📌 Інше</option>
+                    </select>
+                    <input
+                      type="datetime-local"
+                      value={taskDueDate}
+                      onChange={(e) => setTaskDueDate(e.target.value)}
+                      className="bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingTask(false)}
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-semibold"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!taskText.trim()}
+                      className="px-3.5 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 rounded-lg text-xs font-bold transition shadow"
+                    >
+                      Зберегти завдання
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Active Tasks List with Interactive Completion & Postponement */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {modalSortedTasks.length === 0 ? (
+                  <div className="py-3 text-center bg-slate-800/30 rounded-xl border border-white/5">
+                    <p className="text-xs text-slate-400 italic">Активних завдань немає</p>
+                  </div>
+                ) : (
+                  modalSortedTasks.map((t: any) => {
+                    const isOverdue = new Date(t.dueDate).getTime() < Date.now();
+                    const isCompletingThis = completingTaskId === t.id;
+                    return (
+                      <div
+                        key={t.id}
+                        className={`p-2.5 rounded-xl border transition flex flex-col gap-2 ${
+                          isOverdue
+                            ? 'bg-rose-950/30 border-rose-500/50 shadow-[0_0_8px_rgba(244,63,94,0.15)]'
+                            : 'bg-slate-800/80 border-slate-700/80 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => setCompletingTaskId(isCompletingThis ? null : t.id)}
+                              className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition flex-shrink-0 ${
+                                isCompletingThis 
+                                  ? 'bg-amber-500 border-amber-400 text-slate-950' 
+                                  : 'border-slate-500 hover:border-amber-400 hover:bg-amber-500/20'
+                              }`}
+                              title="Завершити завдання із записом результату"
+                            >
+                              <CheckSquare className="w-3 h-3" />
+                            </button>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-100 leading-snug">
+                                {t.text}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                                  isOverdue
+                                    ? 'bg-rose-500/20 text-rose-300'
+                                    : 'bg-emerald-500/20 text-emerald-300'
+                                }`}>
+                                  {formatModalTaskTime(t.dueDate)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold">
+                                  {t.type}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Postpone Pill */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handlePostponeTask(t.id, t.dueDate, 24)}
+                              className="px-2 py-0.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 rounded-md text-[10px] font-bold border border-slate-600 transition"
+                              title="Перенести на +1 день"
+                            >
+                              +1д
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePostponeTask(t.id, t.dueDate, 48)}
+                              className="px-2 py-0.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 rounded-md text-[10px] font-bold border border-slate-600 transition"
+                              title="Перенести на +2 дні"
+                            >
+                              +2д
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Inline Task Completion Drawer: Enter Call Result & Save */}
+                        {isCompletingThis && (
+                          <div className="mt-1 pt-2 border-t border-slate-700/80 space-y-2 animate-in fade-in">
+                            <div className="flex items-center justify-between text-[11px] text-amber-300 font-semibold">
+                              <span>📝 Що відповів клієнт? (Результат):</span>
+                              <button
+                                type="button"
+                                onClick={() => setCompletingTaskId(null)}
+                                className="text-slate-400 hover:text-white"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <textarea
+                              rows={2}
+                              value={taskCompleteResultText}
+                              onChange={(e) => setTaskCompleteResultText(e.target.value)}
+                              placeholder="Наприклад: КП погодив, чекає рахунок / передзвонити завтра о 14:00..."
+                              className="w-full bg-slate-900 border border-amber-500/50 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none"
+                              autoFocus
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleTask(t.id, false)}
+                                className="px-2.5 py-1 text-slate-400 hover:text-slate-200 text-xs"
+                              >
+                                Без результату
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSubmittingTaskResult}
+                                onClick={() => handleCompleteTaskWithResult(t)}
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{isSubmittingTaskResult ? 'Збереження...' : 'Виконано'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
             {/* Spacious Client Notes & Customer Insights with Voice Dictation */}
             <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl flex-1 flex flex-col">
               <div className="flex items-center justify-between">
@@ -3816,147 +4105,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-amber-400" />
-                <span>Завдання по клієнту</span>
-              </h3>
-              <button
-                onClick={() => setIsAddingTask(true)}
-                className="p-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-xl text-xs font-bold transition flex items-center gap-1 px-2"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Завдання</span>
-              </button>
-            </div>
-
-            {/* Task Status Banners */}
-            {modalTaskStatus === 'no_task' && (
-              <div className="p-3 bg-amber-950/40 border border-amber-500/50 rounded-2xl space-y-2.5 animate-in fade-in">
-                <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  <span>Увага: лід без наступного кроку!</span>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-tight">
-                  Клієнт без запланованої задачі буде втрачений. Призначте дію в 1 клік:
-                </p>
-                <div className="grid grid-cols-1 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickTaskPreset('Зателефонувати клієнту', 24, 'call')}
-                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-left text-[11px] flex items-center justify-between transition group"
-                  >
-                    <span className="font-semibold">📞 Дзвінок завтра</span>
-                    <span className="text-[10px] text-slate-500 group-hover:text-blue-400">+24г</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickTaskPreset('Контроль вивчення КП та розрахунку', 48, 'meeting')}
-                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-left text-[11px] flex items-center justify-between transition group"
-                  >
-                    <span className="font-semibold">📄 Контроль КП</span>
-                    <span className="text-[10px] text-slate-500 group-hover:text-amber-400">+2 дні</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickTaskPreset('Узгодити правки до договору', 72, 'other')}
-                    className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-left text-[11px] flex items-center justify-between transition group"
-                  >
-                    <span className="font-semibold">⚖️ Договір</span>
-                    <span className="text-[10px] text-slate-500 group-hover:text-emerald-400">+3 дні</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Task Add Form */}
-            {isAddingTask && (
-              <form onSubmit={handleCreateTask} className="bg-slate-900 border border-slate-700 rounded-2xl p-3.5 space-y-3 animate-in fade-in">
-                <input
-                  type="text"
-                  placeholder="Що потрібно зробити?"
-                  value={taskText}
-                  onChange={(e) => setTaskText(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs text-white focus:outline-none"
-                  autoFocus
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={taskType}
-                    onChange={(e) => setTaskType(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-xl p-1.5 text-xs text-white"
-                  >
-                    <option value="call">Дзвінок</option>
-                    <option value="meeting">Зустріч</option>
-                    <option value="email">Відправка КП</option>
-                    <option value="invoice">Оплата (25%)</option>
-                  </select>
-                  <input
-                    type="datetime-local"
-                    value={taskDueDate}
-                    onChange={(e) => setTaskDueDate(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-xl p-1.5 text-xs text-white"
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingTask(false)}
-                    className="px-3 py-1 text-slate-400 hover:text-white text-xs"
-                  >
-                    Скасувати
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold"
-                  >
-                    Додати
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Tasks List */}
-            <div className="space-y-2">
-              {(deal.tasks || []).length === 0 ? (
-                <p className="text-xs text-slate-500 italic">Немає запланованих завдань</p>
-              ) : (
-                (deal.tasks || []).map((t: any) => (
-                  <div
-                    key={t.id}
-                    className={`p-3 rounded-2xl border transition flex items-start justify-between gap-2.5 ${
-                      t.isCompleted
-                        ? 'bg-slate-900/40 border-slate-800/50 opacity-60'
-                        : 'bg-slate-900 border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      <button
-                        onClick={() => handleToggleTask(t.id, t.isCompleted)}
-                        className={`mt-0.5 w-4 h-4 rounded-md border flex items-center justify-center transition flex-shrink-0 ${
-                          t.isCompleted
-                            ? 'bg-emerald-600 border-emerald-500 text-white'
-                            : 'border-slate-600 hover:border-blue-500'
-                        }`}
-                      >
-                        {t.isCompleted && <CheckCircle2 className="w-3 h-3" />}
-                      </button>
-                      <div className="min-w-0">
-                        <p className={`text-xs ${t.isCompleted ? 'line-through text-slate-500' : 'text-slate-200'}`}>
-                          {t.text}
-                        </p>
-                        <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-1">
-                          <span>{t.type}</span>
-                          <span>•</span>
-                          <span>{new Date(t.dueDate).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
               )}
             </div>
           </div>

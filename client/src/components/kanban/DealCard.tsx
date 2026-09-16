@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   User as UserIcon, 
@@ -9,11 +9,23 @@ import {
   MessageSquare,
   Phone,
   Link2,
-  Check
+  Check,
+  ChevronDown,
+  Plus,
+  FileText,
+  ExternalLink,
+  Calendar,
+  X,
+  Send,
+  Sparkles,
+  Flame,
+  CheckSquare
 } from 'lucide-react';
 import { Deal, Stage } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { DEFAULT_ADMIN_AVATAR } from '../../constants/defaultAvatar';
+import { api } from '../../services/api';
+import { soundService } from '../../services/sound.service';
 
 interface DealCardProps {
   deal: Deal;
@@ -21,6 +33,7 @@ interface DealCardProps {
   stageColor?: string;
   stages?: Stage[];
   onMoveStage?: (dealId: string, stageId: string) => void;
+  onDealUpdated?: (updatedDeal: Deal) => void;
 }
 
 export const DealCard: React.FC<DealCardProps> = ({ 
@@ -28,11 +41,39 @@ export const DealCard: React.FC<DealCardProps> = ({
   onClick, 
   stageColor = '#3b82f6',
   stages = [],
-  onMoveStage
+  onMoveStage,
+  onDealUpdated
 }) => {
   const { currentUser, users } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
   const [isStagePickerOpen, setIsStagePickerOpen] = useState(false);
+  
+  // Expandable Mini-Card Drawer State
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedTab, setExpandedTab] = useState<'task' | 'note'>('task');
+
+  // Interactive Task Popover / Result Plate State
+  const [isTaskPlateOpen, setIsTaskPlateOpen] = useState(false);
+  const [taskResultText, setTaskResultText] = useState('');
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
+
+  // Quick Task Creation State
+  const [quickTaskText, setQuickTaskText] = useState('');
+  const [quickTaskType, setQuickTaskType] = useState('call');
+  const [quickTaskDue, setQuickTaskDue] = useState('');
+  const [isSavingTask, setIsSavingTask] = useState(false);
+
+  // Quick Note Creation State
+  const [quickNoteContent, setQuickNoteContent] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteSavedNotice, setNoteSavedNotice] = useState(false);
+
+  // Local Tasks Sync for Instant Reactive UI
+  const [localTasks, setLocalTasks] = useState<any[]>(deal.tasks || []);
+
+  useEffect(() => {
+    setLocalTasks(deal.tasks || []);
+  }, [deal.tasks]);
 
   const handleCopyLink = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -52,11 +93,11 @@ export const DealCard: React.FC<DealCardProps> = ({
   // 1. Future Task: Green indicator (Active task exists, dueDate in future)
   // 2. Overdue Task: Red indicator (Active task exists, dueDate in past)
   // 3. No Task: Yellow/Amber Triangle warning indicator (No active tasks)
-  const activeTasks = (deal.tasks || []).filter((t: any) => !t.isCompleted && !t.isDeleted);
+  const activeTasks = localTasks.filter((t: any) => !t.isCompleted && !t.isDeleted);
   const overdueTasks = activeTasks.filter((t: any) => new Date(t.dueDate).getTime() < Date.now());
   const isTaskOverdue = overdueTasks.length > 0;
 
-  // Earliest active task (if overdue, show earliest overdue; else earliest upcoming)
+  // Earliest active task
   const sortedTasks = [...activeTasks].sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   const activeTask = isTaskOverdue 
     ? [...overdueTasks].sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]
@@ -87,7 +128,146 @@ export const DealCard: React.FC<DealCardProps> = ({
   const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
   const tgUser = deal.contact?.telegram ? deal.contact.telegram.replace('@', '') : '';
 
-  // AI Health Score calculation (deterministic fast scoring backed by Gemini AI heuristics)
+  // Quick Preset Task Creation (1-Click)
+  const handleQuickTaskPreset = async (e: React.MouseEvent, text: string, hoursAhead: number, type: string = 'call') => {
+    e.stopPropagation();
+    setIsSavingTask(true);
+    try {
+      const dueDate = new Date(Date.now() + hoursAhead * 3600 * 1000).toISOString();
+      const res = await api.post('/tasks', {
+        dealId: deal.id,
+        responsibleId: deal.responsibleId || currentUser?.id || 'usr-admin',
+        type,
+        text,
+        dueDate
+      });
+      if (res.data) {
+        soundService.playSuccess();
+        const updatedTasks = [res.data, ...localTasks.filter(t => t.id !== res.data.id)];
+        setLocalTasks(updatedTasks);
+        if (onDealUpdated) {
+          onDealUpdated({ ...deal, tasks: updatedTasks });
+        }
+      }
+      setIsTaskPlateOpen(false);
+      setQuickTaskText('');
+    } catch (err) {
+      console.error('Failed to create quick task:', err);
+    } finally {
+      setIsSavingTask(false);
+    }
+  };
+
+  // Custom Task Creation
+  const handleCustomTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!quickTaskText.trim()) return;
+    setIsSavingTask(true);
+    try {
+      const dueDate = quickTaskDue ? new Date(quickTaskDue).toISOString() : new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+      const res = await api.post('/tasks', {
+        dealId: deal.id,
+        responsibleId: deal.responsibleId || currentUser?.id || 'usr-admin',
+        type: quickTaskType,
+        text: quickTaskText.trim(),
+        dueDate
+      });
+      if (res.data) {
+        soundService.playSuccess();
+        const updatedTasks = [res.data, ...localTasks.filter(t => t.id !== res.data.id)];
+        setLocalTasks(updatedTasks);
+        if (onDealUpdated) {
+          onDealUpdated({ ...deal, tasks: updatedTasks });
+        }
+      }
+      setQuickTaskText('');
+      setQuickTaskDue('');
+      setIsTaskPlateOpen(false);
+    } catch (err) {
+      console.error('Failed to save task:', err);
+    } finally {
+      setIsSavingTask(false);
+    }
+  };
+
+  // Quick Note Submission
+  const handleQuickNoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!quickNoteContent.trim()) return;
+    setIsSavingNote(true);
+    try {
+      await api.post(`/deals/${deal.id}/notes`, {
+        content: quickNoteContent.trim(),
+        type: 'comment'
+      });
+      soundService.playSuccess();
+      setQuickNoteContent('');
+      setNoteSavedNotice(true);
+      setTimeout(() => setNoteSavedNotice(false), 2500);
+      if (onDealUpdated) {
+        onDealUpdated({ 
+          ...deal, 
+          notes: [{ id: `n-${Date.now()}`, content: quickNoteContent.trim(), createdAt: new Date().toISOString() }, ...(deal.notes as any || [])] as any 
+        });
+      }
+    } catch (err) {
+      console.error('Failed to save note:', err);
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  // Complete Task & Record Result Note
+  const handleCompleteTaskWithResult = async (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    setIsCompletingTask(true);
+    try {
+      await api.put(`/tasks/${taskId}`, {
+        isCompleted: true,
+        resultText: taskResultText.trim() || undefined
+      });
+      if (taskResultText.trim()) {
+        await api.post(`/deals/${deal.id}/notes`, {
+          content: `✅ Завдання виконано: "${activeTask?.text || 'Задача'}" | Результат: ${taskResultText.trim()}`,
+          type: 'system'
+        }).catch(() => {});
+      }
+      soundService.playSuccess();
+      const updatedTasks = localTasks.map(t => t.id === taskId ? { ...t, isCompleted: true } : t);
+      setLocalTasks(updatedTasks);
+      if (onDealUpdated) {
+        onDealUpdated({ ...deal, tasks: updatedTasks });
+      }
+      setTaskResultText('');
+      setIsTaskPlateOpen(false);
+    } catch (err) {
+      console.error('Failed to complete task:', err);
+    } finally {
+      setIsCompletingTask(false);
+    }
+  };
+
+  // Postpone Task (+1 day / +2 days)
+  const handlePostponeTask = async (e: React.MouseEvent, taskId: string, hours: number) => {
+    e.stopPropagation();
+    try {
+      const newDueDate = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+      await api.put(`/tasks/${taskId}`, { dueDate: newDueDate });
+      soundService.playSuccess();
+      const updatedTasks = localTasks.map(t => t.id === taskId ? { ...t, dueDate: newDueDate } : t);
+      setLocalTasks(updatedTasks);
+      if (onDealUpdated) {
+        onDealUpdated({ ...deal, tasks: updatedTasks });
+      }
+      setIsTaskPlateOpen(false);
+    } catch (err) {
+      console.error('Failed to postpone task:', err);
+    }
+  };
+
+  // AI Health Score calculation
   const calculateAiScore = () => {
     let score = 50;
     if (activeTask) score += 30;
@@ -108,10 +288,24 @@ export const DealCard: React.FC<DealCardProps> = ({
     <div
       onClick={onClick}
       style={{ borderLeftColor: stageColor }}
-      className="group relative bg-white dark:bg-[#0f1422] hover:bg-slate-50/90 dark:hover:bg-[#141b2e] border border-slate-200/90 dark:border-white/[0.08] border-l-[3.5px] rounded-xl p-3 shadow-sm hover:shadow-card-hover transition-all duration-150 cursor-pointer"
+      className={`group relative border border-slate-200/90 dark:border-white/[0.1] border-l-[4px] rounded-2xl p-3.5 shadow-sm hover:shadow-xl transition-all duration-200 cursor-pointer overflow-hidden backdrop-blur-md bg-gradient-to-br from-white via-slate-50/95 to-blue-50/25 dark:from-[#0f172a]/95 dark:via-[#0c1222]/95 dark:to-blue-950/20`}
     >
-      {/* Top Header: Status Indicator + Title & Direct Link Copy Button */}
-      <div className="flex items-start justify-between gap-2 mb-1.5">
+      {/* Subtle Architectural Luxury Backdrop Texture */}
+      <div 
+        className="absolute inset-0 opacity-[0.035] dark:opacity-[0.055] pointer-events-none bg-cover bg-center mix-blend-overlay"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=800&auto=format&fit=crop')`
+        }}
+      />
+
+      {/* Dynamic Ambient Stage Glow in Top Right Corner */}
+      <div 
+        className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-20 dark:opacity-25 transition-opacity group-hover:opacity-40"
+        style={{ backgroundColor: stageColor }}
+      />
+
+      {/* Top Header: Status Indicator + Title & Quick Action Buttons */}
+      <div className="relative flex items-start justify-between gap-2 mb-2">
         <div className="flex items-start gap-1.5 min-w-0 flex-1">
           {taskStatus === 'future' && (
             <span 
@@ -130,30 +324,52 @@ export const DealCard: React.FC<DealCardProps> = ({
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0 animate-pulse" />
             </span>
           )}
-          <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition leading-snug line-clamp-2">
+          <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition leading-snug line-clamp-2">
             {deal.title}
           </h4>
         </div>
-        <button
-          onClick={handleCopyLink}
-          className={`opacity-0 group-hover:opacity-100 p-1 rounded transition flex-shrink-0 ${
-            copiedLink 
-              ? 'opacity-100 bg-emerald-500/20 text-emerald-500' 
-              : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'
-          }`}
-          title={copiedLink ? "Посилання скопійовано!" : "Скопіювати пряме посилання на угоду"}
-        >
-          {copiedLink ? <Check className="w-3 h-3 text-emerald-500" /> : <Link2 className="w-3 h-3" />}
-        </button>
+
+        {/* Top Right: Expand Drawer Button & Copy Link */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
+            className={`p-1 rounded-lg border transition flex items-center justify-center ${
+              isExpanded 
+                ? 'bg-blue-600 text-white border-blue-500 shadow-sm' 
+                : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 border-slate-200 dark:border-white/[0.08]'
+            }`}
+            title={isExpanded ? "Згорнути міні-картку" : "Розгорнути міні-картку: швидко записати задачу або замітку"}
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className={`opacity-0 group-hover:opacity-100 p-1 rounded-lg transition flex-shrink-0 ${
+              copiedLink 
+                ? 'opacity-100 bg-emerald-500/20 text-emerald-500' 
+                : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'
+            }`}
+            title={copiedLink ? "Посилання скопійовано!" : "Скопіювати пряме посилання"}
+          >
+            {copiedLink ? <Check className="w-3 h-3 text-emerald-500" /> : <Link2 className="w-3 h-3" />}
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 mb-2">
+      {/* Budget & AI Health Score */}
+      <div className="relative flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+          <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 shadow-sm">
             {formatCurrency(deal.budget || 0)}
           </span>
           <span 
-            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${aiBadge.color}`}
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-lg border ${aiBadge.color}`}
             title={`ШІ-Скоринг здоров'я угоди: ${aiBadge.label}`}
           >
             {aiBadge.text}
@@ -162,13 +378,13 @@ export const DealCard: React.FC<DealCardProps> = ({
 
         {/* 1-Click Quick Contact Icons (WhatsApp, TG, Phone) */}
         {primaryPhone && (
-          <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 opacity-85 group-hover:opacity-100 transition" onClick={(e) => e.stopPropagation()}>
             <a
               href={`https://wa.me/${primaryPhone}`}
               target="_blank"
               rel="noreferrer"
-              title="WhatsApp"
-              className="p-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition"
+              title="Написати у WhatsApp"
+              className="p-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 transition"
             >
               <MessageSquare className="w-3 h-3" strokeWidth={1.75} />
             </a>
@@ -176,15 +392,15 @@ export const DealCard: React.FC<DealCardProps> = ({
               href={tgUser ? `https://t.me/${tgUser}` : `tg://resolve?phone=${primaryPhone}`}
               target="_blank"
               rel="noreferrer"
-              title="Telegram"
-              className="p-1 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition text-[10px] font-bold leading-none"
+              title="Написати у Telegram"
+              className="p-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/25 text-sky-600 dark:text-sky-400 transition text-[10px] font-bold leading-none"
             >
               TG
             </a>
             <a
               href={`tel:+${primaryPhone}`}
               title="Зателефонувати"
-              className="p-1 rounded-md bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 transition"
+              className="p-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 transition"
             >
               <Phone className="w-3 h-3" strokeWidth={1.75} />
             </a>
@@ -194,11 +410,11 @@ export const DealCard: React.FC<DealCardProps> = ({
 
       {/* Client / Company Details */}
       {(deal.company || deal.contact) && (
-        <div className="space-y-0.5 text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+        <div className="relative space-y-0.5 text-[11px] text-slate-500 dark:text-slate-400 mb-2">
           {deal.company && (
             <div className="flex items-center gap-1.5 truncate">
               <Building2 className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
-              <span className="truncate">{deal.company.name}</span>
+              <span className="truncate font-medium">{deal.company.name}</span>
             </div>
           )}
           {deal.contact && (
@@ -210,9 +426,9 @@ export const DealCard: React.FC<DealCardProps> = ({
         </div>
       )}
 
-      {/* Tags: Linear pastel pills */}
+      {/* Tags: Linear pills */}
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2.5">
+        <div className="relative flex flex-wrap gap-1 mb-2.5">
           {tags.slice(0, 3).map((tag, idx) => (
             <span
               key={idx}
@@ -228,40 +444,49 @@ export const DealCard: React.FC<DealCardProps> = ({
       )}
 
       {/* Bottom Footer: Next Task & Responsible User */}
-      <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
-        {/* Next Task Indicator - 3 States: Green (Future), Red (Overdue), Yellow Triangle (No task) */}
+      <div className="relative pt-2 border-t border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between">
+        {/* Next Task Indicator - Click opens Interactive Task Plate */}
         <div className="flex items-center gap-1.5 text-[11px] min-w-0 pr-1">
-          {taskStatus === 'future' && activeTask && (
-            <div 
-              className="flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shadow-sm"
-              title={`Завдання на майбутнє: ${activeTask.text} (${formatTaskTime(activeTask.dueDate)})`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
-              <Clock className="w-3 h-3 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
-              <span className="truncate max-w-[125px]">{formatTaskTime(activeTask.dueDate)}</span>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsTaskPlateOpen(!isTaskPlateOpen);
+            }}
+            className="text-left transition active:scale-95 group/taskBtn"
+          >
+            {taskStatus === 'future' && activeTask && (
+              <div 
+                className="flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shadow-sm group-hover/taskBtn:border-emerald-500/60"
+                title="Натисніть, щоб зафіксувати результат або перенести завдання"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+                <Clock className="w-3 h-3 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
+                <span className="truncate max-w-[125px]">{formatTaskTime(activeTask.dueDate)}</span>
+              </div>
+            )}
 
-          {taskStatus === 'overdue' && activeTask && (
-            <div 
-              className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/35 shadow-sm"
-              title={`Прострочена задача: ${activeTask.text} (${formatTaskTime(activeTask.dueDate)})`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.9)] animate-ping" />
-              <AlertCircle className="w-3 h-3 text-rose-500 dark:text-rose-400 flex-shrink-0" />
-              <span className="truncate max-w-[125px]">Прострочено ({formatTaskTime(activeTask.dueDate)})</span>
-            </div>
-          )}
+            {taskStatus === 'overdue' && activeTask && (
+              <div 
+                className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/35 shadow-sm group-hover/taskBtn:border-rose-500/60"
+                title="Увага! Натисніть, щоб зафіксувати результат або перенести завдання"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.9)] animate-ping" />
+                <AlertCircle className="w-3 h-3 text-rose-500 dark:text-rose-400 flex-shrink-0" />
+                <span className="truncate max-w-[125px]">Прострочено ({formatTaskTime(activeTask.dueDate)})</span>
+              </div>
+            )}
 
-          {taskStatus === 'no_task' && (
-            <div 
-              className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shadow-sm"
-              title="Увага! У ліда немає жодної запланованої задачі. Призначте дію!"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-              <span>Без задачі!</span>
-            </div>
-          )}
+            {taskStatus === 'no_task' && (
+              <div 
+                className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shadow-sm group-hover/taskBtn:border-amber-500/60 animate-pulse"
+                title="Натисніть, щоб швидко призначити наступне завдання"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                <span>+ Без задачі!</span>
+              </div>
+            )}
+          </button>
         </div>
 
         {/* Right side: 1-Tap Quick Stage Mover & Responsible Manager */}
@@ -325,6 +550,255 @@ export const DealCard: React.FC<DealCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ======================================================== */}
+      {/* 🚀 EXPANDABLE MINI-CARD DRAWER (Розкривається по стрілці) */}
+      {/* ======================================================== */}
+      {isExpanded && (
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          className="relative mt-3 pt-3 border-t border-slate-200/80 dark:border-white/[0.08] space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-150"
+        >
+          {/* Tabs: [📅 Завдання] / [📝 Замітка про клієнта] */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-black/40 p-0.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+            <button
+              type="button"
+              onClick={() => setExpandedTab('task')}
+              className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+                expandedTab === 'task'
+                  ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+              }`}
+            >
+              <Clock className="w-3 h-3" />
+              <span>+ Завдання</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpandedTab('note')}
+              className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+                expandedTab === 'note'
+                  ? 'bg-white dark:bg-amber-600 text-amber-600 dark:text-white shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+              }`}
+            >
+              <FileText className="w-3 h-3" />
+              <span>+ Замітка</span>
+            </button>
+          </div>
+
+          {/* Tab 1: Fast Task Creation */}
+          {expandedTab === 'task' && (
+            <div className="space-y-2">
+              {/* 1-Click Task Presets */}
+              <div className="grid grid-cols-2 gap-1 text-[10px]">
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickTaskPreset(e, '📞 Дзвінок-кваліфікація (15 хв)', 24, 'call')}
+                  disabled={isSavingTask}
+                  className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 font-semibold border border-blue-500/20 text-left truncate transition"
+                >
+                  📞 Завтра 10:00
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickTaskPreset(e, '📄 Контроль розгляду КП та розрахунку', 48, 'meeting')}
+                  disabled={isSavingTask}
+                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/20 text-left truncate transition"
+                >
+                  📄 Контроль КП (+2д)
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickTaskPreset(e, '⚖️ Узгодження правок до договору', 72, 'other')}
+                  disabled={isSavingTask}
+                  className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/20 text-left truncate transition"
+                >
+                  ⚖️ Договір (+3д)
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickTaskPreset(e, '💳 Контроль надходження оплати (25%)', 24, 'invoice')}
+                  disabled={isSavingTask}
+                  className="p-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-semibold border border-purple-500/20 text-left truncate transition"
+                >
+                  💳 Оплата (+24г)
+                </button>
+              </div>
+
+              {/* Custom Task Input */}
+              <form onSubmit={handleCustomTaskSubmit} className="space-y-1.5">
+                <input
+                  type="text"
+                  placeholder="Введіть свою задачу..."
+                  value={quickTaskText}
+                  onChange={(e) => setQuickTaskText(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                />
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={quickTaskType}
+                    onChange={(e) => setQuickTaskType(e.target.value)}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 focus:outline-none"
+                  >
+                    <option value="call">📞 Дзвінок</option>
+                    <option value="meeting">🤝 Зустріч</option>
+                    <option value="email">📄 КП / Пошта</option>
+                    <option value="invoice">💳 Оплата</option>
+                  </select>
+                  <input
+                    type="datetime-local"
+                    value={quickTaskDue}
+                    onChange={(e) => setQuickTaskDue(e.target.value)}
+                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingTask || !quickTaskText.trim()}
+                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 flex-shrink-0"
+                  >
+                    <span>{isSavingTask ? '...' : '+ Додати'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Tab 2: Fast Note Creation */}
+          {expandedTab === 'note' && (
+            <form onSubmit={handleQuickNoteSubmit} className="space-y-2">
+              <textarea
+                rows={2}
+                placeholder="Запишіть інформацію, деталі дзвінка або вимоги клієнта..."
+                value={quickNoteContent}
+                onChange={(e) => setQuickNoteContent(e.target.value)}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 resize-none leading-relaxed"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-emerald-500 font-semibold">
+                  {noteSavedNotice ? '✓ Замітку збережено!' : ''}
+                </span>
+                <button
+                  type="submit"
+                  disabled={isSavingNote || !quickNoteContent.trim()}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                >
+                  <span>{isSavingNote ? 'Збереження...' : 'Зберегти замітку'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Mini-Card Footer Link */}
+          <div className="pt-1 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400 text-[10px] truncate max-w-[140px]">
+              {deal.company?.name || deal.contact?.name || 'Картка клієнта'}
+            </span>
+            <button
+              type="button"
+              onClick={onClick}
+              className="text-blue-600 dark:text-blue-400 hover:underline font-bold text-[11px] flex items-center gap-1"
+            >
+              <span>Повна картка</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 📌 INTERACTIVE TASK ACTION PLATE (Вибиває по кліку на задачу) */}
+      {/* ======================================================== */}
+      {isTaskPlateOpen && (
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-x-2 bottom-2 z-50 p-3 bg-white dark:bg-[#0c1322] border border-blue-500/40 dark:border-blue-400/30 rounded-2xl shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 space-y-2.5"
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+              <CheckSquare className="w-3.5 h-3.5 text-blue-500" />
+              <span>Дія по завданню</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsTaskPlateOpen(false)}
+              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {activeTask ? (
+            <div className="space-y-2">
+              <div className="text-[11px] bg-slate-100 dark:bg-white/[0.05] p-2 rounded-xl border border-slate-200/80 dark:border-white/[0.06]">
+                <div className="font-bold text-slate-900 dark:text-white truncate">
+                  {activeTask.text}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  <span>Термін: {formatTaskTime(activeTask.dueDate)}</span>
+                </div>
+              </div>
+
+              {/* Record Call/Action Result */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Результат контакту:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Що відповів клієнт? (збережеться в замітку)"
+                  value={taskResultText}
+                  onChange={(e) => setTaskResultText(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  disabled={isCompletingTask}
+                  onClick={(e) => handleCompleteTaskWithResult(e, activeTask.id)}
+                  className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-md shadow-emerald-600/20 active:scale-95"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isCompletingTask ? '...' : '✅ Виконано'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handlePostponeTask(e, activeTask.id, 24)}
+                  className="px-2.5 py-1.5 bg-slate-100 dark:bg-white/[0.08] hover:bg-slate-200 dark:hover:bg-white/[0.15] text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition"
+                  title="Перенести на +24 години"
+                >
+                  +1 день
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[11px] text-amber-500 dark:text-amber-400 font-semibold">
+                У ліда немає задачі! Призначте дію в 1 клік:
+              </p>
+              <div className="grid grid-cols-2 gap-1 text-[10px]">
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickTaskPreset(e, '📞 Дзвінок-кваліфікація (15 хв)', 24, 'call')}
+                  className="p-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-300 font-bold text-left border border-blue-500/30"
+                >
+                  📞 Завтра 10:00
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickTaskPreset(e, '📄 Контроль КП та прорахунку', 48, 'meeting')}
+                  className="p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 font-bold text-left border border-amber-500/30"
+                >
+                  📄 КП (+2 дні)
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

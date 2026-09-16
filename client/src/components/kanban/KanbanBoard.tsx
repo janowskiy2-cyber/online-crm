@@ -544,6 +544,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                   stageColor={stage.color || '#3b82f6'}
                                   stages={stagesList}
                                   onMoveStage={handleMoveDealStage}
+                                  onDealUpdated={(updated) => setDeals(prev => prev.map(d => d.id === updated.id ? { ...d, ...updated } : d))}
                                 />
                               </div>
                             )}
