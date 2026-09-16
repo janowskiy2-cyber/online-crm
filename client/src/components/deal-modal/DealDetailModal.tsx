@@ -1512,58 +1512,55 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
+    <div className={`fixed inset-0 z-50 bg-black/80 backdrop-blur-2xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
       <div 
-        className={`relative flex flex-col shadow-2xl overflow-hidden transition-all duration-200 border border-white/15 ${
-          isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-3xl sm:max-w-[1500px] 2xl:max-w-[1750px] sm:h-[95vh] animate-in fade-in zoom-in-95 duration-150'
+        className={`relative flex flex-col shadow-[0_25px_70px_-15px_rgba(0,0,0,0.9)] overflow-hidden transition-all duration-300 border border-white/[0.12] ${
+          isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-3xl sm:max-w-[1520px] 2xl:max-w-[1760px] sm:h-[95vh] animate-in fade-in zoom-in-95 duration-200'
         }`}
         style={{
-          backgroundImage: `
-            linear-gradient(180deg, rgba(10, 16, 32, 0.88) 0%, rgba(6, 10, 22, 0.95) 100%),
-            url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2560&auto=format&fit=crop')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backdropFilter: 'blur(24px)'
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(30, 41, 59, 0.6) 0%, rgba(10, 15, 29, 0.98) 75%), #07090e',
         }}
       >
+        {/* Specular 1px Top Light Rim */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none z-30" />
         
         {/* Modal Top Bar */}
-        <div className="h-14 px-3 sm:px-6 border-b border-white/10 flex items-center justify-between bg-[#0a0f1d]/85 backdrop-blur-md flex-shrink-0">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <h2 className="text-xs sm:text-base font-bold text-white truncate max-w-[130px] sm:max-w-md">
+        <div className="h-14 px-3 sm:px-6 border-b border-white/[0.08] flex items-center justify-between bg-[#080c16]/90 backdrop-blur-xl flex-shrink-0 z-20">
+          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+            <h2 className="text-xs sm:text-base font-extrabold text-white tracking-tight truncate max-w-[140px] sm:max-w-md">
               {deal.title}
             </h2>
-            <span className="text-emerald-400 font-bold font-mono text-[11px] sm:text-sm px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg whitespace-nowrap">
+            <span className="text-emerald-400 font-extrabold font-mono text-[11px] sm:text-xs px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/25 rounded-xl whitespace-nowrap shadow-[0_0_12px_rgba(16,185,129,0.18)]">
               {formatCurrency(deal.budget || 0)}
             </span>
 
-            {/* Task Status Indicator in Modal Top Bar */}
+            {/* Task Status Luminescent Halo Badge */}
             {modalTaskStatus === 'future' && modalEarliestTask && (
               <span 
-                className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shadow-[0_0_12px_rgba(52,211,153,0.15)]"
                 title={`Завдання на майбутнє: ${modalEarliestTask.text}`}
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,1)]" />
                 <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Заплановано: {formatModalTaskTime(modalEarliestTask.dueDate)}</span>
+                <span>{formatModalTaskTime(modalEarliestTask.dueDate)}</span>
               </span>
             )}
             {modalTaskStatus === 'overdue' && modalEarliestTask && (
               <span 
-                className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse"
+                className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-500/15 text-rose-300 border border-rose-500/40 shadow-[0_0_14px_rgba(244,63,94,0.25)] animate-pulse"
                 title={`Увага! Прострочена задача: ${modalEarliestTask.text}`}
               >
-                <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.9)]" />
+                <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,1)]" />
                 <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
                 <span>Прострочено ({formatModalTaskTime(modalEarliestTask.dueDate)})</span>
               </span>
             )}
             {modalTaskStatus === 'no_task' && (
               <span 
-                className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-[0_0_14px_rgba(251,191,36,0.2)]"
                 title="Увага! У ліда немає жодної запланованої задачі. Призначте дію!"
               >
+                <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,1)] animate-ping" />
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                 <span>Без задачі!</span>
               </span>
@@ -1571,11 +1568,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Quick Action Tools: Direct Link, Open in Tab, Fullscreen, Call, AI, KP, Calc */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-1.5">
             {/* 1-Click Copy Shareable Deal URL */}
             <button
+              type="button"
               onClick={handleCopyDealLink}
-              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-white/10 hover:bg-white/15 text-slate-200 border border-white/10 rounded-lg text-xs font-semibold items-center gap-1.5 transition active:scale-95"
+              className="hidden sm:flex px-2.5 py-1 bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/[0.08] rounded-xl text-xs font-semibold items-center gap-1.5 transition active:scale-95 shadow-sm"
               title="Скопіювати пряме посилання на цю угоду"
             >
               {isCopiedLink ? (
@@ -1596,7 +1594,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               href={`/deals/${deal.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition"
+              className="hidden md:flex p-1.5 text-slate-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] rounded-xl transition"
               title="Відкрити в окремій вкладці браузера"
             >
               <ExternalLink className="w-4 h-4" strokeWidth={1.75} />
@@ -1604,67 +1602,74 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {/* Fullscreen Workspace Toggle */}
             <button
+              type="button"
               onClick={() => setIsFullscreen(prev => !prev)}
-              className="hidden md:flex p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition"
+              className="hidden md:flex p-1.5 text-slate-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] rounded-xl transition"
               title={isFullscreen ? "Згорнути у вікно" : "Розгорнути на весь екран (Розвантажити фон)"}
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" strokeWidth={1.75} /> : <Maximize2 className="w-4 h-4" strokeWidth={1.75} />}
             </button>
 
-            <div className="hidden sm:block w-[1px] h-4 bg-white/10 mx-0.5" />
+            <div className="hidden sm:block w-px h-5 bg-white/10 mx-1" />
 
             <button
+              type="button"
               onClick={handleOpenCallModal}
-              className="px-2 sm:px-3 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="px-2.5 sm:px-3 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(16,185,129,0.15)]"
               title="Зателефонувати клієнту"
             >
-              <Phone className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <Phone className="w-3.5 h-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">Зателефонувати</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setIsCalcModalOpen(true)}
-              className="px-2 sm:px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="px-2.5 sm:px-3 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.15)]"
               title="Калькулятор найму"
             >
-              <Calculator className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <Calculator className="w-3.5 h-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">Калькулятор</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setIsKPModalOpen(true)}
-              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 rounded-lg text-xs font-semibold items-center gap-1.5 transition active:scale-95"
+              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(59,130,246,0.15)]"
             >
-              <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <FileText className="w-3.5 h-3.5" strokeWidth={2} />
               <span>КП (PDF)</span>
             </button>
 
             <button
+              type="button"
               onClick={handleScoreDeal}
               disabled={isScoringDeal}
-              className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 border ${
+              className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 border ${
                 aiDealScore 
-                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
-                  : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 border-purple-500/20'
+                  ? 'bg-purple-500/25 text-purple-300 border-purple-500/50 shadow-[0_0_14px_rgba(168,85,247,0.25)]'
+                  : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30'
               }`}
               title={aiDealScore ? `${aiDealScore.reason}. Наступна дія: ${aiDealScore.nextAction}` : "ШІ-оцінка здоров'я угоди та ймовірності виграшу"}
             >
-              <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${isScoringDeal ? 'animate-spin' : ''}`} strokeWidth={1.75} />
+              <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${isScoringDeal ? 'animate-spin' : ''}`} strokeWidth={2} />
               <span className="hidden sm:inline">{aiDealScore ? `${aiDealScore.temperature} (${aiDealScore.score}%)` : (isScoringDeal ? 'Оцінка...' : 'ШІ-Скоринг')}</span>
             </button>
 
             {currentUser?.canDeleteDeals && (
               <button
+                type="button"
                 onClick={handleDeleteDeal}
                 title="Видалити угоду"
-                className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition"
               >
                 <Trash2 className="w-4 h-4" strokeWidth={1.75} />
               </button>
             )}
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] rounded-lg transition"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.08] rounded-xl transition"
             >
               <X className="w-4 h-4" strokeWidth={2} />
             </button>
@@ -1673,9 +1678,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
         {/* Anti-Duplicate Guard Banner */}
         {duplicateAlert && (
-          <div className="bg-amber-50 dark:bg-amber-950/70 border-b border-amber-200 dark:border-amber-500/40 px-4 sm:px-6 py-2 flex items-center justify-between text-xs text-amber-800 dark:text-amber-200 animate-in fade-in flex-shrink-0">
+          <div className="bg-amber-950/70 border-b border-amber-500/40 px-4 sm:px-6 py-2 flex items-center justify-between text-xs text-amber-200 animate-in fade-in flex-shrink-0">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" strokeWidth={1.75} />
+              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" strokeWidth={2} />
               <span>
                 <strong>Увага (Захист від дублів):</strong> Знайдено схожу угоду: <strong>«{duplicateAlert.title}»</strong> ({duplicateAlert.stageName})
               </span>
@@ -1683,35 +1688,48 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             <button
               type="button"
               onClick={() => setDuplicateAlert(null)}
-              className="text-amber-700 dark:text-amber-400 hover:underline text-[11px] font-bold ml-2"
+              className="text-amber-400 hover:underline text-[11px] font-bold ml-2"
             >
               Зрозуміло
             </button>
           </div>
         )}
 
-        {/* Pipeline Stage Bar */}
-        <div className="px-3 sm:px-6 py-2 bg-slate-100/80 dark:bg-[#080c14] border-b border-slate-200/80 dark:border-white/[0.08] flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-shrink-0">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mr-1 flex-shrink-0">
-            Етап:
+        {/* Luxury Pipeline Stage Stepper Bar */}
+        <div className="px-3 sm:px-6 py-2 bg-[#080c14]/90 border-b border-white/[0.08] flex items-center gap-2 overflow-x-auto scrollbar-none flex-shrink-0 z-10">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex-shrink-0 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-blue-400" />
+            <span>Етап:</span>
           </span>
-          {currentStages.map((stage) => {
+          {currentStages.map((stage, idx) => {
             const isCurrent = deal.stageId === stage.id;
+            const stageColor = stage.color || '#3b82f6';
             return (
               <button
                 key={stage.id}
+                type="button"
                 onClick={() => handleStageChange(stage.id)}
-                className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition flex-shrink-0 ${
+                className={`relative group px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all duration-200 flex-shrink-0 ${
                   isCurrent
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-white/[0.04] hover:bg-slate-200/70 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08]'
+                    ? 'text-white border shadow-[0_0_16px_rgba(59,130,246,0.3)]'
+                    : 'text-slate-400 hover:text-slate-200 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06]'
                 }`}
+                style={isCurrent ? {
+                  backgroundColor: `${stageColor}22`,
+                  borderColor: `${stageColor}77`
+                } : {}}
               >
                 <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: stage.color || '#3b82f6' }}
+                  className={`w-2 h-2 rounded-full flex-shrink-0 transition-transform ${isCurrent ? 'scale-125' : 'group-hover:scale-110'}`}
+                  style={{ 
+                    backgroundColor: stageColor,
+                    boxShadow: isCurrent ? `0 0 8px ${stageColor}` : 'none'
+                  }}
                 />
                 <span className="whitespace-nowrap">{stage.name}</span>
+                {isCurrent && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                )}
               </button>
             );
           })}
@@ -1761,23 +1779,27 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         <div className="flex-1 grid grid-cols-12 overflow-hidden bg-white dark:bg-[#0c111d] min-h-0">
           
           {/* Left Column: Client & Project Params (3 Cols) */}
-          <div className={`col-span-12 md:col-span-3 border-r border-slate-200/80 dark:border-white/[0.08] p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 bg-slate-50/50 dark:bg-[#090d16]/50 text-xs h-full ${
+          <div className={`col-span-12 md:col-span-3 border-r border-white/[0.08] p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#090e18]/80 backdrop-blur-xl text-xs h-full ${
             activeMobileTab === 'info' ? 'block' : 'hidden md:block'
           }`}>
             {/* Responsible manager */}
-            <div>
-              <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                Відповідальний менеджер
-              </label>
+            <div className="bg-[#0e1628]/90 border border-white/[0.08] rounded-2xl p-3 space-y-1.5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <UserIcon className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Відповідальний менеджер</span>
+                </label>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+              </div>
               <select
                 value={deal.responsibleId}
                 onChange={(e) => handleResponsibleChange(e.target.value)}
                 disabled={!currentUser?.canEditDeals}
-                className="w-full bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-900/90 border border-white/[0.08] hover:border-blue-500/40 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition cursor-pointer"
               >
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} ({u.department})
+                    {u.name} ({u.department || 'Команда'})
                   </option>
                 ))}
               </select>
@@ -1786,36 +1808,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             {/* Contact Details */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Контакт клієнта (HR / Директор)
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <UserIcon className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Контакт клієнта (HR / Директор)</span>
                 </label>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setSelectedClientIdForModal(deal.companyId || deal.company?.id || deal.contactId || deal.contact?.id || null)}
-                    className="px-2 py-0.5 text-blue-400 hover:text-white bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/25 rounded-lg transition flex items-center gap-1 text-[11px] font-bold"
+                    className="px-2 py-0.5 text-blue-300 hover:text-white bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 rounded-lg transition flex items-center gap-1 text-[10px] font-bold"
                     title="Відкрити повну картку клієнта"
                   >
                     <ExternalLink className="w-3 h-3" />
-                    <span>Картка клієнта</span>
+                    <span>Картка</span>
                   </button>
                   {deal.contact ? (
                     <button
                       type="button"
                       onClick={handleStartEditContact}
-                      className="p-1 text-slate-400 hover:text-blue-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
+                      className="p-1 text-slate-400 hover:text-blue-400 rounded-lg hover:bg-white/[0.06] transition flex items-center gap-1 text-[10px]"
                       title="Редагувати дані клієнта"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Редагувати</span>
+                      <Edit3 className="w-3 h-3" />
+                      <span>Змінити</span>
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={handleStartEditContact}
-                      className="p-1 text-blue-400 hover:text-blue-300 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px] font-bold"
+                      className="p-1 text-blue-400 hover:text-blue-300 rounded-lg hover:bg-white/[0.06] transition flex items-center gap-1 text-[10px] font-bold"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="w-3 h-3" />
                       <span>Додати</span>
                     </button>
                   )}
@@ -1823,7 +1846,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </div>
 
               {isEditingContact ? (
-                <form onSubmit={handleSaveContact} className="bg-slate-900 border border-blue-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+                <form onSubmit={handleSaveContact} className="bg-slate-900/95 border border-blue-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in shadow-xl">
                   <div>
                     <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">ПІБ / Назва контакту</label>
                     <input
@@ -1893,14 +1916,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsEditingContact(false)}
-                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-semibold"
                     >
                       Скасувати
                     </button>
                     <button
                       type="submit"
                       disabled={isSavingContact}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                      className="px-3.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm"
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>{isSavingContact ? 'Збереження...' : 'Зберегти'}</span>
@@ -1908,28 +1931,31 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   </div>
                 </form>
               ) : deal.contact ? (
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
-                  <div className="font-bold text-sm text-white flex items-center gap-2">
-                    <UserIcon className="w-4 h-4 text-blue-400" />
-                    <span>{deal.contact.name}</span>
-                    {deal.contact.position && (
-                      <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-normal">
-                        {deal.contact.position}
-                      </span>
-                    )}
+                <div className="relative overflow-hidden bg-[#0e1628]/90 border border-white/[0.08] hover:border-blue-500/40 rounded-2xl p-3.5 space-y-2.5 transition-all shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/30 to-transparent" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 font-extrabold text-xs flex-shrink-0">
+                        {deal.contact.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-xs text-white truncate">{deal.contact.name}</div>
+                        <div className="text-[10px] text-slate-400 font-medium truncate">{deal.contact.position || 'Клієнт / Керівник'}</div>
+                      </div>
+                    </div>
                   </div>
 
                   {deal.contact.phone && (
-                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1">
+                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1 bg-[#080c16]/60 p-2 rounded-xl border border-white/[0.04]">
                       <div className="flex items-center gap-1.5 truncate">
                         <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                        <span className="truncate">{deal.contact.phone}</span>
+                        <span className="truncate font-mono font-bold text-white text-[11px]">{deal.contact.phone}</span>
                       </div>
                       <a
                         href={`tg://resolve?phone=${deal.contact.phone.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
+                        className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
                         title="Відкрити чат Telegram за номером"
                       >
                         <span>Telegram</span>
@@ -1938,16 +1964,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   )}
 
                   {deal.contact.phone2 && (
-                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1">
+                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1 bg-[#080c16]/60 p-2 rounded-xl border border-white/[0.04]">
                       <div className="flex items-center gap-1.5 truncate">
                         <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                        <span className="truncate">{deal.contact.phone2}</span>
+                        <span className="truncate font-mono text-[11px]">{deal.contact.phone2}</span>
                       </div>
                       <a
                         href={`tg://resolve?phone=${deal.contact.phone2.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
+                        className="px-2 py-0.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 rounded-lg text-[10px] font-bold flex items-center gap-1 transition flex-shrink-0"
                         title="Відкрити чат Telegram за дод. номером"
                       >
                         <span>Telegram 2</span>
@@ -1956,10 +1982,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   )}
 
                   {deal.contact.telegram ? (
-                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1">
+                    <div className="text-xs text-slate-300 flex items-center justify-between gap-1 bg-[#080c16]/60 p-2 rounded-xl border border-white/[0.04]">
                       <div className="flex items-center gap-1.5 truncate">
-                        <span className="text-sky-400 font-bold text-xs">TG:</span>
-                        <a href={`https://t.me/${deal.contact.telegram.replace('@', '')}`} target="_blank" rel="noreferrer" className="hover:underline text-sky-400 font-medium truncate">
+                        <span className="text-sky-400 font-extrabold text-[11px]">TG:</span>
+                        <a href={`https://t.me/${deal.contact.telegram.replace('@', '')}`} target="_blank" rel="noreferrer" className="hover:underline text-sky-300 font-bold truncate text-[11px]">
                           @{deal.contact.telegram.replace('@', '')}
                         </a>
                       </div>
@@ -1967,7 +1993,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         href={`https://t.me/${deal.contact.telegram.replace('@', '')}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[10px] font-bold transition flex-shrink-0"
+                        className="px-2 py-0.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-lg text-[10px] font-bold transition flex-shrink-0"
                       >
                         Відкрити
                       </a>
@@ -1975,19 +2001,19 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   ) : null}
 
                   {deal.contact.email && (
-                    <div className="text-xs text-slate-300 flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{deal.contact.email}</span>
+                    <div className="text-xs text-slate-300 flex items-center gap-2 px-1">
+                      <Mail className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                      <span className="truncate text-[11px] text-slate-300">{deal.contact.email}</span>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="p-3 bg-slate-900/60 border border-dashed border-slate-700 rounded-2xl text-center space-y-2">
+                <div className="p-3.5 bg-[#0e1628]/60 border border-dashed border-white/[0.12] rounded-2xl text-center space-y-2">
                   <p className="text-xs text-slate-400 italic">Контакт ще не заповнено</p>
                   <button
                     type="button"
                     onClick={handleStartEditContact}
-                    className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-semibold transition"
+                    className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold transition shadow-sm"
                   >
                     + Заповнити дані клієнта
                   </button>
@@ -1998,33 +2024,34 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             {/* Company Info with 1-Click Inline Editing */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Підприємство / Завод
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Підприємство / Завод</span>
                 </label>
                 {deal.company ? (
                   <button
                     type="button"
                     onClick={handleStartEditCompany}
-                    className="p-1 text-slate-400 hover:text-purple-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
+                    className="p-1 text-slate-400 hover:text-purple-400 rounded-lg hover:bg-white/[0.06] transition flex items-center gap-1 text-[10px]"
                     title="Редагувати дані підприємства"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Редагувати</span>
+                    <Edit3 className="w-3 h-3" />
+                    <span>Змінити</span>
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleStartEditCompany}
-                    className="p-1 text-purple-400 hover:text-purple-300 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px] font-bold"
+                    className="p-1 text-purple-400 hover:text-purple-300 rounded-lg hover:bg-white/[0.06] transition flex items-center gap-1 text-[10px] font-bold"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-3 h-3" />
                     <span>Додати</span>
                   </button>
                 )}
               </div>
 
               {isEditingCompany ? (
-                <form onSubmit={handleSaveCompany} className="bg-slate-900 border border-purple-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+                <form onSubmit={handleSaveCompany} className="bg-slate-900/95 border border-purple-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in shadow-xl">
                   <div>
                     <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Назва підприємства / заводу</label>
                     <input
@@ -2072,14 +2099,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsEditingCompany(false)}
-                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-semibold"
                     >
                       Скасувати
                     </button>
                     <button
                       type="submit"
                       disabled={isSavingCompany}
-                      className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                      className="px-3.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm"
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>{isSavingCompany ? 'Збереження...' : 'Зберегти'}</span>
@@ -2087,39 +2114,50 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   </div>
                 </form>
               ) : deal.company ? (
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-                  <div className="font-bold text-sm text-white flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                <div className="relative overflow-hidden bg-[#0e1628]/90 border border-white/[0.08] hover:border-purple-500/40 rounded-2xl p-3.5 space-y-2.5 transition-all shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-400/30 to-transparent" />
+                  <div className="font-extrabold text-xs text-white flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 flex-shrink-0">
+                      <Building2 className="w-4 h-4" />
+                    </div>
                     <span className="truncate">{deal.company.name}</span>
                   </div>
                   {deal.company.address && (
-                    <div className="text-xs text-slate-300 flex items-start gap-1.5">
+                    <div className="text-[11px] text-slate-300 flex items-start gap-1.5 bg-[#080c16]/60 p-2 rounded-xl border border-white/[0.04]">
                       <Globe2 className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
                       <span className="leading-snug">{deal.company.address}</span>
                     </div>
                   )}
                   {deal.company.phone && (
-                    <div className="text-xs text-slate-300 flex items-center gap-1.5">
+                    <div className="text-[11px] text-slate-300 flex items-center gap-1.5 bg-[#080c16]/60 p-2 rounded-xl border border-white/[0.04]">
                       <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                      <span>{deal.company.phone}</span>
+                      <span className="font-mono font-bold text-white">{deal.company.phone}</span>
                     </div>
                   )}
                   {deal.company.email && (
-                    <div className="text-xs text-slate-300 flex items-center gap-1.5">
+                    <div className="text-[11px] text-slate-300 flex items-center gap-1.5 bg-[#080c16]/60 p-2 rounded-xl border border-white/[0.04]">
                       <Mail className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                       <span className="truncate">{deal.company.email}</span>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="p-3 bg-slate-900/60 border border-dashed border-slate-700 rounded-2xl text-center space-y-2">
-                  <p className="text-xs text-slate-500 italic">Компанію ще не прив'язано</p>
+                /* Ultra-sleek luxury empty state replacing dull box */
+                <div className="relative group overflow-hidden p-3.5 bg-[#0e1628]/70 hover:bg-[#0e1628]/95 border border-white/[0.08] hover:border-purple-500/40 rounded-2xl text-center space-y-2 transition-all duration-200 shadow-sm">
+                  <div className="w-9 h-9 mx-auto rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-200">Підприємство не прив'язано</p>
+                    <p className="text-[10px] text-slate-400">Вкажіть назву заводу чи підприємства</p>
+                  </div>
                   <button
                     type="button"
                     onClick={handleStartEditCompany}
-                    className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-semibold transition"
+                    className="w-full py-1.5 px-3 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
                   >
-                    + Додати підприємство
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Прив'язати підприємство</span>
                   </button>
                 </div>
               )}
@@ -2128,22 +2166,23 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             {/* Order / Vacancy Needs Parameters (Editable on the fly) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Замовлення / Потреба
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Замовлення / Потреба</span>
                 </label>
                 <button
                   type="button"
                   onClick={handleStartEditOrder}
-                  className="p-1 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 transition flex items-center gap-1 text-[11px]"
+                  className="p-1 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-white/[0.06] transition flex items-center gap-1 text-[10px]"
                   title="Редагувати параметри замовлення"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Редагувати</span>
+                  <Edit3 className="w-3 h-3" />
+                  <span>Змінити</span>
                 </button>
               </div>
 
               {isEditingOrder ? (
-                <form onSubmit={handleSaveOrder} className="bg-slate-900 border border-emerald-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+                <form onSubmit={handleSaveOrder} className="bg-slate-900/95 border border-emerald-500/40 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in shadow-xl">
                   <div>
                     <label className="text-[10px] text-slate-400 font-semibold block mb-0.5">Посада / Спеціальність</label>
                     <input
@@ -2202,14 +2241,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsEditingOrder(false)}
-                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs"
+                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-semibold"
                     >
                       Скасувати
                     </button>
                     <button
                       type="submit"
                       disabled={isSavingOrder}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1"
+                      className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-sm"
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>{isSavingOrder ? 'Збереження...' : 'Зберегти'}</span>
@@ -2217,33 +2256,34 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   </div>
                 </form>
               ) : (
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <div className="relative overflow-hidden bg-[#0e1628]/90 border border-white/[0.08] hover:border-emerald-500/40 rounded-2xl p-3.5 space-y-2.5 transition-all shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent" />
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-white truncate">
+                    <span className="font-extrabold text-xs text-white truncate">
                       {(customFieldsObj as any)?.orderInfo?.position || deal.title || 'Посада не вказана'}
                     </span>
                     {(customFieldsObj as any)?.orderInfo?.count && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold border border-emerald-500/30">
+                      <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 text-[10px] font-extrabold border border-emerald-500/30 font-mono">
                         {(customFieldsObj as any)?.orderInfo?.count}
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
-                    <div className="bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/50">
-                      <span className="text-[9px] text-slate-400 block uppercase">Ставка:</span>
-                      <span className="font-semibold text-emerald-300">
+                  <div className="grid grid-cols-2 gap-1.5 pt-0.5 text-[11px]">
+                    <div className="bg-[#080c16]/70 p-2 rounded-xl border border-white/[0.04]">
+                      <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider">Ставка:</span>
+                      <span className="font-bold text-emerald-400 font-mono">
                         {(customFieldsObj as any)?.orderInfo?.salary || 'За домовленістю'}
                       </span>
                     </div>
-                    <div className="bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/50">
-                      <span className="text-[9px] text-slate-400 block uppercase">Житло:</span>
-                      <span className="font-semibold text-slate-200">
+                    <div className="bg-[#080c16]/70 p-2 rounded-xl border border-white/[0.04]">
+                      <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider">Житло:</span>
+                      <span className="font-bold text-slate-200">
                         {(customFieldsObj as any)?.orderInfo?.housing || 'Уточнюється'}
                       </span>
                     </div>
                   </div>
                   {(customFieldsObj as any)?.orderInfo?.location && (
-                    <div className="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1.5 pt-0.5">
                       <Globe2 className="w-3 h-3 text-slate-500" />
                       <span>{(customFieldsObj as any)?.orderInfo?.location}</span>
                     </div>
@@ -2253,15 +2293,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
 
             {/* Dedicated Documents & Contract Execution Block (Collapsible Accordion) */}
-            <div className="bg-slate-900/90 border border-blue-500/25 rounded-2xl overflow-hidden transition">
+            <div className="relative overflow-hidden bg-[#0e1628]/80 border border-white/[0.08] hover:border-blue-500/30 rounded-2xl transition-all shadow-md backdrop-blur-md">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/25 to-transparent" />
               <button
                 type="button"
                 onClick={() => setIsDocsAccordionOpen(prev => !prev)}
-                className="w-full p-3.5 flex items-center justify-between hover:bg-slate-800/60 transition text-left group"
+                className="w-full p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition text-left group"
                 title="Натисніть щоб розгорнути або сховати документи"
               >
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400 group-hover:bg-blue-500/30 transition">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-blue-500/15 text-blue-400 border border-blue-500/25 shadow-[0_0_10px_rgba(59,130,246,0.15)] group-hover:scale-105 transition-transform">
                     <FileText className="w-4 h-4" />
                   </span>
                   <div>
@@ -2278,15 +2319,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   {(() => {
                     const st = (customFieldsObj as any).contractStatus || 'not_sent';
                     if (st === 'signed_active') {
-                      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 Договір діє</span>;
+                      return <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]">🟢 Договір діє</span>;
                     }
                     if (st === 'signed_unpaid') {
-                      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">🔵 Договір підписано</span>;
+                      return <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 shadow-[0_0_8px_rgba(59,130,246,0.2)]">🔵 Підписано</span>;
                     }
                     if (documentsList.length > 0) {
-                      return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-blue-300 border border-blue-500/30">{documentsList.length} прикріплено</span>;
+                      return <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-[#090e18] text-blue-300 border border-blue-500/30">{documentsList.length} прикріплено</span>;
                     }
-                    return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-400">Додати документи</span>;
+                    return <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/[0.04] text-slate-400 border border-white/[0.06]">Додати документи</span>;
                   })()}
                   {isDocsAccordionOpen ? (
                     <ChevronUp className="w-4 h-4 text-blue-400 transition" />
@@ -2298,237 +2339,238 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
               {/* Accordion Body */}
               {isDocsAccordionOpen && (
-                <div className="p-3.5 pt-0 space-y-2.5 border-t border-white/5 mt-1 animate-in fade-in duration-150">
+                <div className="p-3.5 pt-0 space-y-2.5 border-t border-white/[0.06] mt-1 animate-in fade-in duration-150">
                   {/* Slot 1: Employer Requisition (Заявка / Бриф) */}
-              <div className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2">
-                <div className="flex items-center justify-between gap-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-white flex items-center gap-1">
-                      <span>📋 Заявка / Бриф роботодавця</span>
-                    </span>
+                  <div className="p-3 bg-[#080c16]/80 border border-white/[0.06] hover:border-white/[0.12] rounded-xl space-y-2.5 transition">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span className="p-1 rounded bg-blue-500/15 text-blue-400 text-[10px]">📋</span>
+                        <span>Заявка / Бриф роботодавця</span>
+                      </span>
+                      {((customFieldsObj as any).requisitionDoc || documentsList.find(d => d.category.includes('Заявка'))) ? (
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" /> Прикріплено
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-medium bg-white/[0.04] text-slate-400 border border-white/[0.06]">
+                          Не прикріплено
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Attached file link if exists */}
+                    {(() => {
+                      const reqDoc = (customFieldsObj as any).requisitionDoc || documentsList.find(d => d.category.includes('Заявка'));
+                      if (!reqDoc) return null;
+                      return (
+                        <div className="p-2 bg-[#0c1220] border border-white/[0.06] rounded-lg flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 truncate">
+                            <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <span className="font-semibold text-slate-200 truncate">{reqDoc.name}</span>
+                            <span className="text-[10px] text-slate-500">({reqDoc.sizeKb} KB)</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <a
+                              href={resolveMediaUrl(reqDoc.url)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-0.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 text-[10px] font-bold rounded-md border border-blue-500/30 flex items-center gap-1 transition"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>Файл</span>
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Action buttons for Requisition */}
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <label className="flex-1 cursor-pointer py-1.5 px-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.08] rounded-xl text-[11px] font-semibold text-center transition flex items-center justify-center gap-1.5 active:scale-95">
+                        <UploadCloud className="w-3 h-3 text-blue-400" />
+                        <span>{isUploadingSlotDoc === 'requisition' ? 'Завантаження...' : '+ Файл заявки'}</span>
+                        <input
+                          ref={reqFileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => handleUploadSlotDoc('requisition', e)}
+                          disabled={isUploadingSlotDoc === 'requisition'}
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsAiRequisitionModalOpen(true)}
+                        className="flex-1 py-1.5 px-2.5 bg-gradient-to-r from-purple-600/20 to-blue-600/20 hover:from-purple-600/30 hover:to-blue-600/30 border border-purple-500/30 text-purple-200 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
+                        title="ШІ автоматично розпізнає посади, кількість людей, ставку та локацію"
+                      >
+                        <Sparkles className="w-3 h-3 text-purple-400" />
+                        <span>✨ ШІ-парсинг</span>
+                      </button>
+                    </div>
                   </div>
-                  {((customFieldsObj as any).requisitionDoc || documentsList.find(d => d.category.includes('Заявка'))) ? (
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-0.5">
-                      <Check className="w-2.5 h-2.5" /> Прикріплено
-                    </span>
-                  ) : (
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-700/60 text-slate-400">
-                      Не прикріплено
-                    </span>
-                  )}
-                </div>
 
-                {/* Attached file link if exists */}
-                {(() => {
-                  const reqDoc = (customFieldsObj as any).requisitionDoc || documentsList.find(d => d.category.includes('Заявка'));
-                  if (!reqDoc) return null;
-                  return (
-                    <div className="p-2 bg-slate-900/90 border border-slate-700/60 rounded-lg flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2 truncate">
-                        <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                        <span className="font-semibold text-slate-200 truncate">{reqDoc.name}</span>
-                        <span className="text-[10px] text-slate-500">({reqDoc.sizeKb} KB)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <a
-                          href={resolveMediaUrl(reqDoc.url)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2 py-0.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 text-[10px] font-bold rounded flex items-center gap-1 transition"
-                        >
-                          <Download className="w-3 h-3" />
-                          <span>Файл</span>
-                        </a>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Action buttons for Requisition */}
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <label className="flex-1 cursor-pointer py-1.5 px-2 bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-semibold text-center transition flex items-center justify-center gap-1">
-                    <UploadCloud className="w-3 h-3 text-blue-400" />
-                    <span>{isUploadingSlotDoc === 'requisition' ? 'Завантаження...' : '+ Файл заявки'}</span>
-                    <input
-                      ref={reqFileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => handleUploadSlotDoc('requisition', e)}
-                      disabled={isUploadingSlotDoc === 'requisition'}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                    />
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsAiRequisitionModalOpen(true)}
-                    className="flex-1 py-1.5 px-2 bg-gradient-to-r from-purple-600/30 to-blue-600/30 hover:from-purple-600/40 hover:to-blue-600/40 border border-purple-500/40 text-purple-200 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 active:scale-95 shadow-sm"
-                    title="ШІ автоматично розпізнає посади, кількість людей, ставку та локацію"
-                  >
-                    <Sparkles className="w-3 h-3 text-purple-400" />
-                    <span>✨ ШІ-парсинг</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Slot 2: Cooperation Contract (Договір) */}
-              <div className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-bold text-white flex items-center gap-1">
-                    <span>⚖️ Договір про співпрацю</span>
-                  </span>
-                  {/* Status Badge */}
-                  {(() => {
-                    const st = (customFieldsObj as any).contractStatus || 'not_sent';
-                    if (st === 'signed_active') {
-                      return <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 Підписано та діє</span>;
-                    }
-                    if (st === 'signed_unpaid') {
-                      return <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">🔵 Підписано (Очікує оплати)</span>;
-                    }
-                    if (st === 'sent_unsigned') {
-                      return <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🟡 Надіслано (Очікує)</span>;
-                    }
-                    return <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-700/60 text-slate-400">⚪ Не надіслано</span>;
-                  })()}
-                </div>
-
-                {/* Attached Contract file */}
-                {(() => {
-                  const contractDoc = (customFieldsObj as any).contractDoc || documentsList.find(d => d.category.includes('Договір'));
-                  if (!contractDoc) return null;
-                  return (
-                    <div className="p-2 bg-slate-900/90 border border-slate-700/60 rounded-lg flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2 truncate">
-                        <FileText className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                        <span className="font-semibold text-slate-200 truncate">{contractDoc.name}</span>
-                        <span className="text-[10px] text-slate-500">({contractDoc.sizeKb} KB)</span>
-                      </div>
-                      <a
-                        href={resolveMediaUrl(contractDoc.url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-2 py-0.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 text-[10px] font-bold rounded flex items-center gap-1 transition shrink-0"
-                      >
-                        <Download className="w-3 h-3" />
-                        <span>Файл</span>
-                      </a>
-                    </div>
-                  );
-                })()}
-
-                {/* Controls: Change status & Upload contract */}
-                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                  <select
-                    value={(customFieldsObj as any).contractStatus || 'not_sent'}
-                    onChange={(e) => handleUpdateContractStatus(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] font-bold text-purple-300 focus:outline-none cursor-pointer"
-                  >
-                    <option value="not_sent">⚪ Не надіслано</option>
-                    <option value="sent_unsigned">🟡 Надіслано клієнту</option>
-                    <option value="signed_unpaid">🔵 Підписано (Без оплати)</option>
-                    <option value="signed_active">🟢 Підписано та діє</option>
-                  </select>
-
-                  <label className="cursor-pointer py-1.5 px-2 bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-semibold text-center transition flex items-center justify-center gap-1">
-                    <UploadCloud className="w-3 h-3 text-purple-400" />
-                    <span>{isUploadingSlotDoc === 'contract' ? 'Завантаження...' : '+ Файл договору'}</span>
-                    <input
-                      ref={contractFileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => handleUploadSlotDoc('contract', e)}
-                      disabled={isUploadingSlotDoc === 'contract'}
-                      accept=".pdf,.doc,.docx"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              {/* Slot 3: Payment Receipt / Check (Чек / Оплата) */}
-              <div className="p-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl space-y-2">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-bold text-white flex items-center gap-1">
-                    <span>💳 Чек / Підтвердження оплати</span>
-                  </span>
-                  {/* Status Badge */}
-                  {(() => {
-                    const isPaid = (customFieldsObj as any).paymentStatus === 'paid';
-                    return isPaid ? (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        🟢 Оплачено
+                  {/* Slot 2: Cooperation Contract (Договір) */}
+                  <div className="p-3 bg-[#080c16]/80 border border-white/[0.06] hover:border-white/[0.12] rounded-xl space-y-2.5 transition">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span className="p-1 rounded bg-purple-500/15 text-purple-400 text-[10px]">⚖️</span>
+                        <span>Договір про співпрацю</span>
                       </span>
-                    ) : (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                        ⚪ Очікує оплати
-                      </span>
-                    );
-                  })()}
-                </div>
-
-                {/* Attached Receipt file */}
-                {(() => {
-                  const receiptDoc = (customFieldsObj as any).receiptDoc || documentsList.find(d => d.category.includes('Чек') || d.category.includes('Рахунок'));
-                  if (!receiptDoc) return null;
-                  return (
-                    <div className="p-2 bg-slate-900/90 border border-slate-700/60 rounded-lg flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2 truncate">
-                        <CreditCard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span className="font-semibold text-slate-200 truncate">{receiptDoc.name}</span>
-                        <span className="text-[10px] text-slate-500">({receiptDoc.sizeKb} KB)</span>
-                      </div>
-                      <a
-                        href={resolveMediaUrl(receiptDoc.url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-2 py-0.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-[10px] font-bold rounded flex items-center gap-1 transition shrink-0"
-                      >
-                        <Download className="w-3 h-3" />
-                        <span>Чек</span>
-                      </a>
+                      {/* Status Badge */}
+                      {(() => {
+                        const st = (customFieldsObj as any).contractStatus || 'not_sent';
+                        if (st === 'signed_active') {
+                          return <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">🟢 Підписано та діє</span>;
+                        }
+                        if (st === 'signed_unpaid') {
+                          return <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">🔵 Підписано</span>;
+                        }
+                        if (st === 'sent_unsigned') {
+                          return <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">🟡 Надіслано</span>;
+                        }
+                        return <span className="px-2 py-0.5 rounded-md text-[9px] font-medium bg-white/[0.04] text-slate-400 border border-white/[0.06]">⚪ Не надіслано</span>;
+                      })()}
                     </div>
-                  );
-                })()}
 
-                {/* Upload receipt button + Status toggle */}
-                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                  <select
-                    value={(customFieldsObj as any).paymentStatus || 'unpaid'}
-                    onChange={(e) => handleUpdatePaymentStatus(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-[10px] font-bold text-emerald-300 focus:outline-none cursor-pointer"
-                  >
-                    <option value="unpaid">⚪ Очікує оплати</option>
-                    <option value="paid">🟢 Оплачено (Підтверджено)</option>
-                  </select>
+                    {/* Attached Contract file */}
+                    {(() => {
+                      const contractDoc = (customFieldsObj as any).contractDoc || documentsList.find(d => d.category.includes('Договір'));
+                      if (!contractDoc) return null;
+                      return (
+                        <div className="p-2 bg-[#0c1220] border border-white/[0.06] rounded-lg flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 truncate">
+                            <FileText className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <span className="font-semibold text-slate-200 truncate">{contractDoc.name}</span>
+                            <span className="text-[10px] text-slate-500">({contractDoc.sizeKb} KB)</span>
+                          </div>
+                          <a
+                            href={resolveMediaUrl(contractDoc.url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-0.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 text-[10px] font-bold rounded-md border border-purple-500/30 flex items-center gap-1 transition shrink-0"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Файл</span>
+                          </a>
+                        </div>
+                      );
+                    })()}
 
-                  <label className="cursor-pointer py-1.5 px-2 bg-slate-700/70 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-semibold text-center transition flex items-center justify-center gap-1">
-                    <UploadCloud className="w-3 h-3 text-emerald-400" />
-                    <span>{isUploadingSlotDoc === 'receipt' ? 'Завантаження...' : '+ Додати чек'}</span>
-                    <input
-                      ref={receiptFileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => handleUploadSlotDoc('receipt', e)}
-                      disabled={isUploadingSlotDoc === 'receipt'}
-                      accept=".pdf,.png,.jpg,.jpeg,.doc"
-                    />
-                  </label>
+                    {/* Controls: Change status & Upload contract */}
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      <select
+                        value={(customFieldsObj as any).contractStatus || 'not_sent'}
+                        onChange={(e) => handleUpdateContractStatus(e.target.value)}
+                        className="bg-[#0c1220] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-purple-300 focus:outline-none focus:border-purple-500/50 cursor-pointer"
+                      >
+                        <option value="not_sent">⚪ Не надіслано</option>
+                        <option value="sent_unsigned">🟡 Надіслано клієнту</option>
+                        <option value="signed_unpaid">🔵 Підписано (Без оплати)</option>
+                        <option value="signed_active">🟢 Підписано та діє</option>
+                      </select>
+
+                      <label className="cursor-pointer py-1.5 px-2 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.08] rounded-xl text-[10px] font-semibold text-center transition flex items-center justify-center gap-1 active:scale-95">
+                        <UploadCloud className="w-3 h-3 text-purple-400" />
+                        <span>{isUploadingSlotDoc === 'contract' ? 'Завантаження...' : '+ Файл договору'}</span>
+                        <input
+                          ref={contractFileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => handleUploadSlotDoc('contract', e)}
+                          disabled={isUploadingSlotDoc === 'contract'}
+                          accept=".pdf,.doc,.docx"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Slot 3: Payment Receipt / Check (Чек / Оплата) */}
+                  <div className="p-3 bg-[#080c16]/80 border border-white/[0.06] hover:border-white/[0.12] rounded-xl space-y-2.5 transition">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span className="p-1 rounded bg-emerald-500/15 text-emerald-400 text-[10px]">💳</span>
+                        <span>Чек / Підтвердження оплати</span>
+                      </span>
+                      {/* Status Badge */}
+                      {(() => {
+                        const isPaid = (customFieldsObj as any).paymentStatus === 'paid';
+                        return isPaid ? (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                            🟢 Оплачено
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                            ⚪ Очікує оплати
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Attached Receipt file */}
+                    {(() => {
+                      const receiptDoc = (customFieldsObj as any).receiptDoc || documentsList.find(d => d.category.includes('Чек') || d.category.includes('Рахунок'));
+                      if (!receiptDoc) return null;
+                      return (
+                        <div className="p-2 bg-[#0c1220] border border-white/[0.06] rounded-lg flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2 truncate">
+                            <CreditCard className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="font-semibold text-slate-200 truncate">{receiptDoc.name}</span>
+                            <span className="text-[10px] text-slate-500">({receiptDoc.sizeKb} KB)</span>
+                          </div>
+                          <a
+                            href={resolveMediaUrl(receiptDoc.url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-0.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 text-[10px] font-bold rounded-md border border-emerald-500/30 flex items-center gap-1 transition shrink-0"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Чек</span>
+                          </a>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Upload receipt button + Status toggle */}
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      <select
+                        value={(customFieldsObj as any).paymentStatus || 'unpaid'}
+                        onChange={(e) => handleUpdatePaymentStatus(e.target.value)}
+                        className="bg-[#0c1220] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-emerald-300 focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                      >
+                        <option value="unpaid">⚪ Очікує оплати</option>
+                        <option value="paid">🟢 Оплачено (Підтверджено)</option>
+                      </select>
+
+                      <label className="cursor-pointer py-1.5 px-2 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.08] rounded-xl text-[10px] font-semibold text-center transition flex items-center justify-center gap-1 active:scale-95">
+                        <UploadCloud className="w-3 h-3 text-emerald-400" />
+                        <span>{isUploadingSlotDoc === 'receipt' ? 'Завантаження...' : '+ Додати чек'}</span>
+                        <input
+                          ref={receiptFileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => handleUploadSlotDoc('receipt', e)}
+                          disabled={isUploadingSlotDoc === 'receipt'}
+                          accept=".pdf,.png,.jpg,.jpeg,.doc"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Official Company Promotion Button */}
+                    <button
+                      type="button"
+                      onClick={handlePromoteDealToCompany}
+                      className="w-full mt-1.5 py-2 px-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:brightness-110 text-white rounded-xl text-xs font-bold transition shadow-[0_0_16px_rgba(16,185,129,0.25)] border border-emerald-400/30 flex items-center justify-center gap-1.5 active:scale-95"
+                      title="Офіційно створити або підтвердити підприємство в каталозі роботодавців"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>💎 Внести в офіційні підприємства (Оплачено)</span>
+                    </button>
+                  </div>
                 </div>
-
-                {/* Official Company Promotion Button */}
-                <button
-                  type="button"
-                  onClick={handlePromoteDealToCompany}
-                  className="w-full mt-1.5 py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 active:scale-95"
-                  title="Офіційно створити або підтвердити підприємство в каталозі роботодавців"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-                  <span>💎 Внести в офіційні підприємства (Оплачено)</span>
-                </button>
-              </div>
+              )}
             </div>
-          )}
-        </div>
 
             {/* Tags */}
             <div className="space-y-2">
@@ -2539,9 +2581,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 {tagsList.map((tag, idx) => (
                   <span
                     key={idx}
-                    className="text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-lg"
+                    className="text-xs font-semibold bg-[#0e1628]/80 text-slate-300 border border-white/[0.08] hover:border-blue-500/40 hover:text-white px-2.5 py-1 rounded-xl transition backdrop-blur-sm"
                   >
-                    {tag}
+                    #{tag}
                   </span>
                 ))}
               </div>
@@ -2549,24 +2591,28 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Central Column: Live Timeline & Messengers Chat (6 Cols) */}
-          <div className={`col-span-12 md:col-span-6 flex flex-col min-h-0 h-full bg-[#080c14] border-r border-slate-800/80 ${
+          <div className={`col-span-12 md:col-span-6 flex flex-col min-h-0 h-full bg-[#07090e] border-r border-white/[0.06] ${
             activeMobileTab === 'chat' ? 'flex' : 'hidden md:flex'
           }`}>
             {/* Timeline Filter tabs */}
-            <div className="p-2 sm:p-3 border-b border-slate-800/80 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none bg-[#0e1320] flex-shrink-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <div className="p-2 sm:p-2.5 border-b border-white/[0.06] flex items-center justify-between gap-2 overflow-x-auto scrollbar-none bg-[#090e18]/90 backdrop-blur-md flex-shrink-0">
+              <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.06] flex-shrink-0">
                 <button
                   onClick={() => setActiveTab('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    activeTab === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'all' 
+                      ? 'bg-blue-600/30 text-white border border-blue-500/40 shadow-[0_0_10px_rgba(59,130,246,0.2)]' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                   }`}
                 >
                   Всі події
                 </button>
                 <button
                   onClick={() => setActiveTab('chat')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
-                    activeTab === 'chat' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                    activeTab === 'chat' 
+                      ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
@@ -2574,8 +2620,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('candidates')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
-                    activeTab === 'candidates' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                    activeTab === 'candidates' 
+                      ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.2)]' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                   }`}
                 >
                   <Users className="w-3.5 h-3.5 text-purple-400" />
@@ -2583,16 +2631,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('notes')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                    activeTab === 'notes' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'notes' 
+                      ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                   }`}
                 >
                   Замітки
                 </button>
                 <button
                   onClick={() => setActiveTab('documents')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
-                    activeTab === 'documents' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                    activeTab === 'documents' 
+                      ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5 text-cyan-400" />
@@ -2604,7 +2656,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setIsGeminiModalOpen(true)}
-                  className="text-[11px] font-extrabold text-indigo-300 hover:text-white flex items-center gap-1 bg-gradient-to-r from-indigo-600/30 to-purple-600/30 hover:from-indigo-600/50 hover:to-purple-600/50 px-2.5 py-1 rounded-lg border border-indigo-500/40 shadow-sm transition"
+                  className="text-[11px] font-extrabold text-indigo-200 hover:text-white flex items-center gap-1.5 bg-gradient-to-r from-indigo-600/25 to-purple-600/25 hover:from-indigo-600/40 hover:to-purple-600/40 px-2.5 py-1.5 rounded-xl border border-indigo-500/35 shadow-[0_0_10px_rgba(99,102,241,0.2)] transition active:scale-95"
                   title="Google Gemini AI помічник з рекрутингу"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
@@ -2613,7 +2665,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
                 <button
                   onClick={() => setIsObjectionsModalOpen(true)}
-                  className="text-[11px] font-bold text-slate-400 hover:text-slate-200 flex items-center gap-1 bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-700/60"
+                  className="text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1 bg-white/[0.04] hover:bg-white/[0.08] px-2.5 py-1.5 rounded-xl border border-white/[0.08] transition active:scale-95"
                 >
                   <span>Скрипти</span>
                 </button>
@@ -3354,12 +3406,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
 
             {/* Input / Message Bar */}
-            <div className="p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-slate-800/80 bg-[#0e1422] space-y-2.5 flex-shrink-0">
+            <div className="relative p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-white/[0.06] bg-[#090e18]/95 space-y-2.5 flex-shrink-0 backdrop-blur-xl">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               {activeTab === 'notes' ? (
                 /* Dedicated Voice Dictation & Note Box */
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5" />
                       <span>Нова замітка по угоді</span>
                     </span>
@@ -3370,7 +3423,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
                         isDictating 
                           ? 'bg-rose-600 text-white animate-pulse' 
-                          : 'bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30'
+                          : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
                       }`}
                     >
                       <Mic className="w-3.5 h-3.5" />
@@ -3385,14 +3438,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       placeholder="Надиктуйте голосом або напишіть замітку..."
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
-                      className={`flex-1 bg-slate-900 border rounded-2xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
-                        isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-amber-500'
+                      className={`flex-1 bg-[#0c1220] border rounded-2xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                        isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/[0.08] focus:border-amber-500/60 shadow-inner'
                       }`}
                       style={{ minHeight: '48px', maxHeight: '180px' }}
                     />
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 self-end"
+                      className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 self-end shadow-[0_0_12px_rgba(245,158,11,0.25)] border border-amber-400/30 active:scale-95"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Зберегти</span>
@@ -3409,7 +3462,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 /* Regular Chat Bar with File Attachment & Voice Recording */
                 <>
                   {selectedFile && (
-                    <div className="p-2 bg-slate-900 border border-amber-500/40 rounded-xl flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
+                    <div className="p-2 bg-[#0c1220] border border-amber-500/40 rounded-xl flex items-center justify-between text-xs text-amber-300 animate-in fade-in">
                       <div className="flex items-center gap-2 truncate">
                         {selectedFile.type.startsWith('video/') ? (
                           <Video className="w-4 h-4 text-rose-400 flex-shrink-0" />
@@ -3428,15 +3481,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   )}
 
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
+                    <div className="flex items-center gap-1.5 p-1 bg-[#0c1220] border border-white/[0.06] rounded-2xl">
                       {/* WhatsApp Channel */}
                       <button
                         type="button"
                         onClick={() => setChatChannel('whatsapp')}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                           chatChannel === 'whatsapp'
-                            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                            : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                         }`}
                         title={
                           messengerStatus.whatsapp.exists
@@ -3465,8 +3518,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         onClick={() => setChatChannel('telegram')}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                           chatChannel === 'telegram'
-                            ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            ? 'bg-sky-600/30 text-sky-300 border border-sky-500/40 shadow-[0_0_12px_rgba(14,165,233,0.2)]'
+                            : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                         }`}
                         title={
                           messengerStatus.telegram.exists
@@ -3493,7 +3546,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       <button
                         type="button"
                         onClick={handleOpenCallModal}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 active:scale-95"
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)] active:scale-95"
                         title="Зателефонувати клієнту прямо з чату (фіксується в історії подій)"
                       >
                         <Phone className="w-3.5 h-3.5 text-emerald-400" />
@@ -3508,8 +3561,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         title={soundEnabled ? "Звукові сповіщення увімкнено (натисніть щоб вимкнути)" : "Звукові сповіщення вимкнено (натисніть щоб увімкнути)"}
                         className={`px-2.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 text-[11px] font-semibold ${
                           soundEnabled 
-                            ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 hover:bg-emerald-900/40' 
-                            : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200'
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.2)]' 
+                            : 'bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-slate-200'
                         }`}
                       >
                         {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
@@ -3519,10 +3572,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       <button
                         type="button"
                         onClick={toggleVoiceDictation}
-                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 transition ${
+                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition border ${
                           isDictating 
-                            ? 'bg-rose-600 text-white animate-pulse' 
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.4)]' 
+                            : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border-white/[0.08]'
                         }`}
                       >
                         <Mic className="w-3 h-3 text-emerald-400" />
@@ -3537,7 +3590,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       type="button"
                       onClick={() => handleGenerateAiDraft('followup')}
                       disabled={isGeneratingAiDraft}
-                      className="px-2.5 py-0.5 bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/50 hover:to-indigo-600/50 text-purple-300 border border-purple-500/40 rounded-lg transition flex items-center gap-1 flex-shrink-0 text-[10px] font-bold shadow-sm active:scale-95"
+                      className="px-2.5 py-1 bg-gradient-to-r from-purple-600/20 to-indigo-600/20 hover:from-purple-600/30 hover:to-indigo-600/30 text-purple-200 border border-purple-500/30 rounded-xl transition flex items-center gap-1 flex-shrink-0 text-[10px] font-bold shadow-[0_0_10px_rgba(168,85,247,0.15)] active:scale-95"
                       title="Згенерувати персоналізовану відповідь за контекстом угоди через Gemini AI"
                     >
                       <Sparkles className={`w-3 h-3 text-purple-400 ${isGeneratingAiDraft ? 'animate-spin' : ''}`} />
@@ -3556,7 +3609,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         key={idx}
                         type="button"
                         onClick={() => setChatMessageText(snip.text)}
-                        className="px-2 py-0.5 bg-slate-800/90 hover:bg-blue-600/30 text-slate-300 hover:text-blue-300 border border-slate-700/80 hover:border-blue-500/40 rounded-lg transition flex-shrink-0 whitespace-nowrap text-[10px] font-medium"
+                        className="px-2.5 py-1 bg-white/[0.04] hover:bg-blue-600/20 text-slate-300 hover:text-blue-300 border border-white/[0.06] hover:border-blue-500/30 rounded-xl transition flex-shrink-0 whitespace-nowrap text-[10px] font-medium"
                       >
                         {snip.label}
                       </button>
@@ -3597,7 +3650,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         title="Прикріпити файл (PDF / Фото / Договір)"
-                        className="p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2.5 mb-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-amber-400 border border-white/[0.08] rounded-2xl transition flex items-center justify-center flex-shrink-0 active:scale-95"
                       >
                         <Paperclip className="w-4 h-4" />
                       </button>
@@ -3606,7 +3659,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         type="button"
                         onClick={() => videoInputRef.current?.click()}
                         title="Надіслати відео (зустріч кандидата, огляд житла/заводу, візитка)"
-                        className="p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2.5 mb-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-rose-400 border border-white/[0.08] rounded-2xl transition flex items-center justify-center flex-shrink-0 active:scale-95"
                       >
                         <Video className="w-4 h-4" />
                       </button>
@@ -3615,7 +3668,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                         type="button"
                         onClick={() => setIsVoiceRecording(true)}
                         title="Записати голосове повідомлення"
-                        className="p-2.5 mb-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 border border-slate-700 rounded-2xl transition flex items-center justify-center flex-shrink-0"
+                        className="p-2.5 mb-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-emerald-400 border border-white/[0.08] rounded-2xl transition flex items-center justify-center flex-shrink-0 active:scale-95"
                       >
                         <Mic className="w-4 h-4" />
                       </button>
@@ -3641,15 +3694,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             handleSendMessage();
                           }
                         }}
-                        className={`flex-1 bg-slate-900 border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
-                          isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-blue-500'
+                        className={`flex-1 bg-[#0c1220] border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                          isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/[0.08] focus:border-blue-500/60 shadow-inner'
                         }`}
                         style={{ minHeight: '40px', maxHeight: '220px' }}
                       />
                       <button
                         type="submit"
                         disabled={isSendingFile}
-                        className="px-4 py-2.5 mb-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-blue-600/30 flex-shrink-0"
+                        className="px-4 py-2.5 mb-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_16px_rgba(59,130,246,0.3)] border border-blue-400/20 flex-shrink-0 active:scale-95"
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>{isSendingFile ? '...' : 'Надіслати'}</span>
@@ -3662,26 +3715,27 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Right Column: Tasks Checklist, Quick Notes & Attached Documents (3 Cols) */}
-          <div className={`col-span-12 md:col-span-3 p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#0e1422] h-full ${
+          <div className={`col-span-12 md:col-span-3 p-3.5 sm:p-4 overflow-y-auto space-y-4 bg-[#07090e] h-full ${
             activeMobileTab === 'tasks_notes' ? 'block' : 'hidden md:block'
           }`}>
             
             {/* 1-Click Inline Pipeline Stage Selector */}
-            <div className="bg-slate-900/90 border border-blue-500/30 rounded-2xl p-3 space-y-2">
+            <div className="relative overflow-hidden bg-[#0e1628]/80 border border-white/[0.08] hover:border-blue-500/30 rounded-2xl p-3.5 space-y-2.5 backdrop-blur-md shadow-md transition-all">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/25 to-transparent" />
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
                   <span>Етап воронки</span>
                 </span>
                 <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: currentStages.find(s => s.id === deal.stageId)?.color || '#3b82f6' }}
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
+                  style={{ backgroundColor: currentStages.find(s => s.id === deal.stageId)?.color || '#3b82f6', color: currentStages.find(s => s.id === deal.stageId)?.color || '#3b82f6' }}
                 />
               </div>
               <select
                 value={deal.stageId}
                 onChange={(e) => handleStageChange(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none focus:border-blue-500 transition cursor-pointer"
+                className="w-full bg-[#080c16] border border-white/[0.08] rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500/60 transition cursor-pointer shadow-inner"
               >
                 {currentStages.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -3692,17 +3746,18 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
 
             {/* VIP Prominent Task Control Widget (Always Visible at the Top of Right Column) */}
-            <div className="bg-slate-900/95 border border-amber-500/40 rounded-2xl p-3.5 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="relative overflow-hidden bg-[#0e1628]/90 border border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md transition-all">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-amber-400" />
                   <h3 className="text-xs font-black text-amber-300 uppercase tracking-wider">
-                    Завдання по клієнту
+                    Завдання
                   </h3>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     modalActiveTasks.length > 0 
-                      ? (isModalTaskOverdue ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40')
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      ? (isModalTaskOverdue ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]')
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
                   }`}>
                     {modalActiveTasks.length > 0 ? `${modalActiveTasks.length} активні` : 'Без задачі'}
                   </span>
@@ -3710,7 +3765,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddingTask(!isAddingTask)}
-                  className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95"
+                  className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isAddingTask ? 'Сховати' : 'Завдання'}</span>
@@ -3719,7 +3774,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
               {/* No task warning banner with 1-click action presets */}
               {modalTaskStatus === 'no_task' && (
-                <div className="p-3 bg-amber-950/60 border border-amber-500/60 rounded-xl space-y-2 animate-in fade-in">
+                <div className="p-3 bg-amber-950/40 border border-amber-500/50 rounded-xl space-y-2 animate-in fade-in shadow-[0_0_12px_rgba(245,158,11,0.15)]">
                   <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
                     <AlertTriangle className="w-4 h-4 text-amber-400 animate-bounce" />
                     <span>Увага! У ліда немає наступного кроку</span>
@@ -3731,7 +3786,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickTaskPreset('Зателефонувати клієнту', 24, 'call')}
-                      className="px-3 py-1.5 bg-slate-800/90 hover:bg-amber-900/40 text-slate-200 border border-slate-700 hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group"
+                      className="px-3 py-2 bg-[#080c16]/80 hover:bg-amber-950/40 text-slate-200 border border-white/[0.06] hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group active:scale-95"
                     >
                       <span className="font-semibold text-slate-100 group-hover:text-amber-300">📞 Дзвінок завтра</span>
                       <span className="text-[10px] text-slate-400 group-hover:text-amber-300 font-mono">10:00 (+24г)</span>
@@ -3739,7 +3794,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickTaskPreset('Контроль вивчення КП та розрахунку', 48, 'meeting')}
-                      className="px-3 py-1.5 bg-slate-800/90 hover:bg-amber-900/40 text-slate-200 border border-slate-700 hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group"
+                      className="px-3 py-2 bg-[#080c16]/80 hover:bg-amber-950/40 text-slate-200 border border-white/[0.06] hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group active:scale-95"
                     >
                       <span className="font-semibold text-slate-100 group-hover:text-amber-300">📄 Контроль КП</span>
                       <span className="text-[10px] text-slate-400 group-hover:text-amber-300 font-mono">+2 дні</span>
@@ -3747,7 +3802,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickTaskPreset('Узгодити правки до договору', 72, 'other')}
-                      className="px-3 py-1.5 bg-slate-800/90 hover:bg-amber-900/40 text-slate-200 border border-slate-700 hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group"
+                      className="px-3 py-2 bg-[#080c16]/80 hover:bg-amber-950/40 text-slate-200 border border-white/[0.06] hover:border-amber-500/50 rounded-xl text-left text-xs flex items-center justify-between transition group active:scale-95"
                     >
                       <span className="font-semibold text-slate-100 group-hover:text-amber-300">⚖️ Договір</span>
                       <span className="text-[10px] text-slate-400 group-hover:text-amber-300 font-mono">+3 дні</span>
@@ -3758,7 +3813,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
               {/* Overdue alert banner if there are overdue tasks */}
               {modalTaskStatus === 'overdue' && (
-                <div className="p-2.5 bg-rose-950/50 border border-rose-500/60 rounded-xl flex items-center justify-between gap-2 animate-in fade-in">
+                <div className="p-2.5 bg-rose-950/40 border border-rose-500/50 rounded-xl flex items-center justify-between gap-2 animate-in fade-in shadow-[0_0_12px_rgba(244,63,94,0.2)]">
                   <div className="flex items-center gap-2 text-rose-300 text-xs font-bold min-w-0">
                     <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 animate-pulse" />
                     <span className="truncate">Є прострочені завдання! Потрібен контакт.</span>
@@ -3768,20 +3823,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
               {/* New Task Inline Form */}
               {isAddingTask && (
-                <form onSubmit={handleCreateTask} className="bg-slate-800/90 border border-amber-500/40 rounded-xl p-3 space-y-2.5 animate-in fade-in">
+                <form onSubmit={handleCreateTask} className="bg-[#080c16]/90 border border-amber-500/40 rounded-xl p-3 space-y-2.5 animate-in fade-in">
                   <input
                     type="text"
                     placeholder="Що саме потрібно зробити з клієнтом?"
                     value={taskText}
                     onChange={(e) => setTaskText(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-[#0c1220] border border-white/[0.08] rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60"
                     autoFocus
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <select
                       value={taskType}
                       onChange={(e) => setTaskType(e.target.value)}
-                      className="bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white"
+                      className="bg-[#0c1220] border border-white/[0.08] rounded-xl p-2 text-xs text-white focus:outline-none focus:border-amber-500/60 cursor-pointer"
                     >
                       <option value="call">📞 Дзвінок</option>
                       <option value="meeting">🤝 Зустріч / Зум</option>
@@ -3793,21 +3848,21 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       type="datetime-local"
                       value={taskDueDate}
                       onChange={(e) => setTaskDueDate(e.target.value)}
-                      className="bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white"
+                      className="bg-[#0c1220] border border-white/[0.08] rounded-xl p-2 text-xs text-white focus:outline-none focus:border-amber-500/60 cursor-pointer"
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => setIsAddingTask(false)}
-                      className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-semibold"
+                      className="px-3 py-1 text-slate-400 hover:text-white text-xs font-semibold"
                     >
                       Скасувати
                     </button>
                     <button
                       type="submit"
                       disabled={!taskText.trim()}
-                      className="px-3.5 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 rounded-lg text-xs font-bold transition shadow"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 disabled:opacity-50 text-slate-950 rounded-xl text-xs font-bold transition shadow-[0_0_12px_rgba(245,158,11,0.25)] active:scale-95"
                     >
                       Зберегти завдання
                     </button>
@@ -3818,7 +3873,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               {/* Active Tasks List with Interactive Completion & Postponement */}
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                 {modalSortedTasks.length === 0 ? (
-                  <div className="py-3 text-center bg-slate-800/30 rounded-xl border border-white/5">
+                  <div className="py-3 text-center bg-white/[0.02] rounded-xl border border-white/[0.04]">
                     <p className="text-xs text-slate-400 italic">Активних завдань немає</p>
                   </div>
                 ) : (
@@ -3828,14 +3883,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     return (
                       <div
                         key={t.id}
-                        className={`p-2.5 rounded-xl border transition flex flex-col gap-2 ${
+                        className={`p-3 rounded-xl border transition-all flex flex-col gap-2 ${
                           isOverdue
-                            ? 'bg-rose-950/30 border-rose-500/50 shadow-[0_0_8px_rgba(244,63,94,0.15)]'
-                            : 'bg-slate-800/80 border-slate-700/80 hover:border-slate-600'
+                            ? 'bg-rose-950/25 border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.15)]'
+                            : 'bg-[#080c16]/80 border-white/[0.06] hover:border-white/[0.12]'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2 min-w-0">
+                          <div className="flex items-start gap-2.5 min-w-0">
                             <button
                               type="button"
                               onClick={() => setCompletingTaskId(isCompletingThis ? null : t.id)}
@@ -3872,7 +3927,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handlePostponeTask(t.id, t.dueDate, 24)}
-                              className="px-2 py-0.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 rounded-md text-[10px] font-bold border border-slate-600 transition"
+                              className="px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 rounded-lg text-[10px] font-bold border border-white/[0.08] transition active:scale-95"
                               title="Перенести на +1 день"
                             >
                               +1д
@@ -3880,7 +3935,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handlePostponeTask(t.id, t.dueDate, 48)}
-                              className="px-2 py-0.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 rounded-md text-[10px] font-bold border border-slate-600 transition"
+                              className="px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 rounded-lg text-[10px] font-bold border border-white/[0.08] transition active:scale-95"
                               title="Перенести на +2 дні"
                             >
                               +2д
@@ -3890,7 +3945,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
                         {/* Inline Task Completion Drawer: Enter Call Result & Save */}
                         {isCompletingThis && (
-                          <div className="mt-1 pt-2 border-t border-slate-700/80 space-y-2 animate-in fade-in">
+                          <div className="mt-1 pt-2 border-t border-white/[0.08] space-y-2 animate-in fade-in">
                             <div className="flex items-center justify-between text-[11px] text-amber-300 font-semibold">
                               <span>📝 Що відповів клієнт? (Результат):</span>
                               <button
@@ -3906,7 +3961,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                               value={taskCompleteResultText}
                               onChange={(e) => setTaskCompleteResultText(e.target.value)}
                               placeholder="Наприклад: КП погодив, чекає рахунок / передзвонити завтра о 14:00..."
-                              className="w-full bg-slate-900 border border-amber-500/50 rounded-lg p-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none"
+                              className="w-full bg-[#0c1220] border border-amber-500/50 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none"
                               autoFocus
                             />
                             <div className="flex items-center justify-end gap-2">
@@ -3921,7 +3976,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                                 type="button"
                                 disabled={isSubmittingTaskResult}
                                 onClick={() => handleCompleteTaskWithResult(t)}
-                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow"
+                                className="px-3.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.25)] active:scale-95"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span>{isSubmittingTaskResult ? 'Збереження...' : 'Виконано'}</span>
@@ -3937,13 +3992,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
 
             {/* Spacious Client Notes & Customer Insights with Voice Dictation */}
-            <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl flex-1 flex flex-col">
+            <div className="relative overflow-hidden bg-[#0e1628]/80 border border-white/[0.08] hover:border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md flex-1 flex flex-col transition-all">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/25 to-transparent" />
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="w-4 h-4 text-amber-400" />
-                  <span>Замітки та домовленості по клієнту</span>
+                  <span>Замітки по клієнту</span>
                 </h3>
-                <span className="text-[11px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-slate-800 border border-white/5">
+                <span className="text-[11px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
                   {(deal.notes || []).length} записів
                 </span>
               </div>
@@ -3956,8 +4012,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   placeholder={isDictatingQuickNote ? "Слухаю голос... Говоріть деталі розмови..." : "Запишіть важливі деталі, умови, домовленості або статус клієнта..."}
                   value={quickNoteText}
                   onChange={(e) => setQuickNoteText(e.target.value)}
-                  className={`w-full bg-slate-800/90 border rounded-xl p-3 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
-                    isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700/80 focus:border-amber-500'
+                  className={`w-full bg-[#080c16] border rounded-2xl p-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                    isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/[0.08] focus:border-amber-500/60 shadow-inner'
                   }`}
                   style={{ minHeight: '68px', maxHeight: '200px' }}
                 />
@@ -3965,10 +4021,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={toggleQuickNoteDictation}
-                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition active:scale-95 ${
                       isDictatingQuickNote
-                        ? 'bg-rose-600 text-white border-rose-500 animate-pulse'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                        ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.4)]'
+                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/[0.08]'
                     }`}
                     title={isDictatingQuickNote ? "Слухаю... Натисніть щоб зупинити" : "Надиктувати замітку голосом"}
                   >
@@ -3979,7 +4035,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <button
                     type="submit"
                     disabled={isSavingQuickNote || !quickNoteText.trim()}
-                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-amber-600/20 active:scale-95"
+                    className="px-4 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)] border border-amber-400/30 active:scale-95"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{isSavingQuickNote ? 'Збереження...' : 'Додати замітку'}</span>
@@ -3990,7 +4046,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               {/* Spacious Notes List with high readability */}
               <div className="space-y-2.5 min-h-[260px] max-h-[500px] xl:max-h-[620px] overflow-y-auto pr-1">
                 {(deal.notes || []).length === 0 ? (
-                  <div className="py-8 text-center bg-slate-800/40 rounded-2xl border border-white/5 space-y-2">
+                  <div className="py-8 text-center bg-white/[0.02] rounded-2xl border border-white/[0.04] space-y-2">
                     <FileText className="w-8 h-8 text-slate-600 mx-auto" />
                     <p className="text-xs text-slate-400">Поки немає заміток по цьому клієнту</p>
                     <p className="text-[11px] text-slate-500">Зафіксуйте першу домовленість у формі вище</p>
@@ -3999,7 +4055,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   (deal.notes || []).map((n: any) => (
                     <div 
                       key={n.id} 
-                      className="p-3.5 bg-slate-800/90 border border-slate-700/70 rounded-2xl space-y-2 group hover:border-amber-500/40 transition shadow-sm"
+                      className="p-3.5 bg-[#080c16]/80 border border-white/[0.06] rounded-2xl space-y-2 group hover:border-amber-500/30 transition shadow-sm"
                     >
                       <div className="flex items-center justify-between text-xs text-slate-400">
                         <div className="flex items-center gap-2 font-bold text-amber-300">
@@ -4031,17 +4087,18 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Custom Fields / Metadata Card (Twenty CRM benchmark) */}
-            <div className="bg-slate-900/90 border border-blue-500/30 rounded-2xl p-3.5 space-y-3">
+            {/* Custom Fields / Metadata Card */}
+            <div className="relative overflow-hidden bg-[#0e1628]/80 border border-white/[0.08] hover:border-blue-500/30 rounded-2xl p-3.5 space-y-3 backdrop-blur-md transition-all">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/25 to-transparent" />
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-xs font-bold text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Tag className="w-4 h-4 text-blue-400" />
-                  <span>Кастомні поля угоди</span>
+                  <span>Кастомні поля</span>
                 </h3>
                 <button
                   type="button"
                   onClick={() => setIsAddingField(!isAddingField)}
-                  className="p-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-xl text-xs font-bold transition flex items-center gap-1 px-2"
+                  className="p-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1 px-2.5 active:scale-95"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isAddingField ? 'Скасувати' : 'Додати'}</span>
@@ -4049,13 +4106,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </div>
 
               {isAddingField && (
-                <form onSubmit={handleSaveCustomField} className="space-y-2 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
+                <form onSubmit={handleSaveCustomField} className="space-y-2 bg-[#080c16]/80 p-2.5 rounded-xl border border-white/[0.08]">
                   <input
                     type="text"
                     placeholder="Назва поля (напр: Термін виходу)"
                     value={newFieldKey}
                     onChange={(e) => setNewFieldKey(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0c1220] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/60"
                     autoFocus
                   />
                   <input
@@ -4063,7 +4120,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     placeholder="Значення (напр: 15 жовтня)"
                     value={newFieldValue}
                     onChange={(e) => setNewFieldValue(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0c1220] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/60"
                   />
                   <div className="flex justify-end gap-1.5">
                     <button
@@ -4076,7 +4133,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <button
                       type="submit"
                       disabled={!newFieldKey.trim() || !newFieldValue.trim()}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition"
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
                     >
                       Зберегти
                     </button>
@@ -4089,7 +4146,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               ) : (
                 <div className="space-y-1.5">
                   {visibleCustomFields.map(([k, v]) => (
-                    <div key={k} className="p-2 bg-slate-800/70 border border-slate-700/60 rounded-xl text-xs flex items-center justify-between group">
+                    <div key={k} className="p-2 bg-[#080c16]/80 border border-white/[0.06] rounded-xl text-xs flex items-center justify-between group hover:border-white/[0.12] transition">
                       <div className="min-w-0 pr-2">
                         <span className="text-[10px] text-slate-400 font-medium block uppercase tracking-wider">{k}</span>
                         <span className="text-white font-semibold truncate block">{String(v)}</span>
