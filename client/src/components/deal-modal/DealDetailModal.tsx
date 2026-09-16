@@ -233,6 +233,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [taskType, setTaskType] = useState('call');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [taskCompleteResultText, setTaskCompleteResultText] = useState('');
+  const [isSubmittingTaskResult, setIsSubmittingTaskResult] = useState(false);
 
   // Candidate Manager state (Sprint 3: Huntflow)
   const [isAddingCandidate, setIsAddingCandidate] = useState(false);
@@ -1043,10 +1046,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   };
 
-  // Task completion with result & postpone state
-  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
-  const [taskCompleteResultText, setTaskCompleteResultText] = useState('');
-  const [isSubmittingTaskResult, setIsSubmittingTaskResult] = useState(false);
+  // Task completion with result & postpone handlers
 
   const handlePostponeTask = async (taskId: string, currentDueDate: string, hoursToAdd: number = 24) => {
     try {
