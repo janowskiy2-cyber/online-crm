@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var etBlacklist: EditText
     private lateinit var btnOverlayPermission: Button
+    private lateinit var switchAutoDeleteRecordings: SwitchCompat
 
     private lateinit var btnSaveSettings: Button
     private lateinit var btnOpenCrm: Button
@@ -81,6 +82,7 @@ class MainActivity : AppCompatActivity() {
 
         etBlacklist = findViewById(R.id.etBlacklist)
         btnOverlayPermission = findViewById(R.id.btnOverlayPermission)
+        switchAutoDeleteRecordings = findViewById(R.id.switchAutoDeleteRecordings)
 
         btnSaveSettings = findViewById(R.id.btnSaveSettings)
         btnOpenCrm = findViewById(R.id.btnOpenCrm)
@@ -132,6 +134,7 @@ class MainActivity : AppCompatActivity() {
         etWorkEndHour.setText(prefs.getInt("work_hours_end", 19).toString())
 
         etBlacklist.setText(prefs.getString("blacklist_phones", ""))
+        switchAutoDeleteRecordings.isChecked = prefs.getBoolean("auto_delete_local_recordings", true)
     }
 
     private fun saveSettings() {
@@ -152,6 +155,7 @@ class MainActivity : AppCompatActivity() {
             .putInt("work_hours_start", startHour)
             .putInt("work_hours_end", endHour)
             .putString("blacklist_phones", etBlacklist.text.toString().trim())
+            .putBoolean("auto_delete_local_recordings", switchAutoDeleteRecordings.isChecked)
             .apply()
 
         updateStatusText(switchSyncEnabled.isChecked)

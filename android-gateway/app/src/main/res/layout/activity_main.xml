@@ -320,6 +320,44 @@
                 android:backgroundTint="#7c3aed"
                 android:textColor="#ffffff"
                 android:textSize="12sp" />
+        <!-- Storage Cleanup Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="#0f172a"
+            android:gravity="center_vertical"
+            android:padding="14dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🧹 Автоочищення пам'яті"
+                    android:textColor="#34d399"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Видаляти аудіофайл з телефону після успішного завантаження в CRM, щоб не забивати пам'ять"
+                    android:textColor="#94a3b8"
+                    android:textSize="11sp"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchAutoDeleteRecordings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true" />
         </LinearLayout>
 
         <!-- Buttons -->

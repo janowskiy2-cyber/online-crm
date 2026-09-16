@@ -1,4 +1,4 @@
-﻿package com.onlinecrm.gateway
+package com.onlinecrm.gateway
 
 import android.content.Context
 import android.util.Log
@@ -79,6 +79,17 @@ class CallSyncWorker(
                         phoneNumber = phone
                     )
                     Log.i(TAG, "Call recording uploaded successfully!")
+
+                    // 3. Auto-Cleanup local storage if enabled (default true to prevent clogging phone memory)
+                    val autoDeleteLocal = prefs.getBoolean("auto_delete_local_recordings", true)
+                    if (autoDeleteLocal) {
+                        try {
+                            val deleted = audioFile.delete()
+                            Log.i(TAG, "Local audio file deleted to save phone memory: $deleted (${audioFile.name})")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Could not delete local recording file: ${e.message}")
+                        }
+                    }
                 }
             }
 
