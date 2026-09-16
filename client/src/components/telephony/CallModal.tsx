@@ -13,11 +13,14 @@ import {
   Calendar,
   Clock,
   CheckSquare,
-  AlertTriangle
+  AlertTriangle,
+  Smartphone,
+  QrCode
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { soundService } from '../../services/sound.service';
 import { startSpeechToText } from '../../utils/speechRecognition';
+import { TelephonyPairModal } from './TelephonyPairModal';
 
 interface CallModalProps {
   dealId?: string;
@@ -51,7 +54,31 @@ export const CallModal: React.FC<CallModalProps> = ({
   const [nextTaskCustomDate, setNextTaskCustomDate] = useState('');
   const [nextTaskText, setNextTaskText] = useState(`Передзвонити ${contactName || 'клієнту'} за підсумками розмови`);
 
+  // Mobile Android SIM Integration states
+  const [isPairModalOpen, setIsPairModalOpen] = useState(false);
+  const [simCallSent, setSimCallSent] = useState(false);
+  const [isSendingSimCall, setIsSendingSimCall] = useState(false);
+
   const cleanPhone = (phoneNumber || '').replace(/\D/g, '');
+
+  const handleSimClickToCall = async () => {
+    setIsSendingSimCall(true);
+    try {
+      await api.post('/telephony/click-to-call', {
+        phoneNumber: phoneNumber || cleanPhone,
+        contactName,
+        dealId
+      });
+      setSimCallSent(true);
+      soundService.playSuccess();
+      setTimeout(() => setSimCallSent(false), 6000);
+    } catch (e) {
+      console.error('Failed to send SIM call command:', e);
+      alert('Помилка надсилання сигналу на смартфон');
+    } finally {
+      setIsSendingSimCall(false);
+    }
+  };
 
   const toggleVoiceDictation = () => {
     if (isDictating) {
@@ -183,6 +210,46 @@ export const CallModal: React.FC<CallModalProps> = ({
           </span>
 
           <div className="grid grid-cols-1 gap-2 text-xs">
+            {/* Click-to-Call on Android Smartphone SIM */}
+            <button
+              type="button"
+              onClick={handleSimClickToCall}
+              disabled={isSendingSimCall}
+              className={`w-full px-4 py-3 border rounded-2xl font-bold flex items-center justify-between transition group active:scale-[0.98] ${
+                simCallSent
+                  ? 'bg-emerald-600/30 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                  : 'bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border-indigo-500/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                  <Smartphone className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <div className="font-bold text-white group-hover:text-indigo-300 transition">
+                    {simCallSent ? '✅ Сигнал надіслано на смартфон!' : 'Дзвінок через SIM-карту смартфона'}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {simCallSent ? 'Смартфон розпочинає виклик з SIM' : 'Смартфон менеджера почне набір номера'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPairModalOpen(true);
+                  }}
+                  title="Підключити SIM-смартфон"
+                  className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition"
+                >
+                  <QrCode className="w-4 h-4" />
+                </button>
+                <PhoneCall className={`w-4 h-4 text-indigo-400 ${isSendingSimCall ? 'animate-spin' : ''}`} />
+              </div>
+            </button>
+
             {/* GSM / Phone Native Dialer */}
             <a
               href={`tel:${phoneNumber || cleanPhone}`}
@@ -373,6 +440,10 @@ export const CallModal: React.FC<CallModalProps> = ({
           </form>
         )}
       </div>
+
+      {isPairModalOpen && (
+        <TelephonyPairModal onClose={() => setIsPairModalOpen(false)} />
+      )}
     </div>
   );
 };

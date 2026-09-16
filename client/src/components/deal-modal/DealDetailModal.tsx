@@ -42,7 +42,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
-  PauseCircle
+  PauseCircle,
+  Smartphone
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -62,6 +63,7 @@ import { SlashCommandsPopup } from '../chat/SlashCommandsPopup';
 import { CannedResponse } from '../../constants/cannedResponses';
 import { ClientDetailModal } from '../contacts/ClientDetailModal';
 import { PauseDealModal } from '../modals/PauseDealModal';
+import { TelephonyPairModal } from '../telephony/TelephonyPairModal';
 
 const resolveMediaUrl = (url?: string) => {
   if (!url) return '';
@@ -126,6 +128,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
   const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
+  const [isTelephonyPairModalOpen, setIsTelephonyPairModalOpen] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string; messageId?: string; channel?: string } | null>(null);
 
   // Documents state
@@ -1698,6 +1701,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             >
               <PauseCircle className="w-3.5 h-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">Пауза</span>
+            </button>
+
+            {/* Android GSM SIM Telephony Pair Button */}
+            <button
+              type="button"
+              onClick={() => setIsTelephonyPairModalOpen(true)}
+              className="px-2.5 sm:px-3 py-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(59,130,246,0.15)]"
+              title="Підключити Android-смартфон для фіксації дзвінків з SIM-карти"
+            >
+              <Smartphone className="w-3.5 h-3.5" strokeWidth={2} />
+              <span className="hidden sm:inline">SIM-Шлюз</span>
             </button>
 
             {currentUser?.canDeleteDeals && (
@@ -4130,37 +4144,83 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <p className="text-[11px] text-slate-500">Зафіксуйте першу домовленість у формі вище</p>
                   </div>
                 ) : (
-                  (deal.notes || []).map((n: any) => (
-                    <div 
-                      key={n.id} 
-                      className="p-3.5 bg-[#080c16]/80 border border-white/[0.06] rounded-2xl space-y-2 group hover:border-amber-500/30 transition shadow-sm"
-                    >
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <div className="flex items-center gap-2 font-bold text-amber-300">
-                          <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-black uppercase border border-amber-500/30">
-                            {(n.user?.name || 'М').charAt(0)}
-                          </span>
-                          <span>{n.user?.name || 'Менеджер'}</span>
+                  (deal.notes || []).map((n: any) => {
+                    let meta: any = {};
+                    try { if (n.metadata) meta = JSON.parse(n.metadata); } catch {}
+                    const isCall = n.type === 'call_record' || (n.content && (n.content.includes('дзвінок') || n.content.includes('SIM-карт') || n.content.includes('📞')));
+                    const recordingUrl = meta?.recordingUrl;
+
+                    return (
+                      <div 
+                        key={n.id} 
+                        className={`p-3.5 bg-[#080c16]/80 border rounded-2xl space-y-2 group transition shadow-sm ${
+                          isCall 
+                            ? 'border-blue-500/30 hover:border-blue-500/50 bg-blue-950/15' 
+                            : 'border-white/[0.06] hover:border-amber-500/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs text-slate-400">
+                          <div className="flex items-center gap-2 font-bold">
+                            {isCall ? (
+                              <div className="flex items-center gap-2 text-blue-400">
+                                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center text-[11px] font-black border border-blue-500/30">
+                                  📞
+                                </span>
+                                <span>{n.user?.name || 'SIM Дзвінок'}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-amber-300">
+                                <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-black uppercase border border-amber-500/30">
+                                  {(n.user?.name || 'М').charAt(0)}
+                                </span>
+                                <span>{n.user?.name || 'Менеджер'}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-slate-400">
+                              {new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteNote(n.id)}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                              title="Видалити замітку"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-mono text-slate-400">
-                            {new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteNote(n.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
-                            title="Видалити замітку"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        <p className="text-slate-100 leading-relaxed whitespace-pre-line text-xs sm:text-sm pl-0.5">
+                          {n.content}
+                        </p>
+
+                        {/* Interactive Call Audio Player */}
+                        {recordingUrl && (
+                          <div className="mt-2.5 p-2 bg-[#060a14] border border-blue-500/30 rounded-xl flex items-center justify-between gap-2 shadow-inner">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <audio 
+                                controls 
+                                src={resolveMediaUrl(recordingUrl)} 
+                                className="w-full h-8 accent-blue-500" 
+                                preload="metadata"
+                              />
+                            </div>
+                            <a
+                              href={resolveMediaUrl(recordingUrl)}
+                              download
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Завантажити аудіозапис"
+                              className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition flex-shrink-0"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-slate-100 leading-relaxed whitespace-pre-line text-xs sm:text-sm pl-0.5">
-                        {n.content}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -4439,6 +4499,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           dealTitle={deal.title}
           onClose={() => setIsPauseModalOpen(false)}
           onConfirm={handleConfirmPauseDeal}
+        />
+      )}
+
+      {/* Telephony Android GSM SIM Pair Modal */}
+      {isTelephonyPairModalOpen && (
+        <TelephonyPairModal
+          onClose={() => setIsTelephonyPairModalOpen(false)}
         />
       )}
     </div>
