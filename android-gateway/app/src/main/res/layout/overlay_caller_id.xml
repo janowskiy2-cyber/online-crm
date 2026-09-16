@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#ee0b1120"
+    android:padding="16dp"
+    android:layout_margin="12dp"
+    android:elevation="12dp">
+
+    <!-- Top Row: CRM Badge + Close Button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="OnlineCRM • КАРТКА КЛІЄНТА"
+            android:textColor="#38bdf8"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnOverlayClose"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="✕"
+            android:textColor="#94a3b8"
+            android:textSize="18sp"
+            android:padding="4dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvOverlayClientName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Завантаження даних..."
+        android:textColor="#ffffff"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginTop="6dp" />
+
+    <TextView
+        android:id="@+id/tvOverlayCompany"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#cbd5e1"
+        android:textSize="13sp"
+        android:visibility="gone"
+        android:layout_marginTop="2dp" />
+
+    <TextView
+        android:id="@+id/tvOverlayDealInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#34d399"
+        android:textSize="12sp"
+        android:visibility="gone"
+        android:layout_marginTop="4dp" />
+
+    <TextView
+        android:id="@+id/tvOverlayLastNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#fbbf24"
+        android:textSize="11sp"
+        android:visibility="gone"
+        android:layout_marginTop="4dp"
+        android:maxLines="2" />
+</LinearLayout>

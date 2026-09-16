@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.onlinecrm.gateway">
@@ -28,6 +28,9 @@
     <!-- Camera for instant QR Code pairing -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Caller ID Floating Card Window -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -37,16 +40,22 @@
         android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
         android:usesCleartextTraffic="true">
 
+        <!-- Entry point: LoginActivity checks if already authenticated -->
         <activity
-            android:name=".MainActivity"
+            android:name=".LoginActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Pure Event-Driven BroadcastReceiver: 0% Idle Battery Drain -->
         <receiver
@@ -75,6 +84,12 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
+
+        <!-- Floating Caller ID Overlay Window -->
+        <service
+            android:name=".CallerIdOverlayService"
+            android:enabled="true"
+            android:exported="false" />
 
     </application>
 </manifest>

@@ -1,121 +1,363 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#090d16"
-    android:padding="16dp">
+    android:background="#070a12"
+    android:fillViewport="true">
 
-    <!-- Header Card -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#0e1424"
-        android:padding="16dp"
-        android:elevation="4dp"
-        android:layout_marginBottom="16dp">
+        android:padding="16dp">
 
-        <TextView
-            android:id="@+id/tvTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="OnlineCRM GSM Gateway"
-            android:textColor="#ffffff"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🟢 GSM Шлюз активний (SIM 1)"
-            android:textColor="#10b981"
-            android:textSize="13sp"
-            android:layout_marginTop="4dp" />
-
-        <TextView
-            android:id="@+id/tvManagerName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Менеджер: Адміністратор"
-            android:textColor="#94a3b8"
-            android:textSize="12sp"
-            android:layout_marginTop="2dp" />
-    </LinearLayout>
-
-    <!-- Configuration Card -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#0e1424"
-        android:padding="16dp"
-        android:layout_marginBottom="16dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Адреса сервера CRM:"
-            android:textColor="#94a3b8"
-            android:textSize="12sp" />
-
-        <EditText
-            android:id="@+id/etServerUrl"
+        <!-- Header Card -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="https://online-crm-alpha.vercel.app"
-            android:textColor="#ffffff"
-            android:textSize="14sp"
-            android:background="#080c16"
-            android:padding="10dp"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="12dp" />
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="16dp"
+            android:elevation="4dp"
+            android:layout_marginBottom="14dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ID Менеджера (з профілю CRM):"
-            android:textColor="#94a3b8"
-            android:textSize="12sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OnlineCRM GSM Gateway v2.0"
+                android:textColor="#ffffff"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/etUserId"
+            <TextView
+                android:id="@+id/tvGatewayStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🟢 Шлюз активний (Очікування дзвінків)"
+                android:textColor="#10b981"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:id="@+id/tvManagerInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Менеджер: Завантаження..."
+                android:textColor="#94a3b8"
+                android:textSize="12sp"
+                android:layout_marginTop="3dp" />
+
+            <TextView
+                android:id="@+id/tvServerInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Сервер: https://online-crm-alpha.vercel.app"
+                android:textColor="#64748b"
+                android:textSize="11sp"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <!-- Master Switch Card -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="usr-admin"
+            android:orientation="horizontal"
+            android:background="#0f172a"
+            android:gravity="center_vertical"
+            android:padding="14dp"
+            android:layout_marginBottom="14dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Синхронізація викликів"
+                    android:textColor="#ffffff"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Автоматична передача дзвінків та записів у CRM"
+                    android:textColor="#94a3b8"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchSyncEnabled"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true" />
+        </LinearLayout>
+
+        <!-- Dual-SIM Selector Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📇 Фільтрація SIM-карт (Вибір робочої SIM)"
+                android:textColor="#38bdf8"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Дзвінки з другої (особистої) SIM-карти будуть повністю ігноруватися і не потраплять до бази CRM."
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="3dp"
+                android:layout_marginBottom="10dp" />
+
+            <RadioGroup
+                android:id="@+id/rgSimFilter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rbSimAll"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Всі SIM-карти (Синхронізувати всі виклики)"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp" />
+
+                <RadioButton
+                    android:id="@+id/rbSim1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Тільки SIM 1 (Робоча SIM, SIM 2 ігнорується)"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp" />
+
+                <RadioButton
+                    android:id="@+id/rbSim2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Тільки SIM 2 (Робоча SIM, SIM 1 ігнорується)"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <!-- Work Hours Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🕒 Робочі години (Пн-Пт)"
+                    android:textColor="#fbbf24"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchWorkHours"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Дзвінки у вихідні (Сб, Нд) та поза вказаним часом не зберігаються."
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="З "
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/etWorkStartHour"
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:text="9"
+                    android:textColor="#ffffff"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:background="#070a12"
+                    android:padding="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=":00   до "
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/etWorkEndHour"
+                    android:layout_width="60dp"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:text="19"
+                    android:textColor="#ffffff"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:background="#070a12"
+                    android:padding="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=":00"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Personal Blacklist Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🛡️ Особистий чорний список"
+                android:textColor="#f87171"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Номери через кому, які ніколи не будуть завантажені у CRM:"
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="3dp"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/etBlacklist"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:hint="+380501112233, +380679998877"
+                android:textColorHint="#475569"
+                android:textColor="#ffffff"
+                android:textSize="13sp"
+                android:gravity="top|start"
+                android:background="#070a12"
+                android:padding="8dp" />
+        </LinearLayout>
+
+        <!-- Caller ID Overlay Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="👤 Caller ID (Спливаюча картка клієнта)"
+                android:textColor="#a855f7"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Показує картку клієнта поверх екрану смартфона при вхідному дзвінку (ім'я, сума угоди, етап, нотатка)."
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="3dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnOverlayPermission"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Дозволити показ поверх додатків"
+                android:backgroundTint="#7c3aed"
+                android:textColor="#ffffff"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Buttons -->
+        <Button
+            android:id="@+id/btnSaveSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="💾 Зберегти всі налаштування"
+            android:backgroundTint="#2563eb"
             android:textColor="#ffffff"
-            android:textSize="14sp"
-            android:background="#080c16"
-            android:padding="10dp"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="16dp" />
+            android:textStyle="bold"
+            android:padding="12dp"
+            android:layout_marginBottom="10dp" />
 
         <Button
-            android:id="@+id/btnSaveConfig"
+            android:id="@+id/btnOpenCrm"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Зберегти налаштування"
-            android:backgroundTint="#3b82f6"
-            android:textColor="#ffffff" />
+            android:text="🌐 Відкрити інтерфейс CRM"
+            android:backgroundTint="#4338ca"
+            android:textColor="#ffffff"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🚪 Вийти з облікового запису"
+            android:backgroundTint="#334155"
+            android:textColor="#cbd5e1"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Embedded CRM WebView -->
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="400dp"
+            android:visibility="gone" />
+
     </LinearLayout>
-
-    <!-- Open CRM Button -->
-    <Button
-        android:id="@+id/btnOpenCrm"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Відкрити інтерфейс CRM"
-        android:backgroundTint="#6366f1"
-        android:textColor="#ffffff"
-        android:layout_marginBottom="12dp" />
-
-    <!-- Embedded CRM WebView -->
-    <WebView
-        android:id="@+id/webView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:visibility="gone" />
-
-</LinearLayout>
+</ScrollView>

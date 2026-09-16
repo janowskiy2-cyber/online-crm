@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Smartphone, QrCode, CheckCircle2, ShieldCheck, RefreshCw, PhoneCall, Download } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -102,6 +102,33 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
             </div>
           )}
 
+          {/* Download APK Banner */}
+          <div className="p-3.5 bg-gradient-to-r from-blue-900/30 via-indigo-900/30 to-purple-900/30 border border-blue-500/40 rounded-2xl flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center flex-shrink-0 border border-blue-500/30">
+                <Download className="w-5 h-5 text-blue-300" />
+              </div>
+              <div>
+                <div className="font-bold text-white text-xs flex items-center gap-2">
+                  <span>OnlineCRM Gateway для Android</span>
+                  <span className="text-[10px] bg-blue-500/30 text-blue-200 px-1.5 py-0.2 rounded font-mono">v2.0 APK</span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  Встановіть на смартфон для підключення SIM-карти, запису та Caller ID
+                </p>
+              </div>
+            </div>
+            <a
+              href="/api/telephony/download-apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition shadow-md whitespace-nowrap active:scale-95 flex-shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Завантажити .apk</span>
+            </a>
+          </div>
+
           {/* QR Code Container */}
           <div className="flex flex-col items-center justify-center p-4 bg-[#080c16] border border-white/[0.08] rounded-2xl space-y-3">
             {loading ? (
@@ -117,27 +144,27 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
             ) : null}
 
             <p className="text-[11px] text-slate-400 text-center max-w-xs">
-              Наведіть камеру смартфона у додатку <strong>OnlineCRM Gateway</strong> для автоматичного з'єднання.
+              Увійдіть у додатку за <strong>Email/Паролем</strong> або наведіть камеру для швидкої авторизації.
             </p>
           </div>
 
           {/* Steps list */}
           <div className="space-y-2">
             <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
-              Інструкція з налаштування (за 1 хвилину):
+              Швидке налаштування за 1 хвилину:
             </span>
             <div className="space-y-1.5 text-[11px] text-slate-300">
               <div className="flex items-start gap-2 p-2 bg-white/[0.03] border border-white/[0.06] rounded-xl">
                 <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">1</span>
-                <span>Встановіть додаток <strong>OnlineCRM Gateway (.apk)</strong> на робочий Android-смартфон з SIM-картою.</span>
+                <span>Завантажте та встановіть <strong>OnlineCRM Gateway (.apk)</strong> на Android-смартфон.</span>
               </div>
               <div className="flex items-start gap-2 p-2 bg-white/[0.03] border border-white/[0.06] rounded-xl">
                 <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">2</span>
-                <span>Натисніть <strong>«Сканувати QR»</strong> у додатку та наведіть камеру на цей код.</span>
+                <span>Увійдіть у додаток під своїм корпоративним логіном або відскануйте QR-код.</span>
               </div>
               <div className="flex items-start gap-2 p-2 bg-white/[0.03] border border-white/[0.06] rounded-xl">
                 <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">3</span>
-                <span>Увімкніть в налаштуваннях Android штатну функцію <strong>«Автозапис викликів»</strong> (підтримується на Xiaomi, Samsung, OnePlus тощо).</span>
+                <span>Оберіть робочу SIM-карту (SIM 1 або SIM 2), щоб особисті дзвінки не потрапляли в CRM.</span>
               </div>
             </div>
           </div>

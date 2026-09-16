@@ -1,5 +1,5 @@
-﻿package com.onlinecrm.gateway
-
+package com.onlinecrm.gateway
+ 
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -13,11 +13,9 @@ import android.view.View
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
@@ -25,83 +23,190 @@ class MainActivity : AppCompatActivity() {
 
     private val PERMISSIONS_REQUEST_CODE = 1001
 
-    private lateinit var tvStatus: TextView
-    private lateinit var tvManagerName: TextView
-    private lateinit var etServerUrl: EditText
-    private lateinit var etUserId: EditText
-    private lateinit var btnSaveConfig: Button
+    private lateinit var tvGatewayStatus: TextView
+    private lateinit var tvManagerInfo: TextView
+    private lateinit var tvServerInfo: TextView
+
+    private lateinit var switchSyncEnabled: SwitchCompat
+    private lateinit var rgSimFilter: RadioGroup
+    private lateinit var rbSimAll: RadioButton
+    private lateinit var rbSim1: RadioButton
+    private lateinit var rbSim2: RadioButton
+
+    private lateinit var switchWorkHours: SwitchCompat
+    private lateinit var etWorkStartHour: EditText
+    private lateinit var etWorkEndHour: EditText
+
+    private lateinit var etBlacklist: EditText
+    private lateinit var btnOverlayPermission: Button
+
+    private lateinit var btnSaveSettings: Button
     private lateinit var btnOpenCrm: Button
+    private lateinit var btnLogout: Button
     private lateinit var webView: WebView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("is_logged_in", false)) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
+
         setContentView(R.layout.activity_main)
 
-        tvStatus = findViewById(R.id.tvStatus)
-        tvManagerName = findViewById(R.id.tvManagerName)
-        etServerUrl = findViewById(R.id.etServerUrl)
-        etUserId = findViewById(R.id.etUserId)
-        btnSaveConfig = findViewById(R.id.btnSaveConfig)
-        btnOpenCrm = findViewById(R.id.btnOpenCrm)
-        webView = findViewById(R.id.webView)
-
-        loadSavedConfig()
+        initViews()
+        loadSettings()
         checkAndRequestPermissions()
         startGatewayService()
+        requestBatteryOptimizationExemption()
+    }
 
-        btnSaveConfig.setOnClickListener {
-            saveConfig()
+    private fun initViews() {
+        tvGatewayStatus = findViewById(R.id.tvGatewayStatus)
+        tvManagerInfo = findViewById(R.id.tvManagerInfo)
+        tvServerInfo = findViewById(R.id.tvServerInfo)
+
+        switchSyncEnabled = findViewById(R.id.switchSyncEnabled)
+        rgSimFilter = findViewById(R.id.rgSimFilter)
+        rbSimAll = findViewById(R.id.rbSimAll)
+        rbSim1 = findViewById(R.id.rbSim1)
+        rbSim2 = findViewById(R.id.rbSim2)
+
+        switchWorkHours = findViewById(R.id.switchWorkHours)
+        etWorkStartHour = findViewById(R.id.etWorkStartHour)
+        etWorkEndHour = findViewById(R.id.etWorkEndHour)
+
+        etBlacklist = findViewById(R.id.etBlacklist)
+        btnOverlayPermission = findViewById(R.id.btnOverlayPermission)
+
+        btnSaveSettings = findViewById(R.id.btnSaveSettings)
+        btnOpenCrm = findViewById(R.id.btnOpenCrm)
+        btnLogout = findViewById(R.id.btnLogout)
+        webView = findViewById(R.id.webView)
+
+        btnSaveSettings.setOnClickListener {
+            saveSettings()
         }
 
         btnOpenCrm.setOnClickListener {
             toggleCrmWebView()
         }
 
-        requestBatteryOptimizationExemption()
-    }
-
-    private fun loadSavedConfig() {
-        val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
-        val serverUrl = prefs.getString("crm_server_url", "https://online-crm-alpha.vercel.app")
-        val userId = prefs.getString("crm_user_id", "usr-admin")
-        val userName = prefs.getString("crm_user_name", "Адміністратор")
-
-        etServerUrl.setText(serverUrl)
-        etUserId.setText(userId)
-        tvManagerName.text = "Менеджер: $userName ($userId)"
-        tvStatus.text = "🟢 GSM Шлюз активний (SIM 1)"
-    }
-
-    private fun saveConfig() {
-        val serverUrl = etServerUrl.text.toString().trim()
-        val userId = etUserId.text.toString().trim()
-
-        if (serverUrl.isEmpty() || userId.isEmpty()) {
-            Toast.makeText(this, "Заповніть всі поля", Toast.LENGTH_SHORT).show()
-            return
+        btnLogout.setOnClickListener {
+            logout()
         }
 
+        btnOverlayPermission.setOnClickListener {
+            requestOverlayPermission()
+        }
+
+        switchSyncEnabled.setOnCheckedChangeListener { _, isChecked ->
+            updateStatusText(isChecked)
+        }
+    }
+
+    private fun loadSettings() {
         val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
+        val userName = prefs.getString("crm_user_name", "Користувач")
+        val userEmail = prefs.getString("crm_user_email", "")
+        val serverUrl = prefs.getString("crm_server_url", "https://online-crm-alpha.vercel.app")
+
+        tvManagerInfo.text = "Менеджер: $userName ($userEmail)"
+        tvServerInfo.text = "Сервер: $serverUrl"
+
+        val syncEnabled = prefs.getBoolean("sync_enabled", true)
+        switchSyncEnabled.isChecked = syncEnabled
+        updateStatusText(syncEnabled)
+
+        when (prefs.getInt("active_sim_slot", 0)) {
+            1 -> rbSim1.isChecked = true
+            2 -> rbSim2.isChecked = true
+            else -> rbSimAll.isChecked = true
+        }
+
+        switchWorkHours.isChecked = prefs.getBoolean("work_hours_enabled", false)
+        etWorkStartHour.setText(prefs.getInt("work_hours_start", 9).toString())
+        etWorkEndHour.setText(prefs.getInt("work_hours_end", 19).toString())
+
+        etBlacklist.setText(prefs.getString("blacklist_phones", ""))
+    }
+
+    private fun saveSettings() {
+        val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
+        val simSlot = when (rgSimFilter.checkedRadioButtonId) {
+            R.id.rbSim1 -> 1
+            R.id.rbSim2 -> 2
+            else -> 0
+        }
+
+        val startHour = etWorkStartHour.text.toString().toIntOrNull() ?: 9
+        val endHour = etWorkEndHour.text.toString().toIntOrNull() ?: 19
+
         prefs.edit()
-            .putString("crm_server_url", serverUrl)
-            .putString("crm_user_id", userId)
+            .putBoolean("sync_enabled", switchSyncEnabled.isChecked)
+            .putInt("active_sim_slot", simSlot)
+            .putBoolean("work_hours_enabled", switchWorkHours.isChecked)
+            .putInt("work_hours_start", startHour)
+            .putInt("work_hours_end", endHour)
+            .putString("blacklist_phones", etBlacklist.text.toString().trim())
             .apply()
 
-        Toast.makeText(this, "Налаштування збережено!", Toast.LENGTH_SHORT).show()
-        loadSavedConfig()
-        startGatewayService()
+        updateStatusText(switchSyncEnabled.isChecked)
+        Toast.makeText(this, "✅ Налаштування збережено!", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateStatusText(enabled: Boolean) {
+        if (enabled) {
+            tvGatewayStatus.text = "🟢 Шлюз активний (Синхронізація увімкнена)"
+            tvGatewayStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light))
+        } else {
+            tvGatewayStatus.text = "🔴 Шлюз на паузі (Синхронізація вимкнена)"
+            tvGatewayStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_light))
+        }
+    }
+
+    private fun requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "Дозвіл вже надано!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun logout() {
+        val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("is_logged_in", false)
+            .remove("jwt_token")
+            .apply()
+
+        // Stop foreground service
+        stopService(Intent(this, TelephonyGatewayService::class.java))
+
+        Toast.makeText(this, "Ви вийшли з акаунту", Toast.LENGTH_SHORT).show()
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
     }
 
     private fun toggleCrmWebView() {
         if (webView.visibility == View.VISIBLE) {
             webView.visibility = View.GONE
-            btnOpenCrm.text = "Відкрити інтерфейс CRM"
+            btnOpenCrm.text = "🌐 Відкрити інтерфейс CRM"
         } else {
             val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
             val serverUrl = prefs.getString("crm_server_url", "https://online-crm-alpha.vercel.app") ?: "https://online-crm-alpha.vercel.app"
 
             webView.visibility = View.VISIBLE
-            btnOpenCrm.text = "Закрити CRM"
+            btnOpenCrm.text = "❌ Закрити CRM"
 
             webView.settings.apply {
                 javaScriptEnabled = true
@@ -162,3 +267,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+

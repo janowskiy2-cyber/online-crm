@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#090d16"
+    android:padding="24dp">
+
+    <!-- Logo / Brand Card -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_marginBottom="28dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="OnlineCRM"
+            android:textColor="#ffffff"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="GSM SIM Шлюз • Вхід співробітника"
+            android:textColor="#3b82f6"
+            android:textSize="13sp"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
+    <!-- Form Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#0e1424"
+        android:padding="20dp"
+        android:elevation="6dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Сервер CRM:"
+            android:textColor="#94a3b8"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etLoginServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="https://online-crm-alpha.vercel.app"
+            android:textColor="#ffffff"
+            android:textSize="13sp"
+            android:background="#080c16"
+            android:padding="12dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Робочий Email менеджера:"
+            android:textColor="#94a3b8"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etLoginEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="admin@crm.pro"
+            android:textColorHint="#475569"
+            android:textColor="#ffffff"
+            android:textSize="14sp"
+            android:inputType="textEmailAddress"
+            android:background="#080c16"
+            android:padding="12dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Пароль:"
+            android:textColor="#94a3b8"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etLoginPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Введіть пароль"
+            android:textColorHint="#475569"
+            android:textColor="#ffffff"
+            android:textSize="14sp"
+            android:inputType="textPassword"
+            android:background="#080c16"
+            android:padding="12dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:id="@+id/tvLoginError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#f43f5e"
+            android:textSize="12sp"
+            android:visibility="gone"
+            android:layout_marginBottom="10dp" />
+
+        <ProgressBar
+            android:id="@+id/loginProgressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnLoginSubmit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Увійти та підключити SIM"
+            android:backgroundTint="#2563eb"
+            android:textColor="#ffffff"
+            android:textStyle="bold"
+            android:padding="12dp" />
+    </LinearLayout>
+
+</LinearLayout>

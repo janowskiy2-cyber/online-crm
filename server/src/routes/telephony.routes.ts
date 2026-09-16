@@ -553,11 +553,86 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         }
       }
 
-      res.json({ success: true, status: 'processed' });
+      res.json({ success: true });
     } catch (err: any) {
       console.error('Telephony webhook error:', err);
-      res.status(500).json({ error: 'Помилка обробки події телефонії' });
+      res.status(500).json({ error: 'Помилка обробки вебхука' });
     }
+  });
+
+  /**
+   * 8. GET /api/telephony/caller-info
+   * Ultra-fast (<100ms) lookup for Android Caller ID Overlay
+   */
+  router.get('/caller-info', async (req, res) => {
+    try {
+      const phoneParam = req.query.phone as string;
+      if (!phoneParam) {
+        return res.status(400).json({ error: 'phone є обов’язковим' });
+      }
+
+      const clean = phoneParam.replace(/\D/g, '');
+      const contact = await prisma.contact.findFirst({
+        where: {
+          OR: [
+            { phone: { contains: clean.slice(-9) } },
+            { phone2: { contains: clean.slice(-9) } },
+            { whatsapp: { contains: clean.slice(-9) } }
+          ]
+        },
+        include: {
+          company: true,
+          deals: {
+            where: { isDeleted: false },
+            orderBy: { updatedAt: 'desc' },
+            take: 1,
+            include: {
+              stage: true,
+              notes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1
+              }
+            }
+          }
+        }
+      });
+
+      if (!contact) {
+        return res.json({ found: false, phoneNumber: `+${clean}` });
+      }
+
+      const activeDeal = contact.deals?.[0];
+      const lastNote = activeDeal?.notes?.[0];
+
+      res.json({
+        found: true,
+        contactId: contact.id,
+        contactName: contact.name,
+        companyName: contact.company?.name || null,
+        dealId: activeDeal?.id || null,
+        dealTitle: activeDeal?.title || null,
+        dealBudget: activeDeal?.budget || 0,
+        stageName: activeDeal?.stage?.name || null,
+        stageColor: activeDeal?.stage?.color || '#3b82f6',
+        lastNoteContent: lastNote?.content || null
+      });
+    } catch (err: any) {
+      console.error('Caller info lookup error:', err);
+      res.status(500).json({ error: 'Помилка пошуку контакту' });
+    }
+  });
+
+  /**
+   * 9. GET /api/telephony/download-apk
+   * Direct download of the signed Android APK for managers
+   */
+  router.get('/download-apk', (req, res) => {
+    const localApkPath = path.join(process.cwd(), 'uploads', 'OnlineCRM-Gateway.apk');
+    if (fs.existsSync(localApkPath)) {
+      return res.download(localApkPath, 'OnlineCRM-Gateway.apk');
+    }
+    // Fallback: Redirect to GitHub Releases latest APK
+    res.redirect('https://github.com/janowskiy2-cyber/online-crm/releases/latest/download/OnlineCRM-Gateway.apk');
   });
 
   return router;
