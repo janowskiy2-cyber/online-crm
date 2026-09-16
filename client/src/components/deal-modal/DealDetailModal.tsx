@@ -120,7 +120,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
-  const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string } | null>(null);
+  const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string; messageId?: string; channel?: string } | null>(null);
 
   // Documents state
   const [docCategory, setDocCategory] = useState('Договір з підприємством');
@@ -3062,7 +3062,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'video', title: item.text || 'Відеоповідомлення' })}
+                                  onClick={() => setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'video', title: item.text || 'Відеоповідомлення', messageId: item.id, channel: item.channel })}
                                   className="p-1 hover:text-blue-400 text-slate-400 hover:bg-slate-800 rounded-lg transition ml-2 flex-shrink-0"
                                   title="Відкрити у вікні перегляду"
                                 >
@@ -3072,7 +3072,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             </div>
                           ) : isImage && item.mediaUrl ? (
                             <div
-                              onClick={() => setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'image', title: 'Фото від клієнта' })}
+                              onClick={() => setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'image', title: 'Фото від клієнта', messageId: item.id, channel: item.channel })}
                               className="cursor-pointer max-w-xs rounded-2xl overflow-hidden border border-slate-700 shadow-md hover:opacity-90 transition"
                             >
                               <img src={resolveMediaUrl(item.mediaUrl)} alt="Зображення" className="w-full object-cover max-h-48" />
@@ -3082,7 +3082,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                               <div
                                 onClick={() => {
                                   if (isFile && item.mediaUrl) {
-                                    setViewingMedia({ url: resolveMediaUrl(item.mediaUrl), type: 'document', title: item.text || 'Документ' });
+                                    setViewingMedia({
+                                      url: resolveMediaUrl(item.mediaUrl),
+                                      type: item.mediaType === 'image' ? 'image' : (item.mediaType === 'video' ? 'video' : 'document'),
+                                      title: item.text || 'Документ',
+                                      messageId: item.id,
+                                      channel: item.channel
+                                    });
                                   }
                                 }}
                                 className={`rounded-2xl px-4 py-2.5 text-xs shadow-md select-text cursor-text ${
@@ -3992,6 +3998,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           mediaUrl={viewingMedia.url}
           mediaType={viewingMedia.type}
           title={viewingMedia.title}
+          messageId={viewingMedia.messageId}
+          channel={viewingMedia.channel}
           onClose={() => setViewingMedia(null)}
         />
       )}

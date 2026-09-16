@@ -80,7 +80,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   
   // Voice Recording & Telephony & Media View state
   const [isVoiceRecording, setIsVoiceRecording] = useState(false);
-  const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string } | null>(null);
+  const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string; messageId?: string; channel?: string } | null>(null);
   const [activeCall, setActiveCall] = useState<{ name: string; phone: string; type: 'whatsapp' | 'telegram' | 'gsm' } | null>(null);
 
   // File upload state
@@ -1226,7 +1226,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                           </div>
                           <button
                             type="button"
-                            onClick={() => setViewingMedia({ url: resolveMediaUrl(m.mediaUrl), type: 'video', title: m.text || 'Відеоповідомлення' })}
+                            onClick={() => setViewingMedia({ url: resolveMediaUrl(m.mediaUrl), type: 'video', title: m.text || 'Відеоповідомлення', messageId: m.id, channel: m.channel })}
                             className="p-1 hover:text-blue-400 text-slate-400 hover:bg-slate-800 rounded-lg transition ml-2 flex-shrink-0"
                             title="Відкрити у вікні перегляду"
                           >
@@ -1236,7 +1236,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                       </div>
                     ) : isImage && m.mediaUrl ? (
                       <div
-                        onClick={() => setViewingMedia({ url: resolveMediaUrl(m.mediaUrl), type: 'image', title: 'Фото' })}
+                        onClick={() => setViewingMedia({ url: resolveMediaUrl(m.mediaUrl), type: 'image', title: 'Фото', messageId: m.id, channel: m.channel })}
                         className="cursor-pointer max-w-xs rounded-2xl overflow-hidden border border-slate-700/80 shadow-lg hover:opacity-90 transition"
                       >
                         <img src={resolveMediaUrl(m.mediaUrl)} alt="Зображення" className="w-full object-cover max-h-48" />
@@ -1249,7 +1249,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                               setViewingMedia({
                                 url: resolveMediaUrl(m.mediaUrl),
                                 type: m.mediaType === 'image' ? 'image' : (m.mediaType === 'video' ? 'video' : 'pdf'),
-                                title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '').replace('📄 [Документ PDF] ', '').replace('📄 [Документ] ', '')
+                                title: m.text.replace('📎 Файл: ', '').replace('📎 Файл TG: ', '').replace('📄 [Документ PDF] ', '').replace('📄 [Документ] ', ''),
+                                messageId: m.id,
+                                channel: m.channel
                               });
                             }
                           }}
@@ -2101,6 +2103,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           mediaUrl={viewingMedia.url}
           mediaType={viewingMedia.type}
           title={viewingMedia.title}
+          messageId={viewingMedia.messageId}
+          channel={viewingMedia.channel}
           onClose={() => setViewingMedia(null)}
         />
       )}

@@ -12,12 +12,14 @@ import {
   Maximize2
 } from 'lucide-react';
 
-import { resolveMediaUrl } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 
 interface MediaViewerModalProps {
   mediaUrl: string;
   mediaType: 'image' | 'pdf' | 'video' | 'document';
   title?: string;
+  messageId?: string;
+  channel?: string;
   onClose: () => void;
 }
 
@@ -25,15 +27,41 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
   mediaUrl,
   mediaType,
   title = 'Перегляд файлу',
+  messageId,
+  channel,
   onClose
 }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [hasError, setHasError] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState(mediaUrl);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const [refetchError, setRefetchError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    setCurrentUrl(mediaUrl);
+  }, [mediaUrl]);
 
   const resolvedUrl = React.useMemo(() => {
-    return resolveMediaUrl(mediaUrl);
-  }, [mediaUrl]);
+    return resolveMediaUrl(currentUrl);
+  }, [currentUrl]);
+
+  const handleRefetch = async () => {
+    if (!messageId) return;
+    setIsRefetching(true);
+    setRefetchError(null);
+    try {
+      const res = await api.post(`/chat/messages/${messageId}/refetch-media`);
+      if (res.data?.mediaUrl) {
+        setCurrentUrl(res.data.mediaUrl);
+        setHasError(false);
+      }
+    } catch (err: any) {
+      setRefetchError(err.response?.data?.error || err.message || 'Не вдалося підтягнути файл');
+    } finally {
+      setIsRefetching(false);
+    }
+  };
 
   React.useEffect(() => {
     setHasError(false);
@@ -165,7 +193,23 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
               </ul>
             </div>
 
-            <div className="flex items-center justify-center gap-2 pt-2">
+            {refetchError && (
+              <p className="text-[11px] text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 text-center">
+                ⚠️ {refetchError}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+              {messageId && (
+                <button
+                  onClick={handleRefetch}
+                  disabled={isRefetching}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
+                  <span>{isRefetching ? 'Завантаження з серверів...' : `Підтягнути з ${channel === 'telegram' ? 'Telegram' : 'WhatsApp'}`}</span>
+                </button>
+              )}
               <a
                 href={resolvedUrl}
                 target="_blank"
@@ -173,7 +217,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Спробувати пряме посилання</span>
+                <span>Пряме посилання</span>
               </a>
               <button
                 onClick={onClose}

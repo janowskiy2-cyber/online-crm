@@ -426,7 +426,7 @@ export class WhatsAppService {
             }
 
             const pushName = msg.pushName || (isFromMe ? 'Менеджер' : `Клієнт (+${cleanPhone})`);
-            await this.processIncomingOrOutgoingMessage(cleanPhone, pushName, text, isFromMe, mediaUrl, mediaType);
+            await this.processIncomingOrOutgoingMessage(cleanPhone, pushName, text, isFromMe, mediaUrl, mediaType, msg.key?.id);
           }
         } catch (err) {
           console.error('Error handling WhatsApp message upsert:', err);
@@ -590,7 +590,8 @@ export class WhatsAppService {
     text: string,
     isFromMe: boolean,
     mediaUrl?: string,
-    mediaType?: string
+    mediaType?: string,
+    externalMsgId?: string
   ) {
     try {
       if (!cleanPhone) return;
@@ -660,7 +661,8 @@ export class WhatsAppService {
           text,
           mediaUrl: mediaUrl || null,
           mediaType: mediaType || null,
-          status: 'sent'
+          status: 'sent',
+          externalMsgId: externalMsgId || null
         }
       });
 
@@ -879,31 +881,36 @@ export class WhatsAppService {
 
     this.markMessageAsSentLocally(cleanPhone, caption || finalFileName);
 
+    let extMsgId: string | undefined;
     try {
+      let sentMsg: any = null;
       if (mimeType.startsWith('image/')) {
-        await this.sock.sendMessage(targetJid, {
+        sentMsg = await this.sock.sendMessage(targetJid, {
           image: buffer,
           caption: caption || finalFileName
         });
       } else if (mimeType.startsWith('audio/') || isVoice) {
-        await this.sock.sendMessage(targetJid, {
+        sentMsg = await this.sock.sendMessage(targetJid, {
           audio: buffer,
           mimetype: 'audio/ogg; codecs=opus',
           ptt: true
         });
       } else if (isVideo) {
-        await this.sock.sendMessage(targetJid, {
+        sentMsg = await this.sock.sendMessage(targetJid, {
           video: buffer,
           caption: caption || finalFileName,
           mimetype: mimeType || 'video/mp4'
         });
       } else {
-        await this.sock.sendMessage(targetJid, {
+        sentMsg = await this.sock.sendMessage(targetJid, {
           document: buffer,
           mimetype: mimeType || 'application/pdf',
           fileName: finalFileName,
           caption: caption || finalFileName
         });
+      }
+      if (sentMsg?.key?.id) {
+        extMsgId = sentMsg.key.id;
       }
     } catch (err: any) {
       console.error('Error sending file via WhatsApp:', err);
@@ -931,7 +938,8 @@ export class WhatsAppService {
         text: fileLabel,
         mediaUrl: savedMediaUrl,
         mediaType: isVoice ? 'audio' : (mimeType.startsWith('image/') ? 'image' : (isVideo ? 'video' : 'pdf')),
-        status: 'sent'
+        status: 'sent',
+        externalMsgId: extMsgId || null
       }
     });
 
@@ -992,5 +1000,27 @@ export class WhatsAppService {
       console.warn('WhatsApp onWhatsApp check error:', e);
       return { exists: false, phoneLink };
     }
+  }
+
+  public async refetchMedia(chatMessageId: string): Promise<{ success: boolean; mediaUrl?: string; error?: string }> {
+    if (!this.sock || this.status !== 'connected') {
+      return { success: false, error: 'WhatsApp не підключений до CRM. Відскануйте QR-код або перевірте статус у розділі "Шлюз"' };
+    }
+
+    const msg = await this.prisma.chatMessage.findUnique({
+      where: { id: chatMessageId },
+      include: { contact: true }
+    });
+    if (!msg) return { success: false, error: 'Повідомлення не знайдено' };
+
+    const phone = msg.senderPhone || msg.contact?.phone || msg.contact?.whatsapp;
+    if (!phone) return { success: false, error: 'Не вказано номер телефону контакту WhatsApp' };
+
+    // In WhatsApp, media is end-to-end encrypted on phone.
+    // If the file was sent or received while phone was linked, inform manager or provide manual re-upload
+    return {
+      success: false,
+      error: 'У WhatsApp медіафайли зберігаються на пристрої з наскрізним шифруванням. Відкрийте оригінальний чат у додатку WhatsApp або надішліть файл повторно у CRM.'
+    };
   }
 }

@@ -300,5 +300,31 @@ export function createChatRouter(
     }
   });
 
+  // 11. Refetch lost/expired media directly from Telegram or WhatsApp
+  router.post('/messages/:id/refetch-media', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const msg = await prisma.chatMessage.findUnique({ where: { id } });
+      if (!msg) return res.status(404).json({ error: 'Повідомлення не знайдено' });
+
+      let result: { success: boolean; mediaUrl?: string; error?: string };
+      if (msg.channel === 'telegram') {
+        result = await telegramService.refetchMedia(id);
+      } else if (msg.channel === 'whatsapp') {
+        result = await whatsappService.refetchMedia(id);
+      } else {
+        return res.status(400).json({ error: 'Цей канал не підтримує відновлення з серверів' });
+      }
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.json(result);
+    } catch (e: any) {
+      console.error('Failed to refetch media:', e);
+      res.status(500).json({ error: e.message || 'Помилка відновлення файлу з месенджера' });
+    }
+  });
+
   return router;
 }

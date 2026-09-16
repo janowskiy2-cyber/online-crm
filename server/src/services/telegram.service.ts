@@ -280,7 +280,7 @@ export class TelegramService {
           text = '[Повідомлення Telegram]';
         }
 
-        await this.handleIncomingMessage(senderUsername, senderName, text, String(sender?.id), mediaUrl, mediaType);
+        await this.handleIncomingMessage(senderUsername, senderName, text, String(sender?.id), mediaUrl, mediaType, String(message.id));
       } catch (err) {
         console.error('Error handling incoming MTProto message:', err);
       }
@@ -462,6 +462,7 @@ export class TelegramService {
       savedMediaUrl = `${serverHost}${savedMediaUrl}`;
     }
 
+    let extMsgId: string | undefined;
     if (this.client && this.status === 'connected') {
       try {
         const peer = await this.resolvePeer(toTgIdOrUsername);
@@ -503,9 +504,14 @@ export class TelegramService {
           ];
         }
 
-        await this.client.sendFile(peer, sendOptions);
+        try {
+          const sendRes: any = await this.client.sendFile(peer, sendOptions);
+          if (sendRes?.id) extMsgId = String(sendRes.id);
+        } catch (sErr: any) {
+          console.warn('⚠️ [Telegram] Warning sending MTProto file (media safely persisted in Cloudinary & CRM):', sErr?.message || sErr);
+        }
       } catch (err: any) {
-        console.warn('⚠️ [Telegram] Warning sending MTProto file (media safely persisted in Cloudinary & CRM):', err?.message || err);
+        console.warn('⚠️ [Telegram] Error preparing MTProto file:', err?.message || err);
       }
     } else {
       console.warn('⚠️ [Telegram] Client not connected, media stored in CRM inbox');
@@ -527,7 +533,8 @@ export class TelegramService {
         text: fileLabel,
         mediaUrl: savedMediaUrl,
         mediaType: isVoice ? 'audio' : (mimeType.startsWith('image/') ? 'image' : (isVideoMsg ? 'video' : (mimeType === 'application/pdf' ? 'pdf' : 'document'))),
-        status: 'sent'
+        status: 'sent',
+        externalMsgId: extMsgId || null
       }
     });
 
@@ -544,7 +551,8 @@ export class TelegramService {
     text: string,
     tgId?: string,
     mediaUrl?: string,
-    mediaType?: string
+    mediaType?: string,
+    externalMsgId?: string
   ) {
     try {
       const cleanPhone = username.replace(/\D/g, '');
@@ -631,7 +639,8 @@ export class TelegramService {
           text,
           mediaUrl: mediaUrl || null,
           mediaType: mediaType || null,
-          status: 'sent'
+          status: 'sent',
+          externalMsgId: externalMsgId || null
         }
       });
 
@@ -700,4 +709,90 @@ export class TelegramService {
       });
     } catch (e) {}
   }
+
+  public async refetchMedia(chatMessageId: string): Promise<{ success: boolean; mediaUrl?: string; error?: string }> {
+    if (!this.client || this.status !== 'connected') {
+      return { success: false, error: 'Telegram не підключений до CRM. Авторизуйтесь у Telegram у розділі "Шлюз"' };
+    }
+
+    const msg = await this.prisma.chatMessage.findUnique({
+      where: { id: chatMessageId },
+      include: { contact: true }
+    });
+    if (!msg) return { success: false, error: 'Повідомлення не знайдено' };
+
+    const peer = msg.senderTgId || msg.contact?.telegram || msg.contact?.phone;
+    if (!peer) return { success: false, error: 'Не вказано Telegram юзернейм або номер контакту' };
+
+    try {
+      const cleanPeer = peer.replace('https://t.me/', '').replace('tg_', '');
+      let tgMessage: any = null;
+
+      // 1. Try by externalMsgId
+      if (msg.externalMsgId && !isNaN(Number(msg.externalMsgId))) {
+        try {
+          const msgs = await this.client.getMessages(cleanPeer, { ids: [Number(msg.externalMsgId)] });
+          if (msgs && msgs[0] && msgs[0].media) {
+            tgMessage = msgs[0];
+          }
+        } catch (e) {}
+      }
+
+      // 2. If not found by externalMsgId, search recent messages in dialog for media
+      if (!tgMessage) {
+        const dialogMsgs = await this.client.getMessages(cleanPeer, { limit: 50 });
+        for (const m of dialogMsgs) {
+          if (m && m.media) {
+            const isMatch = (msg.text && m.text && m.text.includes(msg.text.slice(0, 20))) ||
+              (msg.createdAt && Math.abs(new Date(m.date * 1000).getTime() - new Date(msg.createdAt).getTime()) < 86400000);
+            if (isMatch) {
+              tgMessage = m;
+              break;
+            }
+          }
+        }
+        if (!tgMessage && dialogMsgs.length > 0) {
+          tgMessage = dialogMsgs.find(m => m && m.media) || null;
+        }
+      }
+
+      if (!tgMessage || !tgMessage.media) {
+        return { success: false, error: 'Файл не знайдено на серверах Telegram для цього діалогу' };
+      }
+
+      const mediaBuffer = await this.client.downloadMedia(tgMessage);
+      if (!mediaBuffer || !Buffer.isBuffer(mediaBuffer) || mediaBuffer.length === 0) {
+        return { success: false, error: 'Не вдалося завантажити медіа з серверів Telegram' };
+      }
+
+      let fileName = `tg_restored_${Date.now()}`;
+      let mimeType = 'application/octet-stream';
+      if (tgMessage.photo) {
+        fileName = `photo_${Date.now()}.jpg`;
+        mimeType = 'image/jpeg';
+      } else if (tgMessage.document) {
+        mimeType = tgMessage.document.mimeType || 'application/octet-stream';
+        fileName = `doc_${Date.now()}.${mimeType === 'application/pdf' ? 'pdf' : (mimeType.startsWith('image/') ? 'jpg' : 'bin')}`;
+      }
+
+      const newUrl = await CloudinaryService.uploadBuffer(mediaBuffer, fileName, mimeType);
+      await this.prisma.chatMessage.update({
+        where: { id: chatMessageId },
+        data: {
+          mediaUrl: newUrl,
+          externalMsgId: String(tgMessage.id)
+        }
+      });
+
+      if (this.io) {
+        this.io.emit('message_media_updated', { id: chatMessageId, mediaUrl: newUrl });
+      }
+
+      return { success: true, mediaUrl: newUrl };
+    } catch (err: any) {
+      console.error('Error refetching media from Telegram:', err);
+      return { success: false, error: err.message || 'Помилка завантаження з Telegram' };
+    }
+  }
 }
+
