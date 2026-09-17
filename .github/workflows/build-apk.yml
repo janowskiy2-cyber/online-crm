@@ -54,12 +54,23 @@ jobs:
       - name: Build Release APK with Gradle
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: |
           cd android-gateway
-          gradle assembleRelease --no-daemon --stacktrace > build.log 2>&1 || {
-            cat build.log | tail -n 120
+          sudo chmod +x /opt/gradle-8.5/bin/gradle
+          /opt/gradle-8.5/bin/gradle assembleRelease --stacktrace > build.log 2>&1 || true
+          cat build.log
+          if [ ! -f "app/build/outputs/apk/release/app-release.apk" ] && [ ! -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+            echo "ERROR: APK was not generated!"
             exit 1
-          }
+          fi
+
+      - name: Upload Build Log if Failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: android-gateway/build.log
 
       - name: Rename and Prepare APK
         run: |
