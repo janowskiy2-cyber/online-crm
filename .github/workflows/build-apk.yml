@@ -1,4 +1,4 @@
-﻿name: Build & Sign Android Gateway APK
+name: Build & Sign Android Gateway APK
 
 on:
   push:
@@ -25,19 +25,20 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
 
-      - name: Make Gradle executable
+      - name: Generate Gradle Wrapper in project
         run: |
           cd android-gateway
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.5
-          fi
+          gradle wrapper --gradle-version 8.5
           chmod +x gradlew
 
       - name: Generate Release Signing Key
         run: |
+          mkdir -p android-gateway/app
           cd android-gateway/app
           keytool -genkeypair -v \
             -keystore release.keystore \
@@ -50,9 +51,11 @@ jobs:
             -dname "CN=OnlineCRM, OU=Mobile, O=CRMPro, L=Kyiv, ST=Kyiv, C=UA"
 
       - name: Build Release APK with Gradle
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           cd android-gateway
-          ./gradlew assembleRelease \
+          ./gradlew assembleRelease --no-daemon \
             -Pandroid.injected.signing.store.file=release.keystore \
             -Pandroid.injected.signing.store.password=onlinecrm123 \
             -Pandroid.injected.signing.key.alias=crmkey \

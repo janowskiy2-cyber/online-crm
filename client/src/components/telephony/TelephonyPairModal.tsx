@@ -9,8 +9,11 @@ interface TelephonyPairModalProps {
 
 export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose }) => {
   const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<'download' | 'pair'>('download');
   const [loading, setLoading] = useState(true);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [downloadQrCode, setDownloadQrCode] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string>('/api/telephony/download-apk');
   const [deviceStatus, setDeviceStatus] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,15 +22,26 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
       setLoading(true);
       setError(null);
       const userId = currentUser?.id || 'usr-admin';
-      const res = await api.get(`/telephony/qr-pair/${userId}`);
-      if (res.data?.qrCode) {
-        setQrCodeData(res.data.qrCode);
+      
+      const [pairRes, downloadRes, statusRes] = await Promise.all([
+        api.get(`/telephony/qr-pair/${userId}`).catch(() => null),
+        api.get(`/telephony/qr-download`).catch(() => null),
+        api.get('/telephony/status').catch(() => null)
+      ]);
+
+      if (pairRes?.data?.qrCode) {
+        setQrCodeData(pairRes.data.qrCode);
       }
-      const statusRes = await api.get('/telephony/status');
-      setDeviceStatus(statusRes.data);
+      if (downloadRes?.data?.qrCode) {
+        setDownloadQrCode(downloadRes.data.qrCode);
+        setDownloadUrl(downloadRes.data.downloadUrl || '/api/telephony/download-apk');
+      }
+      if (statusRes?.data) {
+        setDeviceStatus(statusRes.data);
+      }
     } catch (err: any) {
       console.error('Failed to load telephony pair info:', err);
-      setError('Не вдалося згенерувати QR-код підключення');
+      setError('Не вдалося завантажити інформацію про шлюз');
     } finally {
       setLoading(false);
     }
@@ -54,12 +68,12 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
             </div>
             <div>
               <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                <span>Підключення SIM-карти смартфона</span>
+                <span>Android GSM SIM-Шлюз</span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  GSM GATEWAY
+                  v2.0 GATEWAY
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-400">Синхронізація викликів з SIM-карти та Click-to-Call</p>
+              <p className="text-[11px] text-slate-400">Синхронізація викликів, запис та спливаюча картка клієнта</p>
             </div>
           </div>
           <button
@@ -70,104 +84,148 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-5 text-xs">
-          {/* Active Status Badge */}
-          {connectedDevices.length > 0 ? (
-            <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <div>
-                  <span className="font-bold text-white block">
-                    {connectedDevices[0].deviceName} • Підключено
-                  </span>
-                  <span className="text-[11px] text-emerald-300">
-                    SIM-карта: {connectedDevices[0].simNumber || 'Активна'} ({connectedDevices[0].operator || 'GSM'})
-                  </span>
-                </div>
-              </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                ONLINE
-              </span>
-            </div>
-          ) : (
-            <div className="p-3 bg-blue-950/30 border border-blue-500/30 rounded-2xl flex items-center gap-2.5">
-              <PhoneCall className="w-4 h-4 text-blue-400 flex-shrink-0" />
-              <div>
-                <span className="font-bold text-white block">Смартфон ще не підключено</span>
-                <span className="text-[11px] text-slate-400">
-                  Відскануйте QR-код нижче в додатку OnlineCRM Gateway для прив'язки
-                </span>
-              </div>
-            </div>
-          )}
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-white/[0.08] bg-black/20 p-1.5 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('download')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
+              activeTab === 'download'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Download className="w-4 h-4" />
+            <span>1. Завантажити додаток (.apk)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('pair')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
+              activeTab === 'pair'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            <span>2. Авторизація та статус</span>
+          </button>
+        </div>
 
-          {/* Download APK Banner */}
-          <div className="p-3.5 bg-gradient-to-r from-blue-900/30 via-indigo-900/30 to-purple-900/30 border border-blue-500/40 rounded-2xl flex items-center justify-between gap-3 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center flex-shrink-0 border border-blue-500/30">
-                <Download className="w-5 h-5 text-blue-300" />
-              </div>
-              <div>
-                <div className="font-bold text-white text-xs flex items-center gap-2">
-                  <span>OnlineCRM Gateway для Android</span>
-                  <span className="text-[10px] bg-blue-500/30 text-blue-200 px-1.5 py-0.2 rounded font-mono">v2.0 APK</span>
+        {/* Content */}
+        <div className="p-6 space-y-4 text-xs">
+          {activeTab === 'download' ? (
+            <>
+              {/* Download Action Box */}
+              <div className="p-4 bg-gradient-to-r from-blue-900/30 via-indigo-900/30 to-purple-900/30 border border-blue-500/40 rounded-2xl flex items-center justify-between gap-3 shadow-lg">
+                <div>
+                  <h4 className="font-extrabold text-white text-sm">OnlineCRM Gateway (.apk)</h4>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Підписаний релізний APK для швидкого встановлення на будь-який Android
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-300">
-                  Встановіть на смартфон для підключення SIM-карти, запису та Caller ID
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition shadow-lg whitespace-nowrap active:scale-95"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Скачати .apk</span>
+                </a>
+              </div>
+
+              {/* QR Code for direct phone camera scan */}
+              <div className="flex flex-col items-center justify-center p-4 bg-[#080c16] border border-white/[0.08] rounded-2xl space-y-2.5">
+                {loading ? (
+                  <div className="w-40 h-40 flex items-center justify-center text-slate-400">
+                    <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+                  </div>
+                ) : downloadQrCode ? (
+                  <div className="p-2.5 bg-white rounded-2xl shadow-xl border-4 border-blue-500/30">
+                    <img src={downloadQrCode} alt="Download APK QR" className="w-36 h-36 object-contain rounded-lg" />
+                  </div>
+                ) : null}
+
+                <div className="text-center">
+                  <span className="text-slate-200 font-bold block text-xs">
+                    Наведіть камеру смартфона на цей QR-код
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    щоб завантажити .apk файл прямо на ваш телефон без шнурів
+                  </span>
+                </div>
+              </div>
+
+              {/* How it works after install */}
+              <div className="space-y-1.5 p-3 bg-white/[0.02] border border-white/[0.06] rounded-2xl">
+                <span className="text-[11px] font-bold text-sky-300 block mb-1">
+                  ⚡ Як легко запустити після встановлення:
+                </span>
+                <div className="space-y-1 text-[11px] text-slate-300">
+                  <p>1. Відкрийте додаток — на екрані з'являться <strong>4 кнопки дозволів</strong>.</p>
+                  <p>2. Натисніть кожну кнопку (дзвінки, спливаюче вікно Caller ID, батарея, записи розмов).</p>
+                  <p>3. Введіть свій <strong>Email та пароль</strong> співробітника — додаток відразу активується!</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Active Status Badge */}
+              {connectedDevices.length > 0 ? (
+                <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <div>
+                      <span className="font-bold text-white block">
+                        {connectedDevices[0].deviceName} • Підключено
+                      </span>
+                      <span className="text-[11px] text-emerald-300">
+                        SIM-карта: {connectedDevices[0].simNumber || 'Активна'} ({connectedDevices[0].operator || 'GSM'})
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    ONLINE
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3 bg-blue-950/30 border border-blue-500/30 rounded-2xl flex items-center gap-2.5">
+                  <PhoneCall className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <div>
+                    <span className="font-bold text-white block">Смартфон очікує входу</span>
+                    <span className="text-[11px] text-slate-400">
+                      Увійдіть за Email/паролем або відскануйте QR-код нижче
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* QR Code Container for quick login */}
+              <div className="flex flex-col items-center justify-center p-4 bg-[#080c16] border border-white/[0.08] rounded-2xl space-y-2.5">
+                {loading ? (
+                  <div className="w-40 h-40 flex items-center justify-center text-slate-400">
+                    <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-6 text-rose-400">{error}</div>
+                ) : qrCodeData ? (
+                  <div className="p-2.5 bg-white rounded-2xl shadow-xl border-4 border-blue-500/30">
+                    <img src={qrCodeData} alt="Telephony QR Pair" className="w-36 h-36 object-contain rounded-lg" />
+                  </div>
+                ) : null}
+
+                <p className="text-[11px] text-slate-400 text-center max-w-xs">
+                  Для швидкого входу без введення пароля: відскануйте цей QR-код у додатку.
                 </p>
               </div>
-            </div>
-            <a
-              href="/api/telephony/download-apk"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition shadow-md whitespace-nowrap active:scale-95 flex-shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Завантажити .apk</span>
-            </a>
-          </div>
 
-          {/* QR Code Container */}
-          <div className="flex flex-col items-center justify-center p-4 bg-[#080c16] border border-white/[0.08] rounded-2xl space-y-3">
-            {loading ? (
-              <div className="w-48 h-48 flex items-center justify-center text-slate-400">
-                <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-2xl text-[11px] text-slate-300">
+                <span className="font-bold text-amber-300 block mb-0.5">💡 Підтримка Dual-SIM:</span>
+                У налаштуваннях додатку на телефоні ви зможете обрати тільки робочу SIM-карту, щоб ваші особисті дзвінки ніколи не потрапляли в CRM.
               </div>
-            ) : error ? (
-              <div className="text-center py-6 text-rose-400">{error}</div>
-            ) : qrCodeData ? (
-              <div className="p-3 bg-white rounded-2xl shadow-xl border-4 border-blue-500/30">
-                <img src={qrCodeData} alt="Telephony QR Pair" className="w-44 h-44 object-contain rounded-lg" />
-              </div>
-            ) : null}
-
-            <p className="text-[11px] text-slate-400 text-center max-w-xs">
-              Увійдіть у додатку за <strong>Email/Паролем</strong> або наведіть камеру для швидкої авторизації.
-            </p>
-          </div>
-
-          {/* Steps list */}
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
-              Швидке налаштування за 1 хвилину:
-            </span>
-            <div className="space-y-1.5 text-[11px] text-slate-300">
-              <div className="flex items-start gap-2 p-2 bg-white/[0.03] border border-white/[0.06] rounded-xl">
-                <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">1</span>
-                <span>Завантажте та встановіть <strong>OnlineCRM Gateway (.apk)</strong> на Android-смартфон.</span>
-              </div>
-              <div className="flex items-start gap-2 p-2 bg-white/[0.03] border border-white/[0.06] rounded-xl">
-                <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">2</span>
-                <span>Увійдіть у додаток під своїм корпоративним логіном або відскануйте QR-код.</span>
-              </div>
-              <div className="flex items-start gap-2 p-2 bg-white/[0.03] border border-white/[0.06] rounded-xl">
-                <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">3</span>
-                <span>Оберіть робочу SIM-карту (SIM 1 або SIM 2), щоб особисті дзвінки не потрапляли в CRM.</span>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
 
           {/* Footer Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">

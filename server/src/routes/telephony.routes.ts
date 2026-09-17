@@ -110,6 +110,34 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
   });
 
   /**
+   * 2b. GET /api/telephony/qr-download
+   * Generates a QR-code data URL for instant phone camera download of OnlineCRM-Gateway.apk
+   */
+  router.get('/qr-download', async (req, res) => {
+    try {
+      const serverUrl = process.env.VITE_API_URL || process.env.API_URL || `${req.protocol}://${req.get('host')}`;
+      const downloadUrl = `${serverUrl}/api/telephony/download-apk`;
+
+      const qrCodeDataUrl = await QRCode.toDataURL(downloadUrl, {
+        width: 320,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      });
+
+      res.json({
+        downloadUrl,
+        qrCode: qrCodeDataUrl
+      });
+    } catch (err: any) {
+      console.error('Error generating download QR:', err);
+      res.status(500).json({ error: 'Помилка генерації QR для завантаження' });
+    }
+  });
+
+  /**
    * 3. POST /api/telephony/device/register
    * Mobile Android Gateway registers or pings the server
    */

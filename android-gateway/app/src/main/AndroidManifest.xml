@@ -40,9 +40,9 @@
         android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
         android:usesCleartextTraffic="true">
 
-        <!-- Entry point: LoginActivity checks if already authenticated -->
+        <!-- Entry point: PermissionsActivity checks setup and permissions -->
         <activity
-            android:name=".LoginActivity"
+            android:name=".PermissionsActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -50,6 +50,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".MainActivity"

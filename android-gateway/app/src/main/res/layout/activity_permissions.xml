@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#070a12"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OnlineCRM Gateway"
+                android:textColor="#ffffff"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Первинне налаштування дозволів"
+                android:textColor="#38bdf8"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Натисніть кнопки нижче по черзі, щоб надати системні дозволи для роботи телефонії:"
+                android:textColor="#94a3b8"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Step 1: Call Permissions -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📞 1. Доступ до телефонних дзвінків"
+                android:textColor="#ffffff"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Для фіксації номера, тривалості виклику та прив'язки до картки угоди в CRM."
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btnPermCalls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Надати дозвіл на дзвінки"
+                android:backgroundTint="#2563eb"
+                android:textColor="#ffffff"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Step 2: Caller ID Overlay -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🪟 2. Спливаюча картка клієнта (Caller ID)"
+                android:textColor="#ffffff"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Показує ім'я клієнта, бюджет та етап угоди поверх екрана при вхідному дзвінку."
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btnPermOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Дозволити показ поверх додатків"
+                android:backgroundTint="#7c3aed"
+                android:textColor="#ffffff"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Step 3: Battery Optimization -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔋 3. Робота у фоні без обмежень батареї"
+                android:textColor="#ffffff"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Запобігає засинанню шлюзу системою Android при вимкненому екрані."
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btnPermBattery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Вимкнути обмеження батареї"
+                android:backgroundTint="#d97706"
+                android:textColor="#ffffff"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Step 4: Storage / Audio -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#0f172a"
+            android:padding="14dp"
+            android:layout_marginBottom="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📁 4. Доступ до аудіозаписів розмов"
+                android:textColor="#ffffff"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Для передачі аудіозаписів розмов зі штатного диктофона смартфона до CRM."
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btnPermStorage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Дозволити доступ до файлів записів"
+                android:backgroundTint="#059669"
+                android:textColor="#ffffff"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Proceed Button -->
+        <Button
+            android:id="@+id/btnProceedToLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="👉 Продовжити: Вхід у CRM"
+            android:backgroundTint="#2563eb"
+            android:textColor="#ffffff"
+            android:textStyle="bold"
+            android:padding="14dp"
+            android:layout_marginBottom="16dp" />
+
+    </LinearLayout>
+</ScrollView>
