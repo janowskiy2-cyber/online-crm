@@ -56,7 +56,10 @@ jobs:
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           cd android-gateway
-          gradle assembleRelease --no-daemon --stacktrace
+          gradle assembleRelease --no-daemon --stacktrace > build.log 2>&1 || {
+            cat build.log | tail -n 120
+            exit 1
+          }
 
       - name: Rename and Prepare APK
         run: |
