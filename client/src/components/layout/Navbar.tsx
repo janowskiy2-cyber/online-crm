@@ -26,6 +26,8 @@ import {
   ShieldAlert,
   Briefcase,
   CheckSquare,
+  Smartphone,
+  Download,
   X
 } from 'lucide-react';
 import { Pipeline, ProjectCategory, ProjectInfo } from '../../types';
@@ -592,6 +594,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
+          {/* Direct Android APK Download Button in Main Header */}
+          <a
+            href="/OnlineCRM-Gateway.apk"
+            download="OnlineCRM-Gateway.apk"
+            className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-[0_0_15px_rgba(59,130,246,0.35)] border border-blue-400/40 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+            title="Завантажити додаток OnlineCRM-Gateway.apk для дзвінків та запису розмов"
+          >
+            <Smartphone className="w-4 h-4 text-sky-200 animate-pulse" />
+            <span>📱 Скачати додаток (.apk)</span>
+          </a>
+
           {/* Bitrix24 Large Digital Clock: Kyiv Ukraine */}
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end">
@@ -750,6 +763,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <QrCode className="w-3.5 h-3.5" />
                     <span>Шлюз WhatsApp / Telegram</span>
                   </button>
+
+                  <a
+                    href="/OnlineCRM-Gateway.apk"
+                    download="OnlineCRM-Gateway.apk"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-sky-400 hover:bg-sky-500/10 transition font-semibold"
+                    title="Завантажити OnlineCRM-Gateway.apk на смартфон"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>📱 Додаток для Android (.apk)</span>
+                  </a>
 
                   <button
                     onClick={toggleTheme}

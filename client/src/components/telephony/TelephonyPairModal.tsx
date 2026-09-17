@@ -12,8 +12,12 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
   const [activeTab, setActiveTab] = useState<'download' | 'pair'>('download');
   const [loading, setLoading] = useState(true);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
-  const [downloadQrCode, setDownloadQrCode] = useState<string | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string>('/api/telephony/download-apk');
+  const DIRECT_APK_URL = '/OnlineCRM-Gateway.apk';
+  const GITHUB_APK_URL = 'https://github.com/janowskiy2-cyber/online-crm/releases/download/gateway-latest/OnlineCRM-Gateway.apk';
+  const FALLBACK_QR = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent('https://online-crm-alpha.vercel.app/OnlineCRM-Gateway.apk')}`;
+
+  const [downloadQrCode, setDownloadQrCode] = useState<string | null>(FALLBACK_QR);
+  const [downloadUrl, setDownloadUrl] = useState<string>(DIRECT_APK_URL);
   const [deviceStatus, setDeviceStatus] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +38,9 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
       }
       if (downloadRes?.data?.qrCode) {
         setDownloadQrCode(downloadRes.data.qrCode);
-        setDownloadUrl(downloadRes.data.downloadUrl || '/api/telephony/download-apk');
+      }
+      if (downloadRes?.data?.downloadUrl) {
+        setDownloadUrl(downloadRes.data.downloadUrl);
       }
       if (statusRes?.data) {
         setDeviceStatus(statusRes.data);
@@ -124,15 +130,26 @@ export const TelephonyPairModal: React.FC<TelephonyPairModalProps> = ({ onClose 
                     Підписаний релізний APK для швидкого встановлення на будь-який Android
                   </p>
                 </div>
-                <a
-                  href={downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 transition shadow-lg whitespace-nowrap active:scale-95"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Скачати .apk</span>
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <a
+                    href={downloadUrl}
+                    download="OnlineCRM-Gateway.apk"
+                    className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition shadow-lg whitespace-nowrap active:scale-95 cursor-pointer"
+                    title="Пряме завантаження OnlineCRM-Gateway.apk"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Скачати .apk</span>
+                  </a>
+                  <a
+                    href={GITHUB_APK_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2.5 bg-white/10 hover:bg-white/15 text-slate-300 hover:text-white rounded-xl font-medium text-[11px] flex items-center justify-center transition whitespace-nowrap"
+                    title="Резервне пряме посилання з GitHub Releases"
+                  >
+                    <span>Резервне (GitHub)</span>
+                  </a>
+                </div>
               </div>
 
               {/* QR Code for direct phone camera scan */}

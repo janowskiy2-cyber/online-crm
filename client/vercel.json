@@ -1,6 +1,23 @@
 {
   "headers": [
     {
+      "source": "/OnlineCRM-Gateway.apk",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"OnlineCRM-Gateway.apk\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {
@@ -19,7 +36,18 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/api/telephony/download-apk",
+      "destination": "/OnlineCRM-Gateway.apk",
+      "permanent": false
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/OnlineCRM-Gateway.apk",
+      "destination": "/OnlineCRM-Gateway.apk"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

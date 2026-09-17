@@ -16,7 +16,9 @@ import {
   Rss, 
   Building2,
   Settings,
-  UserPlus
+  UserPlus,
+  Smartphone,
+  Download
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -166,6 +168,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Скрипти</span>
             </button>
           </div>
+
+          {/* Direct Android APK Download Button in Sidebar */}
+          <a
+            href="/OnlineCRM-Gateway.apk"
+            download="OnlineCRM-Gateway.apk"
+            className="w-full py-2 px-2.5 bg-gradient-to-r from-blue-600/30 via-indigo-600/30 to-purple-600/30 hover:from-blue-600/50 hover:to-purple-600/50 border border-blue-500/30 hover:border-blue-400/50 text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition shadow-sm active:scale-95 select-none"
+            title="Завантажити підписаний файл OnlineCRM-Gateway.apk на смартфон"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+            <span>📱 Скачати додаток (.apk)</span>
+          </a>
 
           {/* Administrator / Current User Profile Capsule */}
           <div 

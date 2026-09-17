@@ -115,8 +115,9 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
    */
   router.get('/qr-download', async (req, res) => {
     try {
-      const serverUrl = process.env.VITE_API_URL || process.env.API_URL || `${req.protocol}://${req.get('host')}`;
-      const downloadUrl = `${serverUrl}/api/telephony/download-apk`;
+      // Primary direct URL on static CDN or GitHub release
+      const downloadUrl = 'https://online-crm-alpha.vercel.app/OnlineCRM-Gateway.apk';
+      const fallbackUrl = 'https://github.com/janowskiy2-cyber/online-crm/releases/download/gateway-latest/OnlineCRM-Gateway.apk';
 
       const qrCodeDataUrl = await QRCode.toDataURL(downloadUrl, {
         width: 320,
@@ -129,6 +130,7 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
 
       res.json({
         downloadUrl,
+        fallbackUrl,
         qrCode: qrCodeDataUrl
       });
     } catch (err: any) {
@@ -660,7 +662,7 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
       return res.download(localApkPath, 'OnlineCRM-Gateway.apk');
     }
     // Fallback: Redirect to GitHub Releases latest APK
-    res.redirect('https://github.com/janowskiy2-cyber/online-crm/releases/latest/download/OnlineCRM-Gateway.apk');
+    res.redirect('https://github.com/janowskiy2-cyber/online-crm/releases/download/gateway-latest/OnlineCRM-Gateway.apk');
   });
 
   return router;
