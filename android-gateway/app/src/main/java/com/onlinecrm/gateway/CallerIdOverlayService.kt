@@ -1,4 +1,4 @@
-﻿package com.onlinecrm.gateway
+package com.onlinecrm.gateway
 
 import android.app.Service
 import android.content.Context
@@ -81,7 +81,8 @@ class CallerIdOverlayService : Service() {
         // Fetch Caller Data from CRM API
         serviceScope.launch {
             val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
-            val serverUrl = prefs.getString("crm_server_url", "https://online-crm-alpha.vercel.app") ?: "https://online-crm-alpha.vercel.app"
+            val rawServerUrl = prefs.getString("crm_server_url", "https://online-crm.onrender.com") ?: "https://online-crm.onrender.com"
+            val serverUrl = if (rawServerUrl.contains("vercel.app")) "https://online-crm.onrender.com" else rawServerUrl.trim().removeSuffix("/")
 
             val callerData = withContext(Dispatchers.IO) {
                 fetchCallerInfo(serverUrl, phone)

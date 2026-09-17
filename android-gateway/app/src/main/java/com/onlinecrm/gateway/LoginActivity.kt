@@ -1,4 +1,4 @@
-﻿package com.onlinecrm.gateway
+package com.onlinecrm.gateway
 
 import android.content.Context
 import android.content.Intent
@@ -44,7 +44,11 @@ class LoginActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.loginProgressBar)
         tvError = findViewById(R.id.tvLoginError)
 
-        val savedUrl = prefs.getString("crm_server_url", "https://online-crm-alpha.vercel.app")
+        val defaultBackend = "https://online-crm.onrender.com"
+        var savedUrl = prefs.getString("crm_server_url", defaultBackend) ?: defaultBackend
+        if (savedUrl.contains("vercel.app")) {
+            savedUrl = defaultBackend
+        }
         etServerUrl.setText(savedUrl)
 
         btnLogin.setOnClickListener {
@@ -52,8 +56,17 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    private fun normalizeUrl(url: String): String {
+        var clean = url.trim().removeSuffix("/")
+        if (clean.contains("vercel.app")) {
+            clean = "https://online-crm.onrender.com"
+        }
+        return clean
+    }
+
     private fun performLogin() {
-        val serverUrl = etServerUrl.text.toString().trim().removeSuffix("/")
+        val rawServerUrl = etServerUrl.text.toString().trim()
+        val serverUrl = normalizeUrl(rawServerUrl)
         val email = etEmail.text.toString().trim()
         val password = etPassword.text.toString().trim()
 

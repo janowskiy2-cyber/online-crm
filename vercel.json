@@ -52,6 +52,10 @@
       "destination": "/OnlineCRM-Gateway.apk"
     },
     {
+      "source": "/api/(.*)",
+      "destination": "https://online-crm.onrender.com/api/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

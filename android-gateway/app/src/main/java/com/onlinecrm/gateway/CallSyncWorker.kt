@@ -36,7 +36,8 @@ class CallSyncWorker(
         val endedAt = inputData.getLong("endedAt", System.currentTimeMillis())
 
         val prefs = context.getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
-        val serverUrl = prefs.getString("crm_server_url", "https://online-crm-alpha.vercel.app") ?: "https://online-crm-alpha.vercel.app"
+        val rawServerUrl = prefs.getString("crm_server_url", "https://online-crm.onrender.com") ?: "https://online-crm.onrender.com"
+        val serverUrl = if (rawServerUrl.contains("vercel.app")) "https://online-crm.onrender.com" else rawServerUrl.trim().removeSuffix("/")
         val userId = prefs.getString("crm_user_id", "usr-admin") ?: "usr-admin"
         val deviceToken = prefs.getString("device_token", "dev-" + UUID.randomUUID().toString()) ?: "dev-default"
 
