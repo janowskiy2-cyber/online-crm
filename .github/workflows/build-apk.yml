@@ -58,15 +58,8 @@ jobs:
         run: |
           cd android-gateway
           sudo chmod +x /opt/gradle-8.5/bin/gradle
-          /opt/gradle-8.5/bin/gradle assembleRelease --stacktrace --info
-          find . -name "*.apk"
-
-      - name: Upload Build Log if Failed
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-build-log
-          path: android-gateway/build.log
+          /opt/gradle-8.5/bin/gradle assembleRelease --no-daemon --stacktrace
+          ls -la app/build/outputs/apk/release/
 
       - name: Rename and Prepare APK
         run: |
