@@ -320,6 +320,8 @@
                 android:backgroundTint="#7c3aed"
                 android:textColor="#ffffff"
                 android:textSize="12sp" />
+        </LinearLayout>
+
         <!-- Storage Cleanup Card -->
         <LinearLayout
             android:layout_width="match_parent"
