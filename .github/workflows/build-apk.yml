@@ -25,23 +25,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.5'
-
-      - name: Generate Gradle Wrapper in project
+      - name: Install Gradle 8.5
         run: |
-          cd android-gateway
-          gradle wrapper --gradle-version 8.5
-          chmod +x gradlew
+          wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+          sudo unzip -q gradle-8.5-bin.zip -d /opt
+          echo "/opt/gradle-8.5/bin" >> $GITHUB_PATH
 
       - name: Generate Release Signing Key
         run: |
           mkdir -p android-gateway/app
-          cd android-gateway/app
           keytool -genkeypair -v \
-            -keystore release.keystore \
+            -keystore android-gateway/app/release.keystore \
             -alias crmkey \
             -keyalg RSA \
             -keysize 2048 \
@@ -55,11 +49,7 @@ jobs:
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           cd android-gateway
-          ./gradlew assembleRelease --no-daemon \
-            -Pandroid.injected.signing.store.file=release.keystore \
-            -Pandroid.injected.signing.store.password=onlinecrm123 \
-            -Pandroid.injected.signing.key.alias=crmkey \
-            -Pandroid.injected.signing.key.password=onlinecrm123
+          gradle assembleRelease --no-daemon --stacktrace
 
       - name: Rename and Prepare APK
         run: |
