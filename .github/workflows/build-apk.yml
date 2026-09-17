@@ -59,9 +59,12 @@ jobs:
           cd android-gateway
           sudo chmod +x /opt/gradle-8.5/bin/gradle
           /opt/gradle-8.5/bin/gradle assembleRelease --stacktrace > build.log 2>&1 || true
-          cat build.log
+          echo "### Gradle Build Log" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat build.log | tail -n 80 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          find . -name "*.apk"
           if [ ! -f "app/build/outputs/apk/release/app-release.apk" ] && [ ! -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-            echo "ERROR: APK was not generated!"
             exit 1
           fi
 
