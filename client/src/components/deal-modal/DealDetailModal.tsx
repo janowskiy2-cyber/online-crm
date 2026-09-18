@@ -1548,20 +1548,28 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 bg-black/80 backdrop-blur-2xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
+    <div className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
       <div 
-        className={`relative flex flex-col shadow-[0_25px_70px_-15px_rgba(0,0,0,0.9)] overflow-hidden transition-all duration-300 border border-white/[0.12] ${
+        className={`relative flex flex-col shadow-[0_25px_70px_-15px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300 border border-white/[0.15] ${
           isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-3xl sm:max-w-[1520px] 2xl:max-w-[1760px] sm:h-[95vh] animate-in fade-in zoom-in-95 duration-200'
         }`}
         style={{
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(30, 41, 59, 0.6) 0%, rgba(10, 15, 29, 0.98) 75%), #07090e',
+          backgroundImage: `
+            radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.22) 0%, transparent 45%),
+            radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.2) 0%, transparent 50%),
+            linear-gradient(180deg, rgba(14, 28, 54, 0.48) 0%, rgba(15, 23, 42, 0.62) 100%),
+            url('/wallpaper.jpg')
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backdropFilter: 'blur(20px)'
         }}
       >
         {/* Specular 1px Top Light Rim */}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none z-30" />
         
         {/* Modal Top Bar */}
-        <div className="h-14 px-3 sm:px-6 border-b border-white/[0.08] flex items-center justify-between bg-[#080c16]/90 backdrop-blur-xl flex-shrink-0 z-20">
+        <div className="h-14 px-3 sm:px-6 border-b border-white/[0.12] flex items-center justify-between bg-slate-950/40 backdrop-blur-xl flex-shrink-0 z-20">
           <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
             <h2 className="text-xs sm:text-base font-extrabold text-white tracking-tight truncate max-w-[140px] sm:max-w-md">
               {deal.title}
@@ -1788,7 +1796,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         })()}
 
         {/* Luxury Pipeline Stage Stepper Bar */}
-        <div className="px-3 sm:px-6 py-2 bg-[#080c14]/90 border-b border-white/[0.08] flex items-center gap-2 overflow-x-auto scrollbar-none flex-shrink-0 z-10">
+        <div className="px-3 sm:px-6 py-2 bg-slate-950/40 backdrop-blur-md border-b border-white/10 flex items-center gap-2 overflow-x-auto scrollbar-none flex-shrink-0 z-10">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex-shrink-0 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3 text-blue-400" />
             <span>Етап:</span>
@@ -1804,7 +1812,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 className={`relative group px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all duration-200 flex-shrink-0 ${
                   isCurrent
                     ? 'text-white border shadow-[0_0_16px_rgba(59,130,246,0.3)]'
-                    : 'text-slate-400 hover:text-slate-200 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06]'
+                    : 'text-slate-400 hover:text-slate-200 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08]'
                 }`}
                 style={isCurrent ? {
                   backgroundColor: `${stageColor}22`,
@@ -1828,14 +1836,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         </div>
 
         {/* Mobile Navigation Tabs (Phone/Tablet portrait): Chat | Info | Tasks */}
-        <div className="md:hidden flex items-center bg-slate-100 dark:bg-[#0b101d] border-b border-slate-200 dark:border-white/[0.08] p-1.5 gap-1.5 text-xs flex-shrink-0">
+        <div className="md:hidden flex items-center bg-slate-950/50 backdrop-blur-md border-b border-white/10 p-1.5 gap-1.5 text-xs flex-shrink-0">
           <button
             type="button"
             onClick={() => setActiveMobileTab('chat')}
             className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
               activeMobileTab === 'chat'
                 ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.05]'
+                : 'text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08]'
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
@@ -1847,7 +1855,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
               activeMobileTab === 'info'
                 ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.05]'
+                : 'text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08]'
             }`}
           >
             <Building2 className="w-3.5 h-3.5 text-purple-400" />
@@ -1859,7 +1867,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
               activeMobileTab === 'tasks_notes'
                 ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white/70 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.05]'
+                : 'text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08]'
             }`}
           >
             <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
@@ -1868,14 +1876,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         </div>
 
         {/* 3-Column Content Layout */}
-        <div className="flex-1 grid grid-cols-12 overflow-hidden bg-white dark:bg-[#0c111d] min-h-0">
+        <div className="flex-1 grid grid-cols-12 overflow-hidden bg-transparent min-h-0">
           
           {/* Left Column: Client & Project Params (3 Cols) */}
-          <div className={`col-span-12 md:col-span-3 border-r border-white/[0.08] p-4 sm:p-5 overflow-y-auto space-y-4 bg-[#090e18]/80 backdrop-blur-xl text-xs h-full ${
+          <div className={`col-span-12 md:col-span-3 border-r border-white/10 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-950/45 backdrop-blur-xl text-xs h-full ${
             activeMobileTab === 'info' ? 'block' : 'hidden md:block'
           }`}>
             {/* Responsible manager */}
-            <div className="bg-[#0e1628]/90 border border-white/[0.08] rounded-2xl p-3 space-y-1.5 shadow-sm">
+            <div className="bg-slate-900/50 border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-sm backdrop-blur-md">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                   <UserIcon className="w-3.5 h-3.5 text-blue-400" />
@@ -2673,7 +2681,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 {tagsList.map((tag, idx) => (
                   <span
                     key={idx}
-                    className="text-xs font-semibold bg-[#0e1628]/80 text-slate-300 border border-white/[0.08] hover:border-blue-500/40 hover:text-white px-2.5 py-1 rounded-xl transition backdrop-blur-sm"
+                    className="text-xs font-semibold bg-slate-900/50 text-slate-300 border border-white/10 hover:border-blue-500/40 hover:text-white px-2.5 py-1 rounded-xl transition backdrop-blur-sm"
                   >
                     #{tag}
                   </span>
@@ -2683,12 +2691,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Central Column: Live Timeline & Messengers Chat (6 Cols) */}
-          <div className={`col-span-12 md:col-span-6 flex flex-col min-h-0 h-full bg-[#07090e] border-r border-white/[0.06] ${
+          <div className={`col-span-12 md:col-span-6 flex flex-col min-h-0 h-full bg-slate-950/35 backdrop-blur-xl border-r border-white/10 ${
             activeMobileTab === 'chat' ? 'flex' : 'hidden md:flex'
           }`}>
             {/* Timeline Filter tabs */}
-            <div className="p-2 sm:p-2.5 border-b border-white/[0.06] flex items-center justify-between gap-2 overflow-x-auto scrollbar-none bg-[#090e18]/90 backdrop-blur-md flex-shrink-0">
-              <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.06] flex-shrink-0">
+            <div className="p-2 sm:p-2.5 border-b border-white/10 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none bg-slate-950/40 backdrop-blur-md flex-shrink-0">
+              <div className="flex items-center gap-1 bg-white/[0.04] p-1 rounded-xl border border-white/10 flex-shrink-0">
                 <button
                   onClick={() => setActiveTab('all')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -3786,8 +3794,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             handleSendMessage();
                           }
                         }}
-                        className={`flex-1 bg-[#0c1220] border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
-                          isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/[0.08] focus:border-blue-500/60 shadow-inner'
+                        className={`flex-1 bg-slate-900/60 border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                          isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/10 focus:border-blue-500/60 shadow-inner'
                         }`}
                         style={{ minHeight: '40px', maxHeight: '220px' }}
                       />
@@ -3807,12 +3815,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
 
           {/* Right Column: Tasks Checklist, Quick Notes & Attached Documents (3 Cols) */}
-          <div className={`col-span-12 md:col-span-3 p-3.5 sm:p-4 overflow-y-auto space-y-4 bg-[#07090e] h-full ${
+          <div className={`col-span-12 md:col-span-3 p-3.5 sm:p-4 overflow-y-auto space-y-4 bg-slate-950/45 backdrop-blur-xl h-full ${
             activeMobileTab === 'tasks_notes' ? 'block' : 'hidden md:block'
           }`}>
             
             {/* 1-Click Inline Pipeline Stage Selector */}
-            <div className="relative overflow-hidden bg-[#0e1628]/80 border border-white/[0.08] hover:border-blue-500/30 rounded-2xl p-3.5 space-y-2.5 backdrop-blur-md shadow-md transition-all">
+            <div className="relative overflow-hidden bg-slate-900/50 border border-white/10 hover:border-blue-500/30 rounded-2xl p-3.5 space-y-2.5 backdrop-blur-md shadow-md transition-all">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/25 to-transparent" />
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -3827,7 +3835,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               <select
                 value={deal.stageId}
                 onChange={(e) => handleStageChange(e.target.value)}
-                className="w-full bg-[#080c16] border border-white/[0.08] rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500/60 transition cursor-pointer shadow-inner"
+                className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500/60 transition cursor-pointer shadow-inner"
               >
                 {currentStages.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -3838,7 +3846,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
 
             {/* VIP Prominent Task Control Widget (Always Visible at the Top of Right Column) */}
-            <div className="relative overflow-hidden bg-[#0e1628]/90 border border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md transition-all">
+            <div className="relative overflow-hidden bg-slate-900/50 border border-amber-500/25 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md transition-all">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -4084,7 +4092,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
 
             {/* Spacious Client Notes & Customer Insights with Voice Dictation */}
-            <div className="relative overflow-hidden bg-[#0e1628]/80 border border-white/[0.08] hover:border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md flex-1 flex flex-col transition-all">
+            <div className="relative overflow-hidden bg-slate-900/50 border border-white/10 hover:border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md flex-1 flex flex-col transition-all">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/25 to-transparent" />
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
@@ -4104,8 +4112,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   placeholder={isDictatingQuickNote ? "Слухаю голос... Говоріть деталі розмови..." : "Запишіть важливі деталі, умови, домовленості або статус клієнта..."}
                   value={quickNoteText}
                   onChange={(e) => setQuickNoteText(e.target.value)}
-                  className={`w-full bg-[#080c16] border rounded-2xl p-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
-                    isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/[0.08] focus:border-amber-500/60 shadow-inner'
+                  className={`w-full bg-slate-950/60 border rounded-2xl p-3 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                    isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/10 focus:border-amber-500/60 shadow-inner'
                   }`}
                   style={{ minHeight: '68px', maxHeight: '200px' }}
                 />

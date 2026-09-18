@@ -96,10 +96,10 @@ p, span, h1, h2, h3, h4, h5, h6, pre, code, blockquote, label, td, th, li {
 /* Bitrix24 Authentic Glassmorphism Theme */
 .bitrix-wallpaper {
   background-image: 
-    radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.3) 0%, transparent 45%),
-    radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.25) 0%, transparent 50%),
-    linear-gradient(180deg, rgba(14, 34, 68, 0.45) 0%, rgba(15, 23, 42, 0.62) 100%),
-    url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2560&auto=format&fit=crop');
+    radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.2) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.18) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(14, 28, 54, 0.42) 0%, rgba(15, 23, 42, 0.55) 100%),
+    url('/wallpaper.jpg');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
