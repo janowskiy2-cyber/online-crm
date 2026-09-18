@@ -44,8 +44,11 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var btnSaveSettings: Button
     private lateinit var btnOpenCrm: Button
+    private lateinit var btnOpenBrowser: Button
     private lateinit var btnLogout: Button
     private lateinit var webView: WebView
+
+    private val CRM_WEB_URL = "https://online-crm-alpha.vercel.app"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,6 +95,7 @@ class MainActivity : AppCompatActivity() {
 
         btnSaveSettings = findViewById(R.id.btnSaveSettings)
         btnOpenCrm = findViewById(R.id.btnOpenCrm)
+        btnOpenBrowser = findViewById(R.id.btnOpenBrowser)
         btnLogout = findViewById(R.id.btnLogout)
         webView = findViewById(R.id.webView)
 
@@ -101,6 +105,10 @@ class MainActivity : AppCompatActivity() {
 
         btnOpenCrm.setOnClickListener {
             toggleCrmWebView()
+        }
+
+        btnOpenBrowser.setOnClickListener {
+            openCrmInBrowser()
         }
 
         btnLogout.setOnClickListener {
@@ -210,11 +218,8 @@ class MainActivity : AppCompatActivity() {
     private fun toggleCrmWebView() {
         if (webView.visibility == View.VISIBLE) {
             webView.visibility = View.GONE
-            btnOpenCrm.text = "🌐 Відкрити інтерфейс CRM"
+            btnOpenCrm.text = "🌐 Відкрити CRM у додатку"
         } else {
-            val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
-            val serverUrl = prefs.getString("crm_server_url", "https://online-crm-alpha.vercel.app") ?: "https://online-crm-alpha.vercel.app"
-
             webView.visibility = View.VISIBLE
             btnOpenCrm.text = "❌ Закрити CRM"
 
@@ -222,10 +227,21 @@ class MainActivity : AppCompatActivity() {
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 databaseEnabled = true
+                loadWithOverviewMode = true
+                useWideViewPort = true
                 cacheMode = WebSettings.LOAD_DEFAULT
             }
             webView.webViewClient = WebViewClient()
-            webView.loadUrl(serverUrl)
+            webView.loadUrl(CRM_WEB_URL)
+        }
+    }
+
+    private fun openCrmInBrowser() {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(CRM_WEB_URL))
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Не вдалося відкрити браузер: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 

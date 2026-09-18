@@ -216,6 +216,11 @@ if (fs.existsSync(clientDistPath)) {
   app.get('*', (req, res) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));
   });
+} else {
+  // If client/dist is not hosted on this service (e.g. Render backend), redirect root to production frontend
+  app.get('/', (_req: Request, res: Response) => {
+    res.redirect(FRONTEND_URL || 'https://online-crm-alpha.vercel.app');
+  });
 }
 
 // ── Global error handler (must be the last middleware) ──

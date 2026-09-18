@@ -378,8 +378,17 @@
             android:id="@+id/btnOpenCrm"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🌐 Відкрити інтерфейс CRM"
+            android:text="🌐 Відкрити CRM у додатку"
             android:backgroundTint="#4338ca"
+            android:textColor="#ffffff"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnOpenBrowser"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🚀 Відкрити CRM у браузері (Chrome)"
+            android:backgroundTint="#0284c7"
             android:textColor="#ffffff"
             android:layout_marginBottom="10dp" />
 
@@ -396,7 +405,7 @@
         <WebView
             android:id="@+id/webView"
             android:layout_width="match_parent"
-            android:layout_height="400dp"
+            android:layout_height="600dp"
             android:visibility="gone" />
 
     </LinearLayout>
