@@ -47,4 +47,5 @@ cd .. && node test-crm-robot.js
 - `crm-autonomous-agent-orchestrator`: Автономные агенты Digital Pipeline, авто-квалификация лидов, round-robin распределение на менеджеров, защита от спама и фоновые очереди.
 - `crm-ui-ux-designer`: Архитектура дизайн-системы Calm Design, премиальный Glassmorphism, устранение монотонных серых интерфейсов, 1-клик эргономика карточек и модалок уровня Attio/Linear/amoCRM.
 - `premium-crm-visual-designer`: Элитная визуальная эстетика Linear/Raycast/Apple Pro, спекулярные 1px грани, тактильные микротекстуры, неоновые гало статусов и кинематика микроинтеракций.
+- `apple-design`: Фирменный стандарт дизайна Apple (WWDC Designing Fluid Interfaces), физика пружин (damping/response), прерываемые жесты (interruptibility), 1:1 direct manipulation, кинематика и оптика типографики для веба.
 
