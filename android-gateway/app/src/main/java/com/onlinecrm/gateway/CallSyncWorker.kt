@@ -67,9 +67,20 @@ class CallSyncWorker(
 
             Log.i(TAG, "Call log saved successfully. Deal ID: $dealId")
 
-            // 2. Upload Audio Recording if available
-            if (!recordingPath.isNullOrEmpty()) {
-                val audioFile = File(recordingPath)
+            // 2. Upload Audio Recording if available (with retry for asynchronous dialer disk flush)
+            var finalRecordingPath = recordingPath
+            if (finalRecordingPath.isNullOrEmpty() || !File(finalRecordingPath).exists()) {
+                Log.d(TAG, "Recording path not ready yet. Waiting 2.5s for dialer to finalize audio file...")
+                kotlinx.coroutines.delay(2500)
+                finalRecordingPath = AudioRecordingScanner.findRecentRecording(context, phone, startedAt, endedAt)
+                if (finalRecordingPath.isNullOrEmpty()) {
+                    kotlinx.coroutines.delay(2000)
+                    finalRecordingPath = AudioRecordingScanner.findRecentRecording(context, phone, startedAt, endedAt)
+                }
+            }
+
+            if (!finalRecordingPath.isNullOrEmpty()) {
+                val audioFile = File(finalRecordingPath)
                 if (audioFile.exists() && audioFile.length() > 0) {
                     Log.d(TAG, "Uploading call recording file: ${audioFile.name} (${audioFile.length()} bytes)...")
                     uploadAudioMultipart(
