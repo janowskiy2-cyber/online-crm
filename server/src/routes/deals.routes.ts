@@ -92,6 +92,12 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
             orderBy: { dueDate: 'asc' },
             select: { id: true, text: true, type: true, dueDate: true, responsibleId: true }
           },
+          notes: {
+            where: { type: 'call_record' },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { id: true, type: true, content: true, metadata: true, createdAt: true }
+          },
           messages: {
             take: 1,
             orderBy: { createdAt: 'desc' },

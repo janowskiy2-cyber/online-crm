@@ -47,6 +47,86 @@ interface PairedDevice {
 
 const activeDevices = new Map<string, PairedDevice>();
 
+/**
+ * Robust phone normalization:
+ * - e164: Standard E.164 (e.g. +380985457422)
+ * - formatted: Professional human-friendly display (e.g. +380 (98) 545-74-22)
+ * - rawDigits: Digits only
+ */
+export function normalizePhone(raw: string): { e164: string; formatted: string; rawDigits: string } {
+  if (!raw) return { e164: '', formatted: '', rawDigits: '' };
+
+  let cleaned = String(raw).trim();
+  if (cleaned.startsWith('00')) {
+    cleaned = '+' + cleaned.slice(2);
+  }
+
+  const digits = cleaned.replace(/\D/g, '');
+
+  // 1. Ukrainian number detection & formatting
+  // Case A: 12 digits starting with 380 (e.g. 380981234567)
+  if (digits.startsWith('380') && digits.length === 12) {
+    const e164 = `+${digits}`;
+    const op = digits.slice(3, 5);
+    const p1 = digits.slice(5, 8);
+    const p2 = digits.slice(8, 10);
+    const p3 = digits.slice(10, 12);
+    return { e164, formatted: `+380 (${op}) ${p1}-${p2}-${p3}`, rawDigits: digits };
+  }
+
+  // Case B: 11 digits starting with 80 (e.g. 80981234567)
+  if (digits.startsWith('80') && digits.length === 11) {
+    const full = `3${digits}`;
+    const e164 = `+${full}`;
+    const op = digits.slice(2, 4);
+    const p1 = digits.slice(4, 7);
+    const p2 = digits.slice(7, 9);
+    const p3 = digits.slice(9, 11);
+    return { e164, formatted: `+380 (${op}) ${p1}-${p2}-${p3}`, rawDigits: full };
+  }
+
+  // Case C: 10 digits starting with 0 (e.g. 0981234567, 0566099738)
+  if (digits.startsWith('0') && digits.length === 10) {
+    const full = `38${digits}`;
+    const e164 = `+${full}`;
+    const op = digits.slice(1, 3);
+    const p1 = digits.slice(3, 6);
+    const p2 = digits.slice(6, 8);
+    const p3 = digits.slice(8, 10);
+    return { e164, formatted: `+380 (${op}) ${p1}-${p2}-${p3}`, rawDigits: full };
+  }
+
+  // Case D: 9 digits without country code or leading 0 (e.g. 981234567, 566099738)
+  if (digits.length === 9) {
+    const full = `380${digits}`;
+    const e164 = `+${full}`;
+    const op = digits.slice(0, 2);
+    const p1 = digits.slice(2, 5);
+    const p2 = digits.slice(5, 7);
+    const p3 = digits.slice(7, 9);
+    return { e164, formatted: `+380 (${op}) ${p1}-${p2}-${p3}`, rawDigits: full };
+  }
+
+  // 2. Standard International number
+  if (cleaned.startsWith('+')) {
+    const e164 = `+${digits}`;
+    return { e164, formatted: e164, rawDigits: digits };
+  }
+
+  // 3. Fallback
+  const fallbackE164 = digits.length >= 10 ? `+${digits}` : (digits ? `+380${digits}` : '');
+  return { e164: fallbackE164, formatted: fallbackE164, rawDigits: digits };
+}
+
+export function formatDuration(secs: number): string {
+  if (!secs || secs <= 0) return '0 сек';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  if (m === 0) return `${s} сек`;
+  if (s === 0) return `${m} хв`;
+  return `${m} хв ${s} сек`;
+}
+
 export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketIOServer | null) {
   const router = Router();
 
@@ -219,7 +299,27 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         return res.status(400).json({ error: 'targetPhone є обов’язковим' });
       }
 
-      const cleanPhone = String(targetPhone).replace(/\D/g, '');
+      let numericDuration = Number(duration) || 0;
+      // If duration was sent in milliseconds (e.g. > 1000 and <= 86400000)
+      if (numericDuration > 1000 && numericDuration <= 86400000) {
+        numericDuration = Math.round(numericDuration / 1000);
+      }
+      // If duration is 0, but startedAt and endedAt are provided
+      if (numericDuration === 0 && startedAt && endedAt) {
+        const startMs = new Date(startedAt).getTime();
+        const endMs = new Date(endedAt).getTime();
+        if (!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) {
+          numericDuration = Math.round((endMs - startMs) / 1000);
+        }
+      }
+
+      const { e164: normalizedPhone, formatted: formattedPhone, rawDigits } = normalizePhone(targetPhone);
+      const searchSuffix = rawDigits.slice(-9);
+
+      const directionLabel = direction === 'inbound' ? 'Вхідний дзвінок' : 'Вихідний дзвінок';
+      const isMissed = status === 'missed' || (status === 'rejected') || (direction === 'inbound' && numericDuration === 0);
+      const durationStr = isMissed ? 'Пропущений' : formatDuration(numericDuration);
+
       const io = getIo();
 
       // Resolve responsible manager
@@ -236,9 +336,9 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
       let contact = await prisma.contact.findFirst({
         where: {
           OR: [
-            { phone: { contains: cleanPhone.slice(-9) } },
-            { phone2: { contains: cleanPhone.slice(-9) } },
-            { whatsapp: { contains: cleanPhone.slice(-9) } }
+            { phone: { contains: searchSuffix } },
+            { phone2: { contains: searchSuffix } },
+            { whatsapp: { contains: searchSuffix } }
           ]
         },
         include: {
@@ -261,26 +361,28 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         const firstStageId = defaultPipeline?.stages?.[0]?.id || 'stage-default';
         const pipeId = defaultPipeline?.id || 'pipe-employers-sales';
 
-        const directionLabel = direction === 'inbound' ? 'Вхідний дзвінок' : 'Вихідний дзвінок';
+        const dealTitle = isMissed
+          ? `🚨 Пропущений: ${formattedPhone}`
+          : `📞 ${directionLabel}: ${formattedPhone} (${durationStr})`;
 
         contact = await prisma.contact.create({
           data: {
-            name: `${directionLabel} (+${cleanPhone})`,
-            phone: `+${cleanPhone}`,
-            whatsapp: `+${cleanPhone}`
+            name: `${directionLabel} (${formattedPhone})`,
+            phone: normalizedPhone,
+            whatsapp: normalizedPhone
           },
           include: { deals: true }
         });
 
         activeDeal = await prisma.deal.create({
           data: {
-            title: `Дзвінок з SIM: +${cleanPhone}`,
+            title: dealTitle,
             pipelineId: pipeId,
             stageId: firstStageId,
             responsibleId,
             contactId: contact.id,
             budget: 0,
-            tags: JSON.stringify(['GSM SIM', directionLabel])
+            tags: JSON.stringify(['GSM SIM', directionLabel, durationStr])
           },
           include: {
             contact: true,
@@ -292,24 +394,51 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         if (io) {
           io.emit('deal_created', activeDeal);
         }
+      } else {
+        // Contact exists. If an active deal exists, bump updatedAt and refresh tags so it appears at top of Kanban
+        if (activeDeal) {
+          let currentTags: string[] = [];
+          try {
+            currentTags = activeDeal.tags ? (typeof activeDeal.tags === 'string' ? JSON.parse(activeDeal.tags) : activeDeal.tags) : [];
+          } catch {}
+
+          currentTags = currentTags.filter(t => !t.includes('сек') && !t.includes('хв') && t !== 'Пропущений');
+          if (!currentTags.includes('GSM SIM')) currentTags.unshift('GSM SIM');
+          if (!currentTags.includes(directionLabel)) currentTags.push(directionLabel);
+          currentTags.push(durationStr);
+
+          // Update title if it was an auto-generated call title
+          let newTitle = activeDeal.title;
+          if (activeDeal.title.startsWith('Дзвінок') || activeDeal.title.startsWith('📞') || activeDeal.title.startsWith('🚨')) {
+            newTitle = isMissed 
+              ? `🚨 Пропущений: ${formattedPhone}` 
+              : `📞 ${directionLabel}: ${formattedPhone} (${durationStr})`;
+          }
+
+          activeDeal = await prisma.deal.update({
+            where: { id: activeDeal.id },
+            data: {
+              title: newTitle,
+              updatedAt: new Date(),
+              tags: JSON.stringify(currentTags)
+            },
+            include: {
+              contact: true,
+              stage: true,
+              responsible: true
+            }
+          });
+
+          if (io) {
+            io.emit('deal_updated', activeDeal);
+          }
+        }
       }
-
-      // Format duration text: e.g. "1 хв 25 сек"
-      const formatDuration = (secs: number) => {
-        if (!secs || secs <= 0) return '0 сек';
-        const m = Math.floor(secs / 60);
-        const s = secs % 60;
-        if (m === 0) return `${s} сек`;
-        return `${m} хв ${s} сек`;
-      };
-
-      const durationStr = formatDuration(duration);
-      const isMissed = status === 'missed' || (direction === 'inbound' && Number(duration) === 0);
 
       // 2. Create DealNote with call record
       const noteTitle = isMissed 
-        ? `🚨 Пропущений ${direction === 'inbound' ? 'вхідний' : 'вихідний'} дзвінок (+${cleanPhone})`
-        : `📞 ${direction === 'inbound' ? 'Вхідний' : 'Вихідний'} дзвінок з SIM-карти (+${cleanPhone}) • ${durationStr}`;
+        ? `🚨 Пропущений ${direction === 'inbound' ? 'вхідний' : 'вихідний'} дзвінок (${formattedPhone})`
+        : `📞 ${direction === 'inbound' ? 'Вхідний' : 'Вихідний'} дзвінок з SIM-карти (${formattedPhone}) • ${durationStr}`;
 
       const note = await prisma.dealNote.create({
         data: {
@@ -320,10 +449,11 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
           metadata: JSON.stringify({
             callId: callId || `call-${Date.now()}`,
             direction,
-            duration,
+            duration: numericDuration,
             status,
             simSlot,
-            phoneNumber: `+${cleanPhone}`,
+            phoneNumber: normalizedPhone,
+            formattedPhone,
             startedAt: startedAt || new Date().toISOString(),
             endedAt: endedAt || new Date().toISOString()
           })
@@ -340,7 +470,7 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
             responsibleId,
             createdById: responsibleId,
             type: 'call',
-            text: `🔥 ТЕРМІНОВО: Передзвонити клієнту (+${cleanPhone}) — пропущений дзвінок!`,
+            text: `🔥 ТЕРМІНОВО: Передзвонити клієнту (${formattedPhone}) — пропущений дзвінок!`,
             dueDate: taskDue
           },
           include: { responsible: true }
@@ -357,9 +487,11 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
           callId,
           dealId: activeDeal.id,
           contactId: contact.id,
-          phoneNumber: `+${cleanPhone}`,
+          phoneNumber: normalizedPhone,
+          formattedPhone,
           direction,
-          duration,
+          duration: numericDuration,
+          durationStr,
           isMissed
         });
       }
@@ -369,6 +501,10 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         dealId: activeDeal.id,
         contactId: contact.id,
         noteId: note.id,
+        phoneNumber: normalizedPhone,
+        formattedPhone,
+        duration: numericDuration,
+        durationStr,
         isMissed
       });
     } catch (err: any) {
@@ -384,7 +520,7 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
   router.post('/calls/upload-record', upload.single('audio'), async (req, res) => {
     try {
       const file = req.file;
-      const { callId, dealId, phoneNumber } = req.body;
+      const { callId, dealId, phoneNumber, duration } = req.body;
 
       if (!file) {
         return res.status(400).json({ error: 'Аудіофайл не передано' });
@@ -392,17 +528,20 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
 
       const relativeUrl = `/uploads/calls/${file.filename}`;
       const io = getIo();
+      const numDuration = Number(duration) || 0;
+
+      const { e164: normalizedPhone, formatted: formattedPhone, rawDigits } = normalizePhone(phoneNumber);
+      const searchSuffix = rawDigits ? rawDigits.slice(-9) : '';
 
       // Find the corresponding DealNote or create new one
       let targetDealId = dealId;
 
-      if (!targetDealId && phoneNumber) {
-        const clean = String(phoneNumber).replace(/\D/g, '');
+      if (!targetDealId && searchSuffix) {
         const contact = await prisma.contact.findFirst({
           where: {
             OR: [
-              { phone: { contains: clean.slice(-9) } },
-              { phone2: { contains: clean.slice(-9) } }
+              { phone: { contains: searchSuffix } },
+              { phone2: { contains: searchSuffix } }
             ]
           },
           include: { deals: { take: 1, orderBy: { updatedAt: 'desc' } } }
@@ -425,9 +564,36 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
           try { meta = JSON.parse(existingNote.metadata || '{}'); } catch {}
           meta.recordingUrl = relativeUrl;
 
+          let updatedContent = existingNote.content;
+          if (numDuration > 0 && (!meta.duration || meta.duration === 0)) {
+            meta.duration = numDuration;
+            const newDurStr = formatDuration(numDuration);
+            if (updatedContent.includes('0 сек')) {
+              updatedContent = updatedContent.replace('0 сек', newDurStr);
+            } else if (!updatedContent.includes('•')) {
+              updatedContent += ` • ${newDurStr}`;
+            }
+
+            // Also update deal tags with duration
+            try {
+              const d = await prisma.deal.findUnique({ where: { id: targetDealId } });
+              if (d) {
+                let tags: string[] = [];
+                try { tags = typeof d.tags === 'string' ? JSON.parse(d.tags) : (d.tags || []); } catch {}
+                tags = tags.filter(t => !t.includes('сек') && !t.includes('хв') && t !== 'Пропущений');
+                tags.push(newDurStr);
+                await prisma.deal.update({
+                  where: { id: targetDealId },
+                  data: { tags: JSON.stringify(tags) }
+                });
+              }
+            } catch {}
+          }
+
           const updatedNote = await prisma.dealNote.update({
             where: { id: existingNote.id },
             data: {
+              content: updatedContent,
               metadata: JSON.stringify(meta)
             },
             include: { user: true }
@@ -438,14 +604,16 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
           }
         } else {
           // Create note with recording
+          const durStr = numDuration > 0 ? ` • ${formatDuration(numDuration)}` : '';
           const newNote = await prisma.dealNote.create({
             data: {
               dealId: targetDealId,
               userId: 'usr-admin',
               type: 'call_record',
-              content: `🎙️ Запис розмови з SIM-карти (+${phoneNumber || ''})`,
+              content: `🎙️ Запис розмови з SIM-карти (${formattedPhone || normalizedPhone})${durStr}`,
               metadata: JSON.stringify({
                 callId,
+                duration: numDuration,
                 recordingUrl: relativeUrl,
                 uploadedAt: new Date().toISOString()
               })

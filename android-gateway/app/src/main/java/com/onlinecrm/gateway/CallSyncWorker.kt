@@ -1,6 +1,8 @@
 package com.onlinecrm.gateway
 
 import android.content.Context
+import android.database.Cursor
+import android.provider.CallLog
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -44,19 +46,38 @@ class CallSyncWorker(
         val callId = "call_${System.currentTimeMillis()}_${UUID.randomUUID().toString().substring(0, 6)}"
 
         try {
-            Log.d(TAG, "Syncing call to CRM: $direction call with $phone ($duration sec)...")
+            // 1. Wait 1.5s for Android OS to flush call log to database
+            kotlinx.coroutines.delay(1500)
+            val (exactNumber, exactDuration, exactType, simSlot) = fetchCallLogEntry(context, phone, startedAt, endedAt)
 
-            // 1. Post Call Log Metadata
+            val rawPhone = if (!exactNumber.isNullOrEmpty() && exactNumber != "Unknown") exactNumber else phone
+            val targetPhone = normalizePhoneNumber(rawPhone)
+            val finalDuration = if (exactDuration > 0) exactDuration else (if (duration > 0) duration else Math.max(0, ((endedAt - startedAt) / 1000).toInt()))
+            
+            val finalDirection = when (exactType) {
+                CallLog.Calls.INCOMING_TYPE, CallLog.Calls.MISSED_TYPE, CallLog.Calls.REJECTED_TYPE -> "inbound"
+                CallLog.Calls.OUTGOING_TYPE -> "outbound"
+                else -> direction
+            }
+            val finalStatus = when (exactType) {
+                CallLog.Calls.MISSED_TYPE -> "missed"
+                CallLog.Calls.REJECTED_TYPE -> "rejected"
+                else -> if (finalDuration > 0) "answered" else (if (finalDirection == "inbound") "missed" else "answered")
+            }
+
+            Log.d(TAG, "Syncing call to CRM: $finalDirection call with $targetPhone ($finalDuration sec)...")
+
+            // 2. Post Call Log Metadata
             val logPayload = JSONObject().apply {
                 put("callId", callId)
                 put("deviceToken", deviceToken)
                 put("managerId", userId)
-                put("callerPhone", phone)
-                put("destinationPhone", phone)
-                put("direction", direction)
-                put("duration", duration)
-                put("status", status)
-                put("simSlot", 1)
+                put("callerPhone", targetPhone)
+                put("destinationPhone", targetPhone)
+                put("direction", finalDirection)
+                put("duration", finalDuration)
+                put("status", finalStatus)
+                put("simSlot", simSlot)
                 put("startedAt", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(java.util.Date(startedAt)))
                 put("endedAt", java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(java.util.Date(endedAt)))
             }
@@ -88,7 +109,8 @@ class CallSyncWorker(
                         file = audioFile,
                         callId = callId,
                         dealId = dealId,
-                        phoneNumber = phone
+                        phoneNumber = targetPhone,
+                        duration = finalDuration
                     )
                     Log.i(TAG, "Call recording uploaded successfully!")
 
@@ -143,7 +165,8 @@ class CallSyncWorker(
         file: File,
         callId: String,
         dealId: String,
-        phoneNumber: String
+        phoneNumber: String,
+        duration: Int
     ) {
         val boundary = "==Boundary_${System.currentTimeMillis()}=="
         val lineEnd = "\r\n"
@@ -173,6 +196,11 @@ class CallSyncWorker(
             dos.writeBytes("Content-Disposition: form-data; name=\"phoneNumber\"$lineEnd$lineEnd")
             dos.writeBytes("$phoneNumber$lineEnd")
 
+            // Field: duration
+            dos.writeBytes("$twoHyphens$boundary$lineEnd")
+            dos.writeBytes("Content-Disposition: form-data; name=\"duration\"$lineEnd$lineEnd")
+            dos.writeBytes("$duration$lineEnd")
+
             // File: audio
             dos.writeBytes("$twoHyphens$boundary$lineEnd")
             dos.writeBytes("Content-Disposition: form-data; name=\"audio\"; filename=\"${file.name}\"$lineEnd")
@@ -197,4 +225,59 @@ class CallSyncWorker(
             throw IOException("Upload failed with HTTP $code: $err")
         }
     }
+
+    private fun fetchCallLogEntry(
+        context: Context,
+        fallbackPhone: String,
+        startedAt: Long,
+        endedAt: Long
+    ): Quadruple<String?, Int, Int, Int> {
+        return try {
+            val minDate = (startedAt - 20000).coerceAtLeast(0)
+            val maxDate = endedAt + 20000
+            val cursor: Cursor? = context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                arrayOf(
+                    CallLog.Calls.NUMBER,
+                    CallLog.Calls.DURATION,
+                    CallLog.Calls.TYPE,
+                    CallLog.Calls.PHONE_ACCOUNT_ID
+                ),
+                "${CallLog.Calls.DATE} >= ? AND ${CallLog.Calls.DATE} <= ?",
+                arrayOf(minDate.toString(), maxDate.toString()),
+                "${CallLog.Calls.DATE} DESC"
+            )
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val num = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
+                    val dur = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.DURATION))
+                    val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
+                    val simAcc = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.PHONE_ACCOUNT_ID))
+                    val simId = (simAcc?.toIntOrNull() ?: 0) + 1
+                    return Quadruple(num, dur, type, simId)
+                }
+            }
+            Quadruple(fallbackPhone, 0, 0, 1)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not fetch call log entry: ${e.message}")
+            Quadruple(fallbackPhone, 0, 0, 1)
+        }
+    }
+
+    private fun normalizePhoneNumber(raw: String): String {
+        val cleaned = raw.trim()
+        val digits = cleaned.replace(Regex("\\D"), "")
+        return when {
+            digits.startsWith("380") && digits.length == 12 -> "+$digits"
+            digits.startsWith("80") && digits.length == 11 -> "+3$digits"
+            digits.startsWith("0") && digits.length == 10 -> "+38$digits"
+            digits.length == 9 -> "+380$digits"
+            cleaned.startsWith("+") -> "+$digits"
+            digits.length >= 10 -> "+$digits"
+            digits.isNotEmpty() -> "+380$digits"
+            else -> raw
+        }
+    }
+
+    data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 }

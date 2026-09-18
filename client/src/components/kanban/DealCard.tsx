@@ -135,6 +135,61 @@ export const DealCard: React.FC<DealCardProps> = ({
   const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
   const tgUser = deal.contact?.telegram ? deal.contact.telegram.replace('@', '') : '';
 
+  // Call Info & Duration Extraction for GSM Telephony
+  const latestCallNote = (deal.notes || []).find(n => n.type === 'call_record');
+  let callMeta: any = null;
+  if (latestCallNote?.metadata) {
+    try { callMeta = JSON.parse(latestCallNote.metadata); } catch {}
+  }
+
+  const hasCallRecord = !!latestCallNote || tags.includes('GSM SIM') || deal.title.startsWith('📞') || deal.title.startsWith('🚨') || deal.title.startsWith('Дзвінок');
+  let callDurationStr: string | null = null;
+  let callDirection: 'inbound' | 'outbound' | 'missed' = 'outbound';
+
+  if (callMeta) {
+    if (callMeta.status === 'missed' || callMeta.status === 'rejected' || (callMeta.direction === 'inbound' && callMeta.duration === 0)) {
+      callDirection = 'missed';
+    } else {
+      callDirection = callMeta.direction === 'inbound' ? 'inbound' : 'outbound';
+    }
+
+    if (callDirection === 'missed') {
+      callDurationStr = 'Пропущений';
+    } else if (typeof callMeta.duration === 'number' && callMeta.duration > 0) {
+      const m = Math.floor(callMeta.duration / 60);
+      const s = callMeta.duration % 60;
+      callDurationStr = m === 0 ? `${s} сек` : `${m} хв ${s} сек`;
+    }
+  }
+
+  if (!callDurationStr && latestCallNote?.content) {
+    const match = latestCallNote.content.match(/•\s*([0-9\sа-яієїґ]+(?:сек|хв[0-9\sа-яієїґ]*))/i);
+    if (match) callDurationStr = match[1].trim();
+    if (latestCallNote.content.includes('Пропущений') || latestCallNote.content.includes('🚨')) {
+      callDirection = 'missed';
+      callDurationStr = 'Пропущений';
+    }
+  }
+
+  if (!callDurationStr) {
+    const durTag = tags.find(t => t.includes('сек') || t.includes('хв') || t === 'Пропущений');
+    if (durTag) {
+      callDurationStr = durTag;
+      if (durTag === 'Пропущений') callDirection = 'missed';
+    }
+  }
+
+  if (!callDurationStr) {
+    const titleMatch = deal.title.match(/\(([^)]*(?:сек|хв|Пропущ)[^)]*)\)/i);
+    if (titleMatch) {
+      callDurationStr = titleMatch[1].trim();
+      if (callDurationStr === 'Пропущений') callDirection = 'missed';
+    }
+  }
+
+  if (deal.title.includes('Вхідний')) callDirection = callDirection === 'missed' ? 'missed' : 'inbound';
+  if (deal.title.includes('🚨') || deal.title.includes('Пропущений')) callDirection = 'missed';
+
   // Quick Preset Task Creation (1-Click)
   const handleQuickTaskPreset = async (e: React.MouseEvent, text: string, hoursAhead: number, type: string = 'call') => {
     e.stopPropagation();
@@ -360,6 +415,30 @@ export const DealCard: React.FC<DealCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* GSM SIM Call Indicator with Duration Badge */}
+      {hasCallRecord && (
+        <div className="relative mb-2 flex items-center gap-1.5 flex-wrap">
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition shadow-sm ${
+            callDirection === 'missed'
+              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 animate-pulse'
+              : callDirection === 'inbound'
+              ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/25'
+              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25 hover:bg-blue-500/15'
+          }`}>
+            <span className="text-xs">{callDirection === 'missed' ? '🚨' : (callDirection === 'inbound' ? '📥' : '📞')}</span>
+            <span className="font-medium">
+              {callDirection === 'missed' ? 'Пропущений' : (callDirection === 'inbound' ? 'Вхідний SIM' : 'Вихідний SIM')}
+            </span>
+            {callDurationStr && (
+              <>
+                <span className="opacity-40">•</span>
+                <span className="font-mono font-bold tracking-tight">{callDurationStr}</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Budget & AI Health Score */}
       <div className="relative flex items-center justify-between gap-2 mb-2">

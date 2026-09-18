@@ -120,10 +120,11 @@ export interface Deal {
 export interface DealNote {
   id: string;
   dealId: string;
-  userId: string;
+  userId?: string;
   user?: User;
   content: string;
   type: string;
+  metadata?: string;
   createdAt: string;
 }
 
