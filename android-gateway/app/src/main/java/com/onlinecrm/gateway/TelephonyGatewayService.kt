@@ -3,6 +3,7 @@ package com.onlinecrm.gateway
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -29,9 +30,23 @@ class TelephonyGatewayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification("Синхронізація дзвінків активна"))
-        connectSocket()
+        try {
+            createNotificationChannel()
+            val notification = buildNotification("Синхронізація дзвінків активна")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting foreground service: ${e.message}", e)
+        }
+
+        try {
+            connectSocket()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing socket: ${e.message}", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -130,7 +145,7 @@ class TelephonyGatewayService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("OnlineCRM GSM Шлюз")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_phone_call)
+            .setSmallIcon(R.drawable.ic_call_service)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()

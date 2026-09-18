@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -49,20 +50,25 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("is_logged_in", false)) {
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-            return
+        try {
+            val prefs = getSharedPreferences("crm_gateway_prefs", Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("is_logged_in", false)) {
+                startActivity(Intent(this, LoginActivity::class.java))
+                finish()
+                return
+            }
+
+            setContentView(R.layout.activity_main)
+
+            initViews()
+            loadSettings()
+            checkAndRequestPermissions()
+            startGatewayService()
+            requestBatteryOptimizationExemption()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to initialize MainActivity: ${e.message}", e)
+            Toast.makeText(this, "Помилка запуску шлюзу: ${e.message}", Toast.LENGTH_LONG).show()
         }
-
-        setContentView(R.layout.activity_main)
-
-        initViews()
-        loadSettings()
-        checkAndRequestPermissions()
-        startGatewayService()
-        requestBatteryOptimizationExemption()
     }
 
     private fun initViews() {
@@ -224,11 +230,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startGatewayService() {
-        val serviceIntent = Intent(this, TelephonyGatewayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
+        try {
+            val serviceIntent = Intent(this, TelephonyGatewayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to start TelephonyGatewayService: ${e.message}", e)
         }
     }
 
