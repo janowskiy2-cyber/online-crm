@@ -105,8 +105,9 @@ class PermissionsActivity : AppCompatActivity() {
         setButtonStatus(btnPermBattery, hasBattery, "Вимкнути обмеження батареї")
 
         // 4. Storage / Audio
-        val hasStorage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val hasStorage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED)
         } else {
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         }

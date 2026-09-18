@@ -1,4 +1,4 @@
-﻿package com.onlinecrm.gateway
+package com.onlinecrm.gateway
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -133,7 +133,7 @@ class CallReceiver : BroadcastReceiver() {
                     else -> if (exactDuration > 0) "answered" else "missed"
                 }
 
-                val recordingPath = AudioRecordingScanner.findRecentRecording(context, callStartTime, callEndTime)
+                val recordingPath = AudioRecordingScanner.findRecentRecording(context, targetPhone, callStartTime, callEndTime)
 
                 scheduleCallSync(
                     context = context,

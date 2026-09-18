@@ -4,9 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
@@ -40,6 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var etBlacklist: EditText
     private lateinit var btnOverlayPermission: Button
+    private lateinit var btnStoragePermission: Button
     private lateinit var switchAutoDeleteRecordings: SwitchCompat
 
     private lateinit var btnSaveSettings: Button
@@ -117,6 +120,11 @@ class MainActivity : AppCompatActivity() {
 
         btnOverlayPermission.setOnClickListener {
             requestOverlayPermission()
+        }
+
+        btnStoragePermission = findViewById(R.id.btnStoragePermission)
+        btnStoragePermission.setOnClickListener {
+            requestStoragePermission()
         }
 
         switchSyncEnabled.setOnCheckedChangeListener { _, isChecked ->
@@ -279,6 +287,64 @@ class MainActivity : AppCompatActivity() {
         if (notGranted.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, notGranted.toTypedArray(), PERMISSIONS_REQUEST_CODE)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateStoragePermissionButtonState()
+    }
+
+    private fun updateStoragePermissionButtonState() {
+        val hasStorage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager() || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+
+        if (hasStorage) {
+            btnStoragePermission.text = "✅ Доступ до файлів записів надано"
+            btnStoragePermission.setBackgroundColor(Color.parseColor("#059669"))
+            btnStoragePermission.isEnabled = false
+        } else {
+            btnStoragePermission.text = "⚠️ Надати повний доступ до записів"
+            btnStoragePermission.setBackgroundColor(Color.parseColor("#0284c7"))
+            btnStoragePermission.isEnabled = true
+        }
+    }
+
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                    Toast.makeText(this, "Увімкніть дозвіл на доступ до всіх файлів для зчитування записів", Toast.LENGTH_LONG).show()
+                    return
+                } catch (e: Exception) {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                        startActivity(intent)
+                        return
+                    } catch (e2: Exception) {
+                        Log.e("MainActivity", "Failed to open manage all files settings: ${e2.message}")
+                    }
+                }
+            }
+        }
+
+        val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(Manifest.permission.READ_MEDIA_AUDIO)
+        } else {
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        ActivityCompat.requestPermissions(this, perms, PERMISSIONS_REQUEST_CODE)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        updateStoragePermissionButtonState()
     }
 
     private fun requestBatteryOptimizationExemption() {
