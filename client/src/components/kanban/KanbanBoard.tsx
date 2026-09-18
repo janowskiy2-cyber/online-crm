@@ -366,7 +366,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#F5F5F7] dark:bg-[#070b13] p-3 sm:p-5 transition-colors duration-200 font-['Inter',-apple-system,sans-serif]">
+    <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper p-3 sm:p-5 transition-colors duration-200 font-['Inter',-apple-system,sans-serif]">
       {/* Mobile Sticky Horizontal Stage Ribbon (md:hidden) */}
       {stagesList.length > 0 && (
         <div className="md:hidden flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1.5 mb-2.5 px-0.5 flex-shrink-0">
