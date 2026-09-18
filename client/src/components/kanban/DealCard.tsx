@@ -295,19 +295,11 @@ export const DealCard: React.FC<DealCardProps> = ({
     <div
       onClick={onClick}
       style={{ borderLeftColor: stageColor }}
-      className={`group relative border border-slate-200/90 dark:border-white/[0.1] border-l-[4px] rounded-2xl p-3.5 shadow-sm hover:shadow-xl transition-all duration-200 cursor-pointer overflow-hidden backdrop-blur-md bg-gradient-to-br from-white via-slate-50/95 to-blue-50/25 dark:from-[#0f172a]/95 dark:via-[#0c1222]/95 dark:to-blue-950/20`}
+      className={`group relative border border-black/[0.06] dark:border-white/[0.08] border-l-[3.5px] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03),0_12px_24px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 active:scale-[0.985] transition-all duration-200 cursor-pointer overflow-hidden backdrop-blur-xl bg-white/95 dark:bg-[#0f172a]/95`}
     >
-      {/* Subtle Architectural Luxury Backdrop Texture */}
-      <div 
-        className="absolute inset-0 opacity-[0.035] dark:opacity-[0.055] pointer-events-none bg-cover bg-center mix-blend-overlay"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=800&auto=format&fit=crop')`
-        }}
-      />
-
       {/* Dynamic Ambient Stage Glow in Top Right Corner */}
       <div 
-        className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-20 dark:opacity-25 transition-opacity group-hover:opacity-40"
+        className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none opacity-25 dark:opacity-20 transition-opacity group-hover:opacity-45"
         style={{ backgroundColor: stageColor }}
       />
 
@@ -316,22 +308,22 @@ export const DealCard: React.FC<DealCardProps> = ({
         <div className="flex items-start gap-1.5 min-w-0 flex-1">
           {taskStatus === 'future' && (
             <span 
-              className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] mt-0.5 flex-shrink-0" 
+              className="w-2 h-2 rounded-full bg-[#34C759] shadow-[0_0_6px_rgba(52,199,89,0.8)] mt-1 flex-shrink-0" 
               title={`Завдання заплановано на майбутнє: ${activeTask ? formatTaskTime(activeTask.dueDate) : ''}`}
             />
           )}
           {taskStatus === 'overdue' && (
             <span 
-              className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)] mt-0.5 flex-shrink-0 animate-ping" 
+              className="w-2 h-2 rounded-full bg-[#FF3B30] shadow-[0_0_6px_rgba(255,59,48,0.8)] mt-1 flex-shrink-0 animate-pulse" 
               title={`Увага! Завдання прострочено: ${activeTask ? formatTaskTime(activeTask.dueDate) : ''}`}
             />
           )}
           {taskStatus === 'no_task' && (
             <span title="Увага! Лід без задачі!">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0 animate-pulse" />
+              <AlertTriangle className="w-3.5 h-3.5 text-[#FF9500] mt-0.5 flex-shrink-0 animate-pulse" />
             </span>
           )}
-          <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition leading-snug line-clamp-2">
+          <h4 className="text-xs font-semibold text-[#1D1D1F] dark:text-slate-100 group-hover:text-[#0071E3] dark:group-hover:text-blue-400 transition leading-snug line-clamp-2 tracking-tight">
             {deal.title}
           </h4>
         </div>
@@ -344,10 +336,10 @@ export const DealCard: React.FC<DealCardProps> = ({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className={`p-1 rounded-lg border transition flex items-center justify-center ${
+            className={`p-1 rounded-full border transition-all flex items-center justify-center active:scale-95 ${
               isExpanded 
-                ? 'bg-blue-600 text-white border-blue-500 shadow-sm' 
-                : 'bg-slate-100 dark:bg-white/[0.06] text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 border-slate-200 dark:border-white/[0.08]'
+                ? 'bg-[#0071E3] text-white border-[#0071E3] shadow-sm' 
+                : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#86868B] hover:text-[#0071E3] dark:text-slate-400 dark:hover:text-blue-400 border-black/[0.04] dark:border-white/[0.08]'
             }`}
             title={isExpanded ? "Згорнути міні-картку" : "Розгорнути міні-картку: швидко записати задачу або замітку"}
           >
@@ -357,14 +349,14 @@ export const DealCard: React.FC<DealCardProps> = ({
           <button
             type="button"
             onClick={handleCopyLink}
-            className={`opacity-0 group-hover:opacity-100 p-1 rounded-lg transition flex-shrink-0 ${
+            className={`opacity-0 group-hover:opacity-100 p-1 rounded-full transition-all flex-shrink-0 active:scale-95 ${
               copiedLink 
-                ? 'opacity-100 bg-emerald-500/20 text-emerald-500' 
-                : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'
+                ? 'opacity-100 bg-emerald-500/15 text-emerald-600' 
+                : 'text-[#86868B] hover:text-[#0071E3] hover:bg-black/[0.04] dark:hover:bg-white/10'
             }`}
             title={copiedLink ? "Посилання скопійовано!" : "Скопіювати пряме посилання"}
           >
-            {copiedLink ? <Check className="w-3 h-3 text-emerald-500" /> : <Link2 className="w-3 h-3" />}
+            {copiedLink ? <Check className="w-3 h-3 text-emerald-600" /> : <Link2 className="w-3 h-3" />}
           </button>
         </div>
       </div>
@@ -372,18 +364,18 @@ export const DealCard: React.FC<DealCardProps> = ({
       {/* Budget & AI Health Score */}
       <div className="relative flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 shadow-sm">
+          <span className="text-xs font-semibold font-mono text-[#34C759] dark:text-emerald-400 bg-[#34C759]/10 px-2.5 py-0.5 rounded-full border border-[#34C759]/20 shadow-[0_1px_2px_rgba(52,199,89,0.06)]">
             {formatCurrency(deal.budget || 0)}
           </span>
           <span 
-            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-lg border ${aiBadge.color}`}
+            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${aiBadge.color}`}
             title={`ШІ-Скоринг здоров'я угоди: ${aiBadge.label}`}
           >
             {aiBadge.text}
           </span>
           {isPaused && (
             <span 
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg border bg-indigo-500/15 text-indigo-400 border-indigo-500/30 flex items-center gap-1 shadow-sm"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 flex items-center gap-1 shadow-sm"
               title="Угода знаходиться в режимі відкладеного попиту"
             >
               <span>⏸️ Відкладено</span>
@@ -393,13 +385,13 @@ export const DealCard: React.FC<DealCardProps> = ({
 
         {/* 1-Click Quick Contact Icons (WhatsApp, TG, Phone) */}
         {primaryPhone && (
-          <div className="flex items-center gap-1 opacity-85 group-hover:opacity-100 transition" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition" onClick={(e) => e.stopPropagation()}>
             <a
               href={`https://wa.me/${primaryPhone}`}
               target="_blank"
               rel="noreferrer"
               title="Написати у WhatsApp"
-              className="p-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 transition"
+              className="p-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition active:scale-95"
             >
               <MessageSquare className="w-3 h-3" strokeWidth={1.75} />
             </a>
@@ -408,14 +400,14 @@ export const DealCard: React.FC<DealCardProps> = ({
               target="_blank"
               rel="noreferrer"
               title="Написати у Telegram"
-              className="p-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/25 text-sky-600 dark:text-sky-400 transition text-[10px] font-bold leading-none"
+              className="px-1.5 py-0.5 rounded-full bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition text-[9px] font-bold leading-none active:scale-95"
             >
               TG
             </a>
             <a
               href={`tel:+${primaryPhone}`}
               title="Зателефонувати"
-              className="p-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 transition"
+              className="p-1 rounded-full bg-[#0071E3]/10 hover:bg-[#0071E3]/20 text-[#0071E3] dark:text-blue-400 transition active:scale-95"
             >
               <Phone className="w-3 h-3" strokeWidth={1.75} />
             </a>
@@ -425,35 +417,35 @@ export const DealCard: React.FC<DealCardProps> = ({
 
       {/* Client / Company Details */}
       {(deal.company || deal.contact) && (
-        <div className="relative space-y-0.5 text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+        <div className="relative space-y-0.5 text-[11px] text-[#86868B] dark:text-slate-400 mb-2">
           {deal.company && (
             <div className="flex items-center gap-1.5 truncate">
-              <Building2 className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
-              <span className="truncate font-medium">{deal.company.name}</span>
+              <Building2 className="w-3 h-3 text-[#86868B] dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
+              <span className="truncate font-medium text-[#1D1D1F]/80 dark:text-slate-300">{deal.company.name}</span>
             </div>
           )}
           {deal.contact && (
             <div className="flex items-center gap-1.5 truncate">
-              <UserIcon className="w-3 h-3 text-slate-400 dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
+              <UserIcon className="w-3 h-3 text-[#86868B] dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
               <span className="truncate">{deal.contact.name}</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Tags: Linear pills */}
+      {/* Tags: Apple Pills */}
       {tags.length > 0 && (
         <div className="relative flex flex-wrap gap-1 mb-2.5">
           {tags.slice(0, 3).map((tag, idx) => (
             <span
               key={idx}
-              className="text-[10px] font-medium bg-slate-100 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-white/[0.06] px-1.5 py-0.2 rounded"
+              className="text-[10px] font-medium bg-black/[0.04] dark:bg-white/[0.05] text-[#1D1D1F]/80 dark:text-slate-300 border border-black/[0.04] dark:border-white/[0.06] px-2 py-0.5 rounded-full"
             >
               {tag}
             </span>
           ))}
           {tags.length > 3 && (
-            <span className="text-[10px] text-slate-400 self-center">+{tags.length - 3}</span>
+            <span className="text-[10px] text-[#86868B] self-center">+{tags.length - 3}</span>
           )}
         </div>
       )}
@@ -468,37 +460,37 @@ export const DealCard: React.FC<DealCardProps> = ({
               e.stopPropagation();
               setIsTaskPlateOpen(!isTaskPlateOpen);
             }}
-            className="text-left transition active:scale-95 group/taskBtn"
+            className="text-left transition active:scale-[0.97] group/taskBtn"
           >
             {taskStatus === 'future' && activeTask && (
               <div 
-                className="flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 shadow-sm group-hover/taskBtn:border-emerald-500/60"
+                className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[#34C759]/10 text-[#34C759] border border-[#34C759]/20 shadow-[0_1px_2px_rgba(52,199,89,0.06)] group-hover/taskBtn:border-[#34C759]/40"
                 title="Натисніть, щоб зафіксувати результат або перенести завдання"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
-                <Clock className="w-3 h-3 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] shadow-[0_0_6px_rgba(52,199,89,0.8)]" />
+                <Clock className="w-3 h-3 text-[#34C759] flex-shrink-0" />
                 <span className="truncate max-w-[125px]">{formatTaskTime(activeTask.dueDate)}</span>
               </div>
             )}
 
             {taskStatus === 'overdue' && activeTask && (
               <div 
-                className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/35 shadow-sm group-hover/taskBtn:border-rose-500/60"
+                className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[#FF3B30]/10 text-[#FF3B30] border border-[#FF3B30]/25 shadow-[0_1px_2px_rgba(255,59,48,0.06)] group-hover/taskBtn:border-[#FF3B30]/45"
                 title="Увага! Натисніть, щоб зафіксувати результат або перенести завдання"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.9)] animate-ping" />
-                <AlertCircle className="w-3 h-3 text-rose-500 dark:text-rose-400 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] shadow-[0_0_6px_rgba(255,59,48,0.9)] animate-pulse" />
+                <AlertCircle className="w-3 h-3 text-[#FF3B30] flex-shrink-0" />
                 <span className="truncate max-w-[125px]">Прострочено ({formatTaskTime(activeTask.dueDate)})</span>
               </div>
             )}
 
             {taskStatus === 'no_task' && (
               <div 
-                className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shadow-sm group-hover/taskBtn:border-amber-500/60 animate-pulse"
+                className="flex items-center gap-1 text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[#FF9500]/10 text-[#FF9500] border border-[#FF9500]/20 shadow-sm group-hover/taskBtn:border-[#FF9500]/40"
                 title="Натисніть, щоб швидко призначити наступне завдання"
               >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                <span>+ Без задачі!</span>
+                <AlertTriangle className="w-3 h-3 text-[#FF9500] flex-shrink-0" />
+                <span>+ Без задачі</span>
               </div>
             )}
           </button>
@@ -511,17 +503,17 @@ export const DealCard: React.FC<DealCardProps> = ({
               <button
                 type="button"
                 onClick={() => setIsStagePickerOpen(prev => !prev)}
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] hover:bg-blue-500/10 hover:text-blue-500 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/[0.06] transition flex items-center gap-0.5 active:scale-95"
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] hover:bg-[#0071E3]/10 hover:text-[#0071E3] text-[#86868B] dark:text-slate-400 border border-black/[0.04] dark:border-white/[0.06] transition flex items-center gap-0.5 active:scale-[0.97]"
                 title="Змінити етап в 1 клік (без перетягування)"
               >
                 <span>➔ Етап</span>
               </button>
               {isStagePickerOpen && (
                 <div 
-                  className="absolute bottom-full mb-1 right-0 z-50 bg-white dark:bg-[#121829] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-1.5 min-w-[180px] space-y-0.5 animate-in fade-in zoom-in-95"
+                  className="absolute bottom-full mb-1.5 right-0 z-50 bg-white/95 dark:bg-[#121829]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/10 rounded-2xl shadow-2xl p-1.5 min-w-[190px] space-y-0.5 animate-in fade-in zoom-in-95"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-white/5">
+                  <div className="px-2.5 py-1 text-[10px] font-semibold text-[#86868B] uppercase tracking-wider border-b border-black/[0.04] dark:border-white/5">
                     Перемістити на:
                   </div>
                   {stages.map((stg) => {
@@ -535,13 +527,13 @@ export const DealCard: React.FC<DealCardProps> = ({
                           setIsStagePickerOpen(false);
                           onMoveStage(deal.id, stg.id);
                         }}
-                        className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
+                        className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2 transition ${
                           isCurrent 
-                            ? 'bg-blue-500/10 text-blue-500 font-bold opacity-60 cursor-default' 
-                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-blue-600'
+                            ? 'bg-[#0071E3]/10 text-[#0071E3] font-semibold opacity-60 cursor-default' 
+                            : 'text-[#1D1D1F] dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/5 hover:text-[#0071E3]'
                         }`}
                       >
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stg.color || '#3b82f6' }} />
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stg.color || '#0071E3' }} />
                         <span className="truncate">{stg.name}</span>
                       </button>
                     );
@@ -560,7 +552,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                 return matchingUser?.avatar || deal.responsible?.avatar || (isSuperAdmin ? (currentUser?.avatar || DEFAULT_ADMIN_AVATAR) : DEFAULT_ADMIN_AVATAR);
               })()}
               alt={deal.responsible?.name || 'Менеджер'}
-              className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200 dark:ring-white/[0.1] shadow-sm"
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-black/[0.08] dark:ring-white/[0.1] shadow-sm"
             />
           </div>
         </div>
@@ -572,17 +564,17 @@ export const DealCard: React.FC<DealCardProps> = ({
       {isExpanded && (
         <div 
           onClick={(e) => e.stopPropagation()} 
-          className="relative mt-3 pt-3 border-t border-slate-200/80 dark:border-white/[0.08] space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-150"
+          className="relative mt-3 pt-3 border-t border-black/[0.05] dark:border-white/[0.08] space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-150"
         >
-          {/* Tabs: [📅 Завдання] / [📝 Замітка про клієнта] */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-black/40 p-0.5 rounded-xl border border-slate-200/60 dark:border-white/5">
+          {/* Tabs: [📅 Завдання] / [📝 Замітка про клієнта] - iOS Segmented Control */}
+          <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-black/40 p-1 rounded-full border border-black/[0.04] dark:border-white/5">
             <button
               type="button"
               onClick={() => setExpandedTab('task')}
-              className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-1 px-2.5 rounded-full text-[11px] font-medium transition flex items-center justify-center gap-1.5 active:scale-95 ${
                 expandedTab === 'task'
-                  ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                  ? 'bg-white dark:bg-[#0071E3] text-[#0071E3] dark:text-white shadow-sm font-semibold'
+                  : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
               <Clock className="w-3 h-3" />
@@ -591,10 +583,10 @@ export const DealCard: React.FC<DealCardProps> = ({
             <button
               type="button"
               onClick={() => setExpandedTab('note')}
-              className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-1 px-2.5 rounded-full text-[11px] font-medium transition flex items-center justify-center gap-1.5 active:scale-95 ${
                 expandedTab === 'note'
-                  ? 'bg-white dark:bg-amber-600 text-amber-600 dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                  ? 'bg-white dark:bg-amber-600 text-amber-600 dark:text-white shadow-sm font-semibold'
+                  : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
               <FileText className="w-3 h-3" />
@@ -611,7 +603,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                   type="button"
                   onClick={(e) => handleQuickTaskPreset(e, '📞 Дзвінок-кваліфікація (15 хв)', 24, 'call')}
                   disabled={isSavingTask}
-                  className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 font-semibold border border-blue-500/20 text-left truncate transition"
+                  className="p-1.5 rounded-xl bg-[#0071E3]/[0.08] hover:bg-[#0071E3]/[0.15] text-[#0071E3] dark:text-blue-300 font-medium border border-[#0071E3]/15 text-left truncate transition active:scale-[0.97]"
                 >
                   📞 Завтра 10:00
                 </button>
@@ -619,7 +611,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                   type="button"
                   onClick={(e) => handleQuickTaskPreset(e, '📄 Контроль розгляду КП та розрахунку', 48, 'meeting')}
                   disabled={isSavingTask}
-                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/20 text-left truncate transition"
+                  className="p-1.5 rounded-xl bg-amber-500/[0.08] hover:bg-amber-500/[0.15] text-amber-700 dark:text-amber-300 font-medium border border-amber-500/15 text-left truncate transition active:scale-[0.97]"
                 >
                   📄 Контроль КП (+2д)
                 </button>
@@ -627,7 +619,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                   type="button"
                   onClick={(e) => handleQuickTaskPreset(e, '⚖️ Узгодження правок до договору', 72, 'other')}
                   disabled={isSavingTask}
-                  className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/20 text-left truncate transition"
+                  className="p-1.5 rounded-xl bg-emerald-500/[0.08] hover:bg-emerald-500/[0.15] text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-500/15 text-left truncate transition active:scale-[0.97]"
                 >
                   ⚖️ Договір (+3д)
                 </button>
@@ -635,7 +627,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                   type="button"
                   onClick={(e) => handleQuickTaskPreset(e, '💳 Контроль надходження оплати (25%)', 24, 'invoice')}
                   disabled={isSavingTask}
-                  className="p-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-semibold border border-purple-500/20 text-left truncate transition"
+                  className="p-1.5 rounded-xl bg-purple-500/[0.08] hover:bg-purple-500/[0.15] text-purple-700 dark:text-purple-300 font-medium border border-purple-500/15 text-left truncate transition active:scale-[0.97]"
                 >
                   💳 Оплата (+24г)
                 </button>
@@ -648,13 +640,13 @@ export const DealCard: React.FC<DealCardProps> = ({
                   placeholder="Введіть свою задачу..."
                   value={quickTaskText}
                   onChange={(e) => setQuickTaskText(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-[#1D1D1F] dark:text-white placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30 transition"
                 />
                 <div className="flex items-center gap-1.5">
                   <select
                     value={quickTaskType}
                     onChange={(e) => setQuickTaskType(e.target.value)}
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 focus:outline-none"
+                    className="bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-2 py-1 text-[11px] text-[#1D1D1F] dark:text-white focus:outline-none"
                   >
                     <option value="call">📞 Дзвінок</option>
                     <option value="meeting">🤝 Зустріч</option>
@@ -665,12 +657,12 @@ export const DealCard: React.FC<DealCardProps> = ({
                     type="datetime-local"
                     value={quickTaskDue}
                     onChange={(e) => setQuickTaskDue(e.target.value)}
-                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 focus:outline-none"
+                    className="flex-1 bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-2 py-1 text-[11px] text-[#1D1D1F] dark:text-white focus:outline-none"
                   />
                   <button
                     type="submit"
                     disabled={isSavingTask || !quickTaskText.trim()}
-                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 flex-shrink-0"
+                    className="px-3 py-1 bg-[#0071E3] hover:bg-[#0077ED] active:scale-[0.97] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition flex items-center gap-1 flex-shrink-0 shadow-sm"
                   >
                     <span>{isSavingTask ? '...' : '+ Додати'}</span>
                   </button>
@@ -687,16 +679,16 @@ export const DealCard: React.FC<DealCardProps> = ({
                 placeholder="Запишіть інформацію, деталі дзвінка або вимоги клієнта..."
                 value={quickNoteContent}
                 onChange={(e) => setQuickNoteContent(e.target.value)}
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 resize-none leading-relaxed"
+                className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl p-2 text-xs text-[#1D1D1F] dark:text-white placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-amber-500/30 resize-none leading-relaxed transition"
               />
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-emerald-500 font-semibold">
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                   {noteSavedNotice ? '✓ Замітку збережено!' : ''}
                 </span>
                 <button
                   type="submit"
                   disabled={isSavingNote || !quickNoteContent.trim()}
-                  className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-500 active:scale-[0.97] disabled:opacity-50 text-white rounded-xl text-xs font-medium transition flex items-center gap-1 shadow-sm"
                 >
                   <span>{isSavingNote ? 'Збереження...' : 'Зберегти замітку'}</span>
                 </button>
@@ -706,13 +698,13 @@ export const DealCard: React.FC<DealCardProps> = ({
 
           {/* Mini-Card Footer Link */}
           <div className="pt-1 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400 text-[10px] truncate max-w-[140px]">
+            <span className="text-[#86868B] text-[10px] truncate max-w-[140px]">
               {deal.company?.name || deal.contact?.name || 'Картка клієнта'}
             </span>
             <button
               type="button"
               onClick={onClick}
-              className="text-blue-600 dark:text-blue-400 hover:underline font-bold text-[11px] flex items-center gap-1"
+              className="text-[#0071E3] hover:text-[#0077ED] hover:underline font-semibold text-[11px] flex items-center gap-1"
             >
               <span>Повна картка</span>
               <ExternalLink className="w-3 h-3" />
@@ -727,17 +719,17 @@ export const DealCard: React.FC<DealCardProps> = ({
       {isTaskPlateOpen && (
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="absolute inset-x-2 bottom-2 z-50 p-3 bg-white dark:bg-[#0c1322] border border-blue-500/40 dark:border-blue-400/30 rounded-2xl shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 space-y-2.5"
+          className="absolute inset-x-2 bottom-2 z-50 p-3 bg-white/95 dark:bg-[#1D1D1F]/95 border border-black/[0.08] dark:border-white/10 rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.12)] backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 space-y-2.5"
         >
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100">
-              <CheckSquare className="w-3.5 h-3.5 text-blue-500" />
+          <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1D1D1F] dark:text-white">
+              <CheckSquare className="w-3.5 h-3.5 text-[#0071E3]" />
               <span>Дія по завданню</span>
             </div>
             <button
               type="button"
               onClick={() => setIsTaskPlateOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg"
+              className="p-1 text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white rounded-lg"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -745,19 +737,19 @@ export const DealCard: React.FC<DealCardProps> = ({
 
           {activeTask ? (
             <div className="space-y-2">
-              <div className="text-[11px] bg-slate-100 dark:bg-white/[0.05] p-2 rounded-xl border border-slate-200/80 dark:border-white/[0.06]">
-                <div className="font-bold text-slate-900 dark:text-white truncate">
+              <div className="text-[11px] bg-black/[0.03] dark:bg-white/[0.05] p-2.5 rounded-xl border border-black/[0.04] dark:border-white/[0.06]">
+                <div className="font-semibold text-[#1D1D1F] dark:text-white truncate">
                   {activeTask.text}
                 </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-slate-400" />
+                <div className="text-[10px] text-[#86868B] dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-[#86868B]" />
                   <span>Термін: {formatTaskTime(activeTask.dueDate)}</span>
                 </div>
               </div>
 
               {/* Record Call/Action Result */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <label className="text-[10px] font-semibold text-[#86868B] uppercase tracking-wider block">
                   Результат контакту:
                 </label>
                 <input
@@ -765,7 +757,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                   placeholder="Що відповів клієнт? (збережеться в замітку)"
                   value={taskResultText}
                   onChange={(e) => setTaskResultText(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-[#1D1D1F] dark:text-white placeholder-[#86868B] focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition"
                 />
               </div>
 
@@ -774,7 +766,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                   type="button"
                   disabled={isCompletingTask}
                   onClick={(e) => handleCompleteTaskWithResult(e, activeTask.id)}
-                  className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-md shadow-emerald-600/20 active:scale-95"
+                  className="flex-1 py-1.5 bg-[#34C759] hover:bg-[#30B753] text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 shadow-sm active:scale-[0.97]"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>{isCompletingTask ? '...' : '✅ Виконано'}</span>
@@ -782,7 +774,7 @@ export const DealCard: React.FC<DealCardProps> = ({
                 <button
                   type="button"
                   onClick={(e) => handlePostponeTask(e, activeTask.id, 24)}
-                  className="px-2.5 py-1.5 bg-slate-100 dark:bg-white/[0.08] hover:bg-slate-200 dark:hover:bg-white/[0.15] text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition"
+                  className="px-2.5 py-1.5 bg-black/[0.05] dark:bg-white/[0.08] hover:bg-black/[0.08] dark:hover:bg-white/[0.15] text-[#1D1D1F] dark:text-white rounded-xl text-xs font-medium transition active:scale-[0.97]"
                   title="Перенести на +24 години"
                 >
                   +1 день
@@ -791,21 +783,21 @@ export const DealCard: React.FC<DealCardProps> = ({
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-[11px] text-amber-500 dark:text-amber-400 font-semibold">
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                 У ліда немає задачі! Призначте дію в 1 клік:
               </p>
               <div className="grid grid-cols-2 gap-1 text-[10px]">
                 <button
                   type="button"
                   onClick={(e) => handleQuickTaskPreset(e, '📞 Дзвінок-кваліфікація (15 хв)', 24, 'call')}
-                  className="p-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-300 font-bold text-left border border-blue-500/30"
+                  className="p-1.5 rounded-xl bg-[#0071E3]/[0.08] hover:bg-[#0071E3]/[0.15] text-[#0071E3] dark:text-blue-300 font-medium text-left border border-[#0071E3]/15 transition active:scale-[0.97]"
                 >
                   📞 Завтра 10:00
                 </button>
                 <button
                   type="button"
                   onClick={(e) => handleQuickTaskPreset(e, '📄 Контроль КП та прорахунку', 48, 'meeting')}
-                  className="p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 font-bold text-left border border-amber-500/30"
+                  className="p-1.5 rounded-xl bg-amber-500/[0.08] hover:bg-amber-500/[0.15] text-amber-700 dark:text-amber-300 font-medium text-left border border-amber-500/15 transition active:scale-[0.97]"
                 >
                   📄 КП (+2 дні)
                 </button>

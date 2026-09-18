@@ -366,10 +366,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bitrix-wallpaper bg-slate-100/70 dark:bg-[#070b13]/80 p-3 sm:p-4 transition-colors duration-200 font-['Inter',sans-serif]">
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#F5F5F7] dark:bg-[#070b13] p-3 sm:p-5 transition-colors duration-200 font-['Inter',-apple-system,sans-serif]">
       {/* Mobile Sticky Horizontal Stage Ribbon (md:hidden) */}
       {stagesList.length > 0 && (
-        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 mb-2 px-0.5 flex-shrink-0">
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1.5 mb-2.5 px-0.5 flex-shrink-0">
           {stagesList.map((stg) => {
             const stageDeals = (filteredDeals || []).filter((d) => d && d.stageId === stg.id);
             return (
@@ -382,11 +382,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                   }
                 }}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-white/95 dark:bg-[#0e1424]/95 border border-slate-200 dark:border-white/10 shadow-sm active:scale-95 flex-shrink-0 transition"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-white/90 dark:bg-[#0e1424]/95 border border-black/[0.06] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04)] active:scale-[0.97] flex-shrink-0 transition-all"
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: stg.color || '#3b82f6' }} />
-                <span className="text-slate-800 dark:text-slate-200 truncate max-w-[110px]">{stg.name}</span>
-                <span className="px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-white/[0.08] text-[10px] font-mono text-slate-500 dark:text-slate-400 font-bold">
+                <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: stg.color || '#0071E3' }} />
+                <span className="text-[#1D1D1F] dark:text-slate-200 truncate max-w-[110px]">{stg.name}</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-black/[0.05] dark:bg-white/[0.08] text-[10px] font-mono text-[#86868B] dark:text-slate-400 font-bold">
                   {stageDeals.length}
                 </span>
               </button>
@@ -397,17 +397,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Workspace guidance banner if candidate category is selected */}
       {projectId === 'candidates' && (
-        <div className="mb-3 p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl flex items-center justify-between gap-3 text-xs text-white backdrop-blur-md shadow-lg animate-in fade-in">
+        <div className="mb-3.5 p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between gap-3 text-xs text-slate-800 dark:text-white backdrop-blur-md shadow-sm animate-in fade-in">
           <div className="flex items-center gap-2.5">
-            <Globe2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <Globe2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
             <div>
-              <span className="font-bold text-emerald-300">Проєкт: Кандидати (Пул).</span>
-              <span className="text-slate-300 ml-1">Анкети, скринінг та закріплення працівників знаходяться в Базі кандидатів.</span>
+              <span className="font-bold text-emerald-700 dark:text-emerald-300">Проєкт: Кандидати (Пул).</span>
+              <span className="text-slate-600 dark:text-slate-300 ml-1">Анкети, скринінг та закріплення працівників знаходяться в Базі кандидатів.</span>
             </div>
           </div>
           <button
             onClick={() => navigate('/candidates')}
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition shadow-md active:scale-95 whitespace-nowrap"
+            className="px-4 py-1.5 bg-[#34C759] hover:bg-[#30B752] text-white rounded-full font-medium flex items-center gap-1.5 transition shadow-sm active:scale-[0.97] whitespace-nowrap"
           >
             <span>База кандидатів</span>
             <TrendingUp className="w-3.5 h-3.5" />
@@ -415,20 +415,20 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
       )}
 
-      {/* Smart amoCRM & Speed-to-Lead Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3 px-0.5 flex-shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-nowrap text-xs font-medium p-1 bg-white/90 dark:bg-[#090d16]/90 border border-slate-200/80 dark:border-white/[0.08] rounded-xl shadow-sm backdrop-blur-md max-w-full">
+      {/* Smart Apple iOS Segmented Control Filter Bar & Action Hub */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5 px-0.5 flex-shrink-0">
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none flex-nowrap text-xs font-medium p-1 bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.04] dark:border-white/[0.08] rounded-2xl shadow-inner backdrop-blur-md max-w-full">
           <button
             onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 active:scale-[0.97] ${
               activeFilter === 'all'
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05]'
+                ? 'bg-white text-[#1D1D1F] dark:bg-[#1E2536] dark:text-white font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]'
+                : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white hover:bg-black/[0.02] dark:hover:bg-white/[0.05]'
             }`}
           >
             <span>Всі угоди</span>
-            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
-              activeFilter === 'all' ? 'bg-white/20 dark:bg-black/10' : 'bg-slate-100 dark:bg-white/[0.08]'
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              activeFilter === 'all' ? 'bg-black/[0.06] dark:bg-black/20 text-[#1D1D1F] dark:text-white' : 'bg-black/[0.04] dark:bg-white/[0.08]'
             }`}>
               {deals.length}
             </span>
@@ -436,16 +436,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('future_tasks')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 active:scale-[0.97] ${
               activeFilter === 'future_tasks'
-                ? 'bg-emerald-600 text-white font-semibold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10'
+                ? 'bg-white text-[#34C759] dark:bg-[#1E2536] dark:text-emerald-400 font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]'
+                : 'text-[#86868B] dark:text-slate-400 hover:text-[#34C759] dark:hover:text-emerald-400 hover:bg-[#34C759]/10'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+            <span className="w-2 h-2 rounded-full bg-[#34C759] shadow-[0_0_6px_rgba(52,199,89,0.8)]" />
             <span>З задачами</span>
-            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
-              activeFilter === 'future_tasks' ? 'bg-white/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeFilter === 'future_tasks' ? 'bg-[#34C759]/15 text-[#34C759]' : 'bg-[#34C759]/10 text-[#34C759]'
             }`}>
               {futureTaskCount}
             </span>
@@ -453,16 +453,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('no_tasks')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 active:scale-[0.97] ${
               activeFilter === 'no_tasks'
-                ? 'bg-amber-500 text-slate-900 font-bold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10'
+                ? 'bg-white text-[#FF9500] dark:bg-[#1E2536] dark:text-amber-400 font-bold shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]'
+                : 'text-[#86868B] dark:text-slate-400 hover:text-[#FF9500] dark:hover:text-amber-400 hover:bg-[#FF9500]/10'
             }`}
           >
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <AlertTriangle className="w-3.5 h-3.5 text-[#FF9500] flex-shrink-0" />
             <span>Без задач</span>
-            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
-              activeFilter === 'no_tasks' ? 'bg-black/20 text-slate-900' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeFilter === 'no_tasks' ? 'bg-[#FF9500]/15 text-[#FF9500]' : 'bg-[#FF9500]/10 text-[#FF9500]'
             }`}>
               {noTaskCount}
             </span>
@@ -470,16 +470,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('overdue')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 active:scale-[0.97] ${
               activeFilter === 'overdue'
-                ? 'bg-rose-500 text-white font-semibold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10'
+                ? 'bg-white text-[#FF3B30] dark:bg-[#1E2536] dark:text-rose-400 font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]'
+                : 'text-[#86868B] dark:text-slate-400 hover:text-[#FF3B30] dark:hover:text-rose-400 hover:bg-[#FF3B30]/10'
             }`}
           >
-            <Flame className="w-3.5 h-3.5 text-rose-500 flex-shrink-0 animate-pulse" />
+            <Flame className="w-3.5 h-3.5 text-[#FF3B30] flex-shrink-0 animate-pulse" />
             <span>Прострочені</span>
-            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
-              activeFilter === 'overdue' ? 'bg-white/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeFilter === 'overdue' ? 'bg-[#FF3B30]/15 text-[#FF3B30]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'
             }`}>
               {overdueCount}
             </span>
@@ -487,16 +487,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('my_deals')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 active:scale-[0.97] ${
               activeFilter === 'my_deals'
-                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10'
+                ? 'bg-white text-[#5856D6] dark:bg-[#1E2536] dark:text-indigo-400 font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]'
+                : 'text-[#86868B] dark:text-slate-400 hover:text-[#5856D6] dark:hover:text-indigo-400 hover:bg-[#5856D6]/10'
             }`}
           >
             <UserIcon className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Мої угоди</span>
-            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
-              activeFilter === 'my_deals' ? 'bg-white/20' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              activeFilter === 'my_deals' ? 'bg-[#5856D6]/15 text-[#5856D6]' : 'bg-[#5856D6]/10 text-[#5856D6]'
             }`}>
               {myDealsCount}
             </span>
@@ -504,34 +504,34 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setActiveFilter('deferred')}
-            className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 active:scale-[0.97] ${
               activeFilter === 'deferred'
-                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-500/10'
+                ? 'bg-white text-[#AF52DE] dark:bg-[#1E2536] dark:text-purple-400 font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]'
+                : 'text-[#86868B] dark:text-slate-400 hover:text-[#AF52DE] dark:hover:text-purple-400 hover:bg-[#AF52DE]/10'
             }`}
           >
             <span className="text-[11px]">⏸️</span>
             <span>Відкладений попит</span>
-            <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-bold ${
-              activeFilter === 'deferred' ? 'bg-white/20' : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeFilter === 'deferred' ? 'bg-[#AF52DE]/15 text-[#AF52DE]' : 'bg-[#AF52DE]/10 text-[#AF52DE]'
             }`}>
               {deferredCount}
             </span>
           </button>
         </div>
 
-        {/* Pipeline Selector & Actions */}
+        {/* Apple Capsule Pipeline Selector & Action Buttons */}
         <div className="flex items-center gap-2">
           {pipelines && pipelines.length > 1 && onSelectPipeline && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#090e1a]/90 border border-slate-200 dark:border-white/[0.08] rounded-lg shadow-sm">
-              <span className="text-[11px] text-slate-400 font-semibold hidden md:inline">Воронка:</span>
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/90 dark:bg-[#090e1a]/90 border border-black/[0.06] dark:border-white/[0.08] rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <span className="text-[11px] text-[#86868B] font-semibold hidden md:inline">Воронка:</span>
               <select
                 value={pipeline?.id}
                 onChange={(e) => onSelectPipeline(e.target.value)}
-                className="bg-transparent text-xs font-bold text-blue-600 dark:text-blue-400 focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-semibold text-[#0071E3] dark:text-blue-400 focus:outline-none cursor-pointer"
               >
                 {pipelines.map(p => (
-                  <option key={p.id} value={p.id} className="bg-slate-900 text-white font-medium">
+                  <option key={p.id} value={p.id} className="bg-white dark:bg-slate-900 text-[#1D1D1F] dark:text-white font-medium">
                     {p.name}
                   </option>
                 ))}
@@ -541,7 +541,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setIsArchiveOpen(true)}
-            className="px-3 py-1.5 bg-white dark:bg-[#090e1a]/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-slate-200 dark:border-white/[0.08] shadow-sm active:scale-95"
+            className="px-3.5 py-1.5 bg-white hover:bg-[#FAFAFB] dark:bg-[#090e1a]/80 dark:hover:bg-slate-800 text-[#1D1D1F] dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 rounded-full text-xs font-medium flex items-center gap-1.5 transition border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.97]"
             title="Кошик та безпечне відновлення угод (30 днів)"
           >
             <Archive className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
@@ -550,16 +550,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
           <button
             onClick={() => setIsAnalyticsOpen(true)}
-            className="px-3 py-1.5 bg-white dark:bg-[#090e1a]/80 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-slate-200 dark:border-white/[0.08] shadow-sm active:scale-95"
+            className="px-3.5 py-1.5 bg-white hover:bg-[#FAFAFB] dark:bg-[#090e1a]/80 dark:hover:bg-slate-800 text-[#1D1D1F] dark:text-slate-200 hover:text-[#0071E3] dark:hover:text-white rounded-full text-xs font-medium flex items-center gap-1.5 transition border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.97]"
             title="Аналітика та конверсія воронки"
           >
-            <TrendingUp className="w-3.5 h-3.5 text-blue-500" strokeWidth={1.75} />
+            <TrendingUp className="w-3.5 h-3.5 text-[#0071E3]" strokeWidth={1.75} />
             <span className="hidden sm:inline">Аналітика воронки</span>
           </button>
 
           <button
             onClick={handleExportDeals}
-            className="px-3 py-1.5 bg-emerald-600/10 dark:bg-emerald-500/15 hover:bg-emerald-600/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-emerald-500/20 shadow-sm active:scale-95"
+            className="px-3.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium flex items-center gap-1.5 transition border border-emerald-500/20 shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.97]"
             title="Експорт поточних угод у форматі CSV (Excel)"
           >
             <Download className="w-3.5 h-3.5" strokeWidth={2} />
@@ -569,7 +569,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           {openCreateDeal && (
             <button
               onClick={() => openCreateDeal()}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm hover:shadow-md hover:shadow-blue-500/20 active:scale-95 whitespace-nowrap"
+              className="px-4 py-1.5 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium flex items-center gap-1.5 transition shadow-[0_2px_6px_rgba(0,113,227,0.25)] active:scale-[0.97] whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
               <span>+ Нова угода</span>
@@ -589,24 +589,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 <div
                   key={stage.id}
                   id={`kanban-stage-${stage.id}`}
-                  className="w-[85vw] max-w-xs sm:w-80 snap-center flex-shrink-0 flex flex-col bg-slate-200/50 dark:bg-[#0b101c]/80 border border-slate-200/90 dark:border-white/[0.07] rounded-xl overflow-hidden backdrop-blur-sm"
+                  className="w-[85vw] max-w-xs sm:w-80 snap-center flex-shrink-0 flex flex-col bg-white/75 dark:bg-[#0e1424]/80 border border-black/[0.06] dark:border-white/[0.08] rounded-3xl overflow-hidden backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]"
                 >
                   {/* Column Header */}
-                  <div className="p-3 border-b border-slate-200/80 dark:border-white/[0.06] bg-white/80 dark:bg-[#0e1424]/90 flex items-center justify-between flex-shrink-0">
+                  <div className="p-3.5 border-b border-black/[0.05] dark:border-white/[0.06] bg-white/80 dark:bg-[#0e1424]/90 flex items-center justify-between flex-shrink-0 backdrop-blur-md">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
-                        style={{ backgroundColor: stage.color || '#3b82f6' }}
+                        style={{ backgroundColor: stage.color || '#0071E3' }}
                       />
-                      <h3 className="font-semibold text-xs text-slate-900 dark:text-slate-100 truncate max-w-[150px]">
+                      <h3 className="font-semibold text-xs text-[#1D1D1F] dark:text-slate-100 tracking-tight truncate max-w-[150px]">
                         {stage.name}
                       </h3>
-                      <span className="px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300 text-[10px] font-mono font-medium">
+                      <span className="px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.08] text-[#86868B] dark:text-slate-300 text-[10px] font-mono font-medium">
                         {stageDeals.length}
                       </span>
                     </div>
 
-                    <span className="text-[11px] font-bold font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                    <span className="text-[11px] font-semibold font-mono text-[#34C759] dark:text-emerald-400 bg-[#34C759]/10 px-2.5 py-0.5 rounded-full border border-[#34C759]/20 shadow-[0_1px_2px_rgba(52,199,89,0.08)]">
                       {formatCurrency(totalStageBudget)}
                     </span>
                   </div>
@@ -617,8 +617,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 p-2 overflow-y-auto space-y-2 transition-colors ${
-                          snapshot.isDraggingOver ? 'bg-blue-500/5 ring-1 ring-blue-500/30' : ''
+                        className={`flex-1 p-2.5 overflow-y-auto space-y-2.5 transition-colors ${
+                          snapshot.isDraggingOver ? 'bg-[#0071E3]/5 ring-1 ring-[#0071E3]/20 rounded-2xl' : ''
                         }`}
                       >
                         {stageDeals.map((deal, index) => (
@@ -628,12 +628,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className={snapshot.isDragging ? 'rotate-1 scale-105 shadow-xl ring-2 ring-blue-500/40 z-50' : ''}
+                                className={snapshot.isDragging ? 'rotate-1 scale-[1.03] shadow-2xl ring-2 ring-[#0071E3]/40 z-50 rounded-2xl' : ''}
                               >
                                 <DealCard
                                   deal={deal}
                                   onClick={() => onOpenDeal(deal.id)}
-                                  stageColor={stage.color || '#3b82f6'}
+                                  stageColor={stage.color || '#0071E3'}
                                   stages={stagesList}
                                   onMoveStage={handleMoveDealStage}
                                   onDealUpdated={(updated) => setDeals(prev => prev.map(d => d.id === updated.id ? { ...d, ...updated } : d))}
@@ -649,12 +649,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
                   {/* Quick Add Button */}
                   {openCreateDeal && (
-                    <div className="p-2 border-t border-slate-200/80 dark:border-white/[0.06] bg-white/40 dark:bg-[#0e1424]/40">
+                    <div className="p-2.5 border-t border-black/[0.05] dark:border-white/[0.06] bg-white/40 dark:bg-[#0e1424]/40">
                       <button
                         onClick={() => openCreateDeal(stage.id)}
-                        className="w-full py-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.05] rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition border border-dashed border-slate-300 dark:border-white/[0.1] hover:border-blue-500/40 active:scale-95"
+                        className="w-full py-2 text-[#86868B] hover:text-[#1D1D1F] dark:text-slate-400 dark:hover:text-white hover:bg-white/90 dark:hover:bg-white/[0.05] rounded-2xl text-xs font-medium flex items-center justify-center gap-1.5 transition border border-dashed border-black/[0.12] dark:border-white/[0.12] hover:border-[#0071E3]/40 active:scale-[0.98]"
                       >
-                        <Plus className="w-3.5 h-3.5 text-blue-500" strokeWidth={1.75} />
+                        <Plus className="w-3.5 h-3.5 text-[#0071E3]" strokeWidth={2} />
                         <span>+ Додати угоду</span>
                       </button>
                     </div>

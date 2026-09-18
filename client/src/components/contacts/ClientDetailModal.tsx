@@ -397,38 +397,29 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const displayEmail = company?.email || contact?.email || '';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 font-['Inter',sans-serif]">
+    <div className="fixed inset-0 z-50 bg-black/35 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','Inter',sans-serif]">
       <div 
-        className="relative flex flex-col w-full h-full sm:max-w-[1500px] 2xl:max-w-[1750px] sm:h-[95vh] rounded-3xl shadow-2xl overflow-hidden border border-white/15 animate-in fade-in zoom-in-95 duration-200"
-        style={{
-          backgroundImage: `
-            linear-gradient(180deg, rgba(10, 16, 32, 0.88) 0%, rgba(6, 10, 22, 0.95) 100%),
-            url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2560&auto=format&fit=crop')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backdropFilter: 'blur(24px)'
-        }}
+        className="relative flex flex-col w-full h-full sm:max-w-[1500px] 2xl:max-w-[1750px] sm:h-[95vh] rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.18)] overflow-hidden border border-black/[0.08] dark:border-white/10 bg-[#F5F5F7] dark:bg-[#1C1C1E] animate-in fade-in zoom-in-95 duration-200"
       >
         {/* Top Header Bar */}
-        <div className="h-16 px-4 sm:px-6 border-b border-white/10 flex items-center justify-between bg-black/30 backdrop-blur-md flex-shrink-0">
+        <div className="h-16 px-4 sm:px-6 border-b border-black/[0.06] dark:border-white/10 flex items-center justify-between bg-white/80 dark:bg-black/40 backdrop-blur-xl flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 flex-shrink-0 shadow-lg">
+            <div className="w-10 h-10 rounded-2xl bg-[#0071E3]/10 dark:bg-[#0071E3]/20 border border-[#0071E3]/20 flex items-center justify-center text-[#0071E3] dark:text-blue-400 flex-shrink-0 shadow-sm">
               <Building2 className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-black text-white truncate max-w-xs sm:max-w-md">
+                <h2 className="text-base sm:text-lg font-semibold text-[#1D1D1F] dark:text-white truncate max-w-xs sm:max-w-md tracking-tight">
                   {displayName}
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                   B2B КЛІЄНТ
                 </span>
-                <span className="text-xs text-slate-400 font-mono hidden md:inline">
+                <span className="text-xs text-[#86868B] font-mono hidden md:inline">
                   ID: {clientId.slice(0, 8)}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-xs text-[#86868B] truncate">
                 {company?.address || 'Офіційна картка замовника персоналу'}
               </p>
             </div>
@@ -439,38 +430,38 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             <button
               type="button"
               onClick={handleCopyLink}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 border active:scale-95 ${
                 copiedLink 
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
-                  : 'bg-white/10 hover:bg-white/20 text-slate-200 border-white/15'
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' 
+                  : 'bg-black/[0.04] dark:bg-white/10 hover:bg-black/[0.08] dark:hover:bg-white/15 text-[#1D1D1F] dark:text-slate-200 border-black/[0.06] dark:border-white/10'
               }`}
               title="Скопіювати пряме посилання на клієнта"
             >
-              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Link2 className="w-3.5 h-3.5 text-[#86868B]" />}
               <span className="hidden sm:inline">{copiedLink ? 'Скопійовано!' : 'Копіювати URL'}</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition border border-white/15"
+              className="w-8 h-8 rounded-full bg-black/[0.05] hover:bg-black/[0.1] dark:bg-white/10 dark:hover:bg-white/20 text-[#86868B] hover:text-[#1D1D1F] dark:text-slate-300 dark:hover:text-white flex items-center justify-center transition active:scale-95"
               title="Закрити картку"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs Bar */}
-        <div className="px-4 sm:px-6 py-2 border-b border-white/10 bg-black/20 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
-          <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Navigation Tabs Bar - iOS Segmented Control */}
+        <div className="px-4 sm:px-6 py-2.5 border-b border-black/[0.06] dark:border-white/10 bg-white/60 dark:bg-black/20 backdrop-blur-md flex items-center justify-between gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
+          <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-1 rounded-full border border-black/[0.04] dark:border-white/5">
             <button
               type="button"
               onClick={() => setActiveTab('info')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 active:scale-95 ${
                 activeTab === 'info'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  ? 'bg-white dark:bg-[#0071E3] text-[#1D1D1F] dark:text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
               <Building2 className="w-3.5 h-3.5" />
@@ -480,58 +471,58 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('candidates')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 active:scale-95 ${
                 activeTab === 'candidates'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  ? 'bg-white dark:bg-[#0071E3] text-[#1D1D1F] dark:text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
-              <Users className="w-3.5 h-3.5 text-purple-300" />
+              <Users className="w-3.5 h-3.5" />
               <span>Закріплені кандидати ({assignedCandidates.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('tasks')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 active:scale-95 ${
                 activeTab === 'tasks'
-                  ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  ? 'bg-white dark:bg-[#0071E3] text-[#1D1D1F] dark:text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" />
+              <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Завдання ({tasks.filter(t => !t.isCompleted).length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('notes')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 active:scale-95 ${
                 activeTab === 'notes'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  ? 'bg-white dark:bg-[#0071E3] text-[#1D1D1F] dark:text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
-              <FileText className="w-3.5 h-3.5 text-emerald-300" />
+              <FileText className="w-3.5 h-3.5" />
               <span>Замітки та історія ({notes.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('deals')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1.5 active:scale-95 ${
                 activeTab === 'deals'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  ? 'bg-white dark:bg-[#0071E3] text-[#1D1D1F] dark:text-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#86868B] dark:text-slate-400 hover:text-[#1D1D1F] dark:hover:text-white'
               }`}
             >
-              <Briefcase className="w-3.5 h-3.5 text-indigo-300" />
+              <Briefcase className="w-3.5 h-3.5" />
               <span>Угоди ({((company as any)?.deals || []).length})</span>
             </button>
           </div>
 
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-[11px] text-slate-400 font-medium">
+            <span className="text-[11px] text-[#86868B] font-medium">
               🔒 Тільки внутрішні замітки (без переписок)
             </span>
           </div>
@@ -544,18 +535,18 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-150">
               {/* Left 2 Cols: Detailed Form */}
               <div className="lg:col-span-2 space-y-5">
-                <div className="bg-[#0b1020]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-blue-400" />
+                <div className="bg-white dark:bg-[#2C2C2E] border border-black/[0.06] dark:border-white/10 rounded-3xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-5">
+                  <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-3">
+                    <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-white flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-[#0071E3]" />
                       <span>Паспорт підприємства та реквізити</span>
                     </h3>
                     <button
                       type="button"
                       onClick={() => setIsEditingInfo(!isEditingInfo)}
-                      className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-white/10"
+                      className="px-3.5 py-1.5 bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/10 dark:hover:bg-white/20 text-[#1D1D1F] dark:text-white rounded-full text-xs font-medium transition flex items-center gap-1.5 border border-black/[0.06] dark:border-white/10 active:scale-95"
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-blue-400" />
+                      <Edit3 className="w-3.5 h-3.5 text-[#0071E3]" />
                       <span>{isEditingInfo ? 'Скасувати' : 'Редагувати'}</span>
                     </button>
                   </div>
@@ -564,129 +555,129 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     <form onSubmit={handleSaveInfo} className="space-y-4 text-xs">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                          <label className="text-slate-400 font-semibold block mb-1">Назва компанії / Підприємства:</label>
+                          <label className="text-[#86868B] font-medium block mb-1">Назва компанії / Підприємства:</label>
                           <input
                             type="text"
                             required
                             value={companyForm.name}
                             onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
-                            className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                           />
                         </div>
 
                         <div>
-                          <label className="text-slate-400 font-semibold block mb-1">Галузь виробництва:</label>
+                          <label className="text-[#86868B] font-medium block mb-1">Галузь виробництва:</label>
                           <input
                             type="text"
                             value={companyForm.industry}
                             onChange={(e) => setCompanyForm({ ...companyForm, industry: e.target.value })}
-                            className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                           />
                         </div>
 
                         <div>
-                          <label className="text-slate-400 font-semibold block mb-1">Основний телефон підприємства:</label>
+                          <label className="text-[#86868B] font-medium block mb-1">Основний телефон підприємства:</label>
                           <input
                             type="tel"
                             value={companyForm.phone}
                             onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
-                            className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                           />
                         </div>
 
                         <div>
-                          <label className="text-slate-400 font-semibold block mb-1">Email компанії:</label>
+                          <label className="text-[#86868B] font-medium block mb-1">Email компанії:</label>
                           <input
                             type="email"
                             value={companyForm.email}
                             onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
-                            className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                           />
                         </div>
 
                         <div>
-                          <label className="text-slate-400 font-semibold block mb-1">Веб-сайт:</label>
+                          <label className="text-[#86868B] font-medium block mb-1">Веб-сайт:</label>
                           <input
                             type="text"
                             value={companyForm.website}
                             onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
                             placeholder="https://company.com"
-                            className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                           />
                         </div>
 
                         <div>
-                          <label className="text-slate-400 font-semibold block mb-1">Фактична адреса / Завод:</label>
+                          <label className="text-[#86868B] font-medium block mb-1">Фактична адреса / Завод:</label>
                           <input
                             type="text"
                             value={companyForm.address}
                             onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
-                            className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                            className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                           />
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t border-white/10">
-                        <h4 className="text-xs font-bold text-slate-200 mb-2.5">Контактна особа (Директор / HR):</h4>
+                      <div className="pt-3 border-t border-black/[0.06] dark:border-white/10">
+                        <h4 className="text-xs font-semibold text-[#1D1D1F] dark:text-white mb-2.5">Контактна особа (Директор / HR):</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                           <div>
-                            <label className="text-slate-400 font-semibold block mb-1">ПІБ представника:</label>
+                            <label className="text-[#86868B] font-medium block mb-1">ПІБ представника:</label>
                             <input
                               type="text"
                               value={companyForm.contactName}
                               onChange={(e) => setCompanyForm({ ...companyForm, contactName: e.target.value })}
                               placeholder="Коваль Петро Іванович"
-                              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                              className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                             />
                           </div>
 
                           <div>
-                            <label className="text-slate-400 font-semibold block mb-1">Посада:</label>
+                            <label className="text-[#86868B] font-medium block mb-1">Посада:</label>
                             <input
                               type="text"
                               value={companyForm.contactPosition}
                               onChange={(e) => setCompanyForm({ ...companyForm, contactPosition: e.target.value })}
                               placeholder="Керівник відділу персоналу"
-                              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                              className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                             />
                           </div>
 
                           <div>
-                            <label className="text-slate-400 font-semibold block mb-1">Мобільний телефон (WhatsApp / TG):</label>
+                            <label className="text-[#86868B] font-medium block mb-1">Мобільний телефон (WhatsApp / TG):</label>
                             <input
                               type="tel"
                               value={companyForm.contactPhone}
                               onChange={(e) => setCompanyForm({ ...companyForm, contactPhone: e.target.value })}
                               placeholder="+48 ... або +380 ..."
-                              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                              className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                             />
                           </div>
 
                           <div>
-                            <label className="text-slate-400 font-semibold block mb-1">Email представника:</label>
+                            <label className="text-[#86868B] font-medium block mb-1">Email представника:</label>
                             <input
                               type="email"
                               value={companyForm.contactEmail}
                               onChange={(e) => setCompanyForm({ ...companyForm, contactEmail: e.target.value })}
                               placeholder="hr@company.com"
-                              className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                              className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+                      <div className="flex items-center justify-end gap-2 pt-3 border-t border-black/[0.06] dark:border-white/10">
                         <button
                           type="button"
                           onClick={() => setIsEditingInfo(false)}
-                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition"
+                          className="px-4 py-2 bg-black/[0.05] hover:bg-black/[0.08] dark:bg-white/10 dark:hover:bg-white/15 text-[#1D1D1F] dark:text-slate-300 rounded-full text-xs font-medium transition active:scale-95"
                         >
                           Скасувати
                         </button>
                         <button
                           type="submit"
                           disabled={isSavingInfo}
-                          className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-blue-600/30 flex items-center gap-1.5"
+                          className="px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition shadow-sm flex items-center gap-1.5 active:scale-95"
                         >
                           <Check className="w-3.5 h-3.5" />
                           <span>{isSavingInfo ? 'Збереження...' : 'Зберегти зміни'}</span>
@@ -697,37 +688,37 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     /* Readonly Overview Grid */
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                        <div className="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
-                          <span className="text-slate-400 block font-medium">Галузь діяльності:</span>
-                          <span className="text-white font-bold text-sm">{companyForm.industry || 'Міжнародне виробництво'}</span>
+                        <div className="p-3.5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.06] space-y-1">
+                          <span className="text-[#86868B] block font-medium">Галузь діяльності:</span>
+                          <span className="text-[#1D1D1F] dark:text-white font-semibold text-sm">{companyForm.industry || 'Міжнародне виробництво'}</span>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
-                          <span className="text-slate-400 block font-medium">Адреса та локація:</span>
-                          <span className="text-white font-bold flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-rose-400" />
+                        <div className="p-3.5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.06] space-y-1">
+                          <span className="text-[#86868B] block font-medium">Адреса та локація:</span>
+                          <span className="text-[#1D1D1F] dark:text-white font-semibold flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#FF3B30]" />
                             <span>{companyForm.address || 'Адреса не вказана'}</span>
                           </span>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
-                          <span className="text-slate-400 block font-medium">Телефон компанії:</span>
+                        <div className="p-3.5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.06] space-y-1">
+                          <span className="text-[#86868B] block font-medium">Телефон компанії:</span>
                           {displayPhone ? (
                             <div className="flex items-center justify-between">
-                              <span className="text-white font-mono font-bold">{displayPhone}</span>
+                              <span className="text-[#1D1D1F] dark:text-white font-mono font-semibold">{displayPhone}</span>
                               <div className="flex items-center gap-1">
                                 <a
                                   href={`https://wa.me/${displayPhone.replace(/\D/g, '')}`}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="p-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition text-[10px] font-bold"
+                                  className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition text-[10px] font-semibold"
                                   title="WhatsApp"
                                 >
                                   WA
                                 </a>
                                 <a
                                   href={`tel:${displayPhone}`}
-                                  className="p-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition text-[10px] font-bold"
+                                  className="p-1 rounded-full bg-[#0071E3]/10 text-[#0071E3] hover:bg-[#0071E3]/20 transition text-[10px] font-semibold"
                                   title="Виклик"
                                 >
                                   <Phone className="w-3 h-3" />
@@ -735,51 +726,51 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                               </div>
                             </div>
                           ) : (
-                            <span className="text-slate-500">Не вказано</span>
+                            <span className="text-[#86868B]">Не вказано</span>
                           )}
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
-                          <span className="text-slate-400 block font-medium">Email / Сайт:</span>
+                        <div className="p-3.5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.06] space-y-1">
+                          <span className="text-[#86868B] block font-medium">Email / Сайт:</span>
                           <div className="space-y-0.5">
-                            {displayEmail && <div className="text-white truncate font-medium">{displayEmail}</div>}
+                            {displayEmail && <div className="text-[#1D1D1F] dark:text-white truncate font-medium">{displayEmail}</div>}
                             {companyForm.website && (
                               <a 
                                 href={companyForm.website.startsWith('http') ? companyForm.website : `https://${companyForm.website}`} 
                                 target="_blank" 
                                 rel="noreferrer" 
-                                className="text-sky-400 hover:underline flex items-center gap-1"
+                                className="text-[#0071E3] hover:underline flex items-center gap-1 font-medium"
                               >
                                 <Globe2 className="w-3 h-3" />
                                 <span className="truncate">{companyForm.website}</span>
                               </a>
                             )}
-                            {!displayEmail && !companyForm.website && <span className="text-slate-500">Не вказано</span>}
+                            {!displayEmail && !companyForm.website && <span className="text-[#86868B]">Не вказано</span>}
                           </div>
                         </div>
                       </div>
 
                       {/* Contact Person Card */}
-                      <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/40 to-indigo-950/40 border border-blue-500/20 space-y-2">
+                      <div className="p-4 rounded-2xl bg-[#0071E3]/[0.04] dark:bg-blue-950/20 border border-[#0071E3]/15 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
-                            <Shield className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="text-[11px] font-semibold text-[#0071E3] dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Shield className="w-3.5 h-3.5 text-[#0071E3]" />
                             <span>Представник замовника / HR</span>
                           </span>
                         </div>
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           <div>
-                            <h4 className="text-sm font-black text-white">{companyForm.contactName || 'Особа не закріплена'}</h4>
-                            <p className="text-xs text-slate-400">{companyForm.contactPosition || 'Керівництво / Кадри'}</p>
+                            <h4 className="text-sm font-semibold text-[#1D1D1F] dark:text-white">{companyForm.contactName || 'Особа не закріплена'}</h4>
+                            <p className="text-xs text-[#86868B]">{companyForm.contactPosition || 'Керівництво / Кадри'}</p>
                           </div>
                           {companyForm.contactPhone && (
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono text-emerald-400 font-bold">{companyForm.contactPhone}</span>
+                              <span className="text-xs font-mono text-emerald-700 dark:text-emerald-400 font-semibold">{companyForm.contactPhone}</span>
                               <a
                                 href={`https://wa.me/${companyForm.contactPhone.replace(/\D/g, '')}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 text-xs font-bold transition flex items-center gap-1"
+                                className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition flex items-center gap-1 active:scale-95"
                               >
                                 <Send className="w-3 h-3" />
                                 <span>WhatsApp</span>
@@ -795,18 +786,18 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
               {/* Right Col: Quick Stats & Direct Actions */}
               <div className="space-y-4">
-                <div className="bg-[#0b1020]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl space-y-4">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
+                <div className="bg-white dark:bg-[#2C2C2E] border border-black/[0.06] dark:border-white/10 rounded-3xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-4">
+                  <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-white flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
                     <span>Потреба в персоналі</span>
                   </h3>
 
-                  <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 text-center space-y-1">
-                    <span className="text-xs text-purple-300 font-semibold">Закріплено за підприємством:</span>
-                    <div className="text-3xl font-black text-white font-mono">
-                      {assignedCandidates.length} <span className="text-sm font-normal text-slate-400">кандидатів</span>
+                  <div className="p-4 rounded-2xl bg-purple-500/[0.06] border border-purple-500/15 text-center space-y-1">
+                    <span className="text-xs text-purple-700 dark:text-purple-300 font-medium">Закріплено за підприємством:</span>
+                    <div className="text-3xl font-semibold text-[#1D1D1F] dark:text-white font-mono">
+                      {assignedCandidates.length} <span className="text-sm font-normal text-[#86868B]">кандидатів</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 pt-1">
+                    <p className="text-[11px] text-[#86868B] pt-1">
                       Пул спеціалістів, які пройшли верифікацію та очікують заїзду
                     </p>
                   </div>
@@ -814,7 +805,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('candidates')}
-                    className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition shadow-sm flex items-center justify-center gap-2 active:scale-95"
                   >
                     <UserPlus className="w-4 h-4" />
                     <span>Керувати кандидатами</span>
@@ -823,9 +814,9 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('tasks')}
-                    className="w-full py-2.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/10 dark:hover:bg-white/15 text-[#1D1D1F] dark:text-white border border-black/[0.06] dark:border-white/10 rounded-full text-xs font-medium transition flex items-center justify-center gap-2 active:scale-95"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4 text-amber-500" />
                     <span>Поставити завдання менеджеру</span>
                   </button>
                 </div>
@@ -836,13 +827,13 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           {/* TAB 2: CANDIDATE ASSIGNMENT (БІЛЬШ ЗРУЧНО ПРИВ'ЯЗАТИ КАНДИДАТІВ) */}
           {activeTab === 'candidates' && (
             <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0b1020]/80 p-4 rounded-2xl border border-white/10 backdrop-blur-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl border border-black/[0.06] dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Users className="w-4 h-4 text-purple-400" />
+                  <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-white flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                     <span>Кандидати, прикріплені до підприємства</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[#86868B] mt-0.5">
                     Співробітники закріплені за цим роботодавцем для оформлення запрошень та виходу на роботу
                   </p>
                 </div>
@@ -850,7 +841,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={openAttachCandidateModal}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-purple-600/30 flex items-center gap-2 self-start sm:self-auto"
+                  className="px-4 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition shadow-sm flex items-center gap-1.5 self-start sm:self-auto active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
                   <span>+ Прив'язати кандидата з бази</span>
@@ -859,18 +850,18 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
               {/* Assigned Candidates List */}
               {assignedCandidates.length === 0 ? (
-                <div className="text-center py-16 bg-[#0b1020]/60 rounded-2xl border border-dashed border-white/10 p-8 space-y-3">
-                  <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-600/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
+                <div className="text-center py-16 bg-white/70 dark:bg-[#2C2C2E]/60 rounded-3xl border border-dashed border-black/[0.08] dark:border-white/10 p-8 space-y-3">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                     <Users className="w-7 h-7" />
                   </div>
-                  <h4 className="text-sm font-bold text-white">Кандидатів поки не прив'язано</h4>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  <h4 className="text-sm font-semibold text-[#1D1D1F] dark:text-white">Кандидатів поки не прив'язано</h4>
+                  <p className="text-xs text-[#86868B] max-w-md mx-auto">
                     Натисніть «+ Прив'язати кандидата з бази», щоб обрати відповідних фахівців з бази рекрутингу для цього замовника.
                   </p>
                   <button
                     type="button"
                     onClick={openAttachCandidateModal}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition"
+                    className="px-4 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition shadow-sm active:scale-95"
                   >
                     Обрати кандидатів
                   </button>
@@ -880,54 +871,54 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   {assignedCandidates.map(c => (
                     <div
                       key={c.id}
-                      className="bg-[#0d1428]/90 border border-white/10 hover:border-purple-500/40 rounded-2xl p-4 shadow-xl space-y-3 transition flex flex-col justify-between"
+                      className="bg-white dark:bg-[#2C2C2E] border border-black/[0.06] dark:border-white/10 hover:border-[#0071E3]/40 rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md space-y-3 transition flex flex-col justify-between"
                     >
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-300 font-bold flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold flex items-center justify-center">
                               {c.name.charAt(0)}
                             </div>
                             <div>
-                              <h4 className="font-bold text-sm text-white truncate max-w-[170px]">{c.name}</h4>
-                              <p className="text-[11px] text-purple-300 font-medium">{c.profession || 'Фахівець'}</p>
+                              <h4 className="font-semibold text-sm text-[#1D1D1F] dark:text-white truncate max-w-[170px]">{c.name}</h4>
+                              <p className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">{c.profession || 'Фахівець'}</p>
                             </div>
                           </div>
 
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                             {c.country || 'Україна'}
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-xs text-slate-300 pt-1 border-t border-white/5">
+                        <div className="space-y-1 text-xs text-[#86868B] pt-1 border-t border-black/[0.04] dark:border-white/5">
                           {c.phone && (
-                            <div className="flex items-center gap-2 text-slate-400">
-                              <Phone className="w-3 h-3 text-emerald-400" />
-                              <span className="font-mono">{c.phone}</span>
+                            <div className="flex items-center gap-2">
+                              <Phone className="w-3 h-3 text-emerald-600" />
+                              <span className="font-mono text-[#1D1D1F] dark:text-slate-200">{c.phone}</span>
                             </div>
                           )}
                           {c.salaryExpectation && (
-                            <div className="text-[11px] text-slate-400">
-                              Очікувана зарплата: <span className="text-white font-bold">{c.salaryExpectation}</span>
+                            <div className="text-[11px]">
+                              Очікувана зарплата: <span className="text-[#1D1D1F] dark:text-white font-semibold">{c.salaryExpectation}</span>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-2">
+                      <div className="flex items-center justify-between pt-2 border-t border-black/[0.06] dark:border-white/10 gap-2">
                         <button
                           type="button"
                           onClick={() => openPrintableCandidateDossier(c)}
-                          className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                          className="px-3 py-1 bg-black/[0.04] hover:bg-black/[0.08] dark:bg-white/10 dark:hover:bg-white/20 text-[#1D1D1F] dark:text-slate-200 rounded-full text-xs font-medium transition flex items-center gap-1 active:scale-95"
                         >
-                          <FileText className="w-3 h-3 text-blue-400" />
+                          <FileText className="w-3 h-3 text-[#0071E3]" />
                           <span>Досьє (PDF)</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleUnassignCandidate(c.id)}
-                          className="px-2.5 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 rounded-lg text-xs font-semibold transition"
+                          className="px-3 py-1 bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 text-[#FF3B30] rounded-full text-xs font-medium transition active:scale-95"
                           title="Відкріпити кандидата"
                         >
                           Відкріпити
@@ -943,13 +934,13 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           {/* TAB 3: CLIENT TASKS (ПОСТАВИТИ ЗАДАЧУ) */}
           {activeTab === 'tasks' && (
             <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between bg-[#0b1020]/80 p-4 rounded-2xl border border-white/10 backdrop-blur-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl border border-black/[0.06] dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-base font-semibold text-[#1D1D1F] dark:text-white flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-amber-500" />
                     <span>Завдання та контроль дедлайнів по клієнту</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[#86868B] mt-0.5">
                     Дзвінки, надсилання комерційних пропозицій, рахунків та зустрічі
                   </p>
                 </div>
@@ -957,7 +948,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsCreatingTask(!isCreatingTask)}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
+                  className="px-4 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition shadow-sm flex items-center gap-1.5 self-start sm:self-auto active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
                   <span>{isCreatingTask ? 'Скасувати' : '+ Поставити завдання'}</span>
@@ -966,27 +957,27 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
               {/* Add Task Form */}
               {isCreatingTask && (
-                <form onSubmit={handleCreateTask} className="bg-[#0b1020]/95 border border-amber-500/40 rounded-2xl p-4 shadow-xl space-y-3 animate-in fade-in">
-                  <h4 className="text-xs font-bold text-amber-300">Нове завдання по клієнту:</h4>
+                <form onSubmit={handleCreateTask} className="bg-white dark:bg-[#2C2C2E] border border-amber-500/30 rounded-3xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-4 animate-in fade-in">
+                  <h4 className="text-xs font-semibold text-[#1D1D1F] dark:text-white">Нове завдання по клієнту:</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div className="sm:col-span-2">
-                      <label className="text-slate-400 font-semibold block mb-1">Що потрібно зробити:</label>
+                      <label className="text-[#86868B] font-medium block mb-1">Що потрібно зробити:</label>
                       <input
                         type="text"
                         required
                         placeholder="Наприклад: Зателефонувати щодо узгодження дати заїзду 5 зварювальників..."
                         value={taskForm.text}
                         onChange={(e) => setTaskForm({ ...taskForm, text: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                        className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                       />
                     </div>
 
                     <div>
-                      <label className="text-slate-400 font-semibold block mb-1">Тип дії:</label>
+                      <label className="text-[#86868B] font-medium block mb-1">Тип дії:</label>
                       <select
                         value={taskForm.type}
                         onChange={(e) => setTaskForm({ ...taskForm, type: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                        className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none"
                       >
                         <option value="call">📞 Телефонний дзвінок</option>
                         <option value="meeting">🤝 Зустріч / Онлайн зум</option>
@@ -996,21 +987,21 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="text-slate-400 font-semibold block mb-1">Дедлайн:</label>
+                      <label className="text-[#86868B] font-medium block mb-1">Дедлайн:</label>
                       <input
                         type="datetime-local"
                         value={taskForm.dueDate}
                         onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                        className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="text-slate-400 font-semibold block mb-1">Відповідальний менеджер:</label>
+                      <label className="text-[#86868B] font-medium block mb-1">Відповідальний менеджер:</label>
                       <select
                         value={taskForm.responsibleId}
                         onChange={(e) => setTaskForm({ ...taskForm, responsibleId: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                        className="w-full bg-black/[0.03] dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 rounded-xl px-3 py-2 text-[#1D1D1F] dark:text-white focus:outline-none"
                       >
                         {users.map(u => (
                           <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
@@ -1021,7 +1012,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     <div className="flex items-end">
                       <button
                         type="submit"
-                        className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-amber-600/30"
+                        className="w-full py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-xl text-xs font-medium transition shadow-sm active:scale-95"
                       >
                         Створити завдання
                       </button>
@@ -1032,8 +1023,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
               {/* Tasks List */}
               {tasks.length === 0 ? (
-                <div className="text-center py-12 bg-[#0b1020]/60 rounded-2xl border border-white/5 p-6 space-y-2 text-slate-400 text-xs">
-                  <CheckCircle2 className="w-8 h-8 text-slate-600 mx-auto" />
+                <div className="text-center py-12 bg-white/70 dark:bg-[#2C2C2E]/60 rounded-3xl border border-dashed border-black/[0.08] dark:border-white/10 p-6 space-y-2 text-[#86868B] text-xs">
+                  <CheckCircle2 className="w-8 h-8 text-[#86868B]/40 mx-auto" />
                   <p>Завдань по цьому клієнту поки немає. Поставте нове завдання вище!</p>
                 </div>
               ) : (
@@ -1043,27 +1034,27 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                       key={t.id}
                       className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 text-xs ${
                         t.isCompleted
-                          ? 'bg-slate-900/40 border-white/5 text-slate-500'
-                          : 'bg-[#0b1020]/80 border-white/10 text-white shadow-md'
+                          ? 'bg-black/[0.02] dark:bg-white/[0.02] border-black/[0.04] dark:border-white/5 text-[#86868B]'
+                          : 'bg-white dark:bg-[#2C2C2E] border-black/[0.06] dark:border-white/10 text-[#1D1D1F] dark:text-white shadow-sm'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <button
                           type="button"
                           onClick={() => handleToggleTask(t.id, t.isCompleted)}
-                          className={`w-5 h-5 rounded-lg border flex items-center justify-center transition flex-shrink-0 ${
+                          className={`w-5 h-5 rounded-md border flex items-center justify-center transition flex-shrink-0 active:scale-90 ${
                             t.isCompleted 
-                              ? 'bg-emerald-600 border-emerald-500 text-white' 
-                              : 'border-slate-600 hover:border-amber-500 text-transparent'
+                              ? 'bg-[#34C759] border-[#34C759] text-white' 
+                              : 'border-black/[0.2] dark:border-white/20 hover:border-[#0071E3] text-transparent'
                           }`}
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>
                         <div className="min-w-0">
-                          <p className={`font-semibold truncate ${t.isCompleted ? 'line-through text-slate-500' : 'text-slate-100'}`}>
+                          <p className={`font-medium truncate ${t.isCompleted ? 'line-through text-[#86868B]' : 'text-[#1D1D1F] dark:text-white'}`}>
                             {t.text}
                           </p>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                          <div className="flex items-center gap-2 text-[10px] text-[#86868B] mt-0.5">
                             <span>{t.type === 'call' ? '📞 Дзвінок' : '📋 Завдання'}</span>
                             <span>•</span>
                             <span className="flex items-center gap-1">
@@ -1076,8 +1067,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                         </div>
                       </div>
 
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        t.isCompleted ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${
+                        t.isCompleted ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
                       }`}>
                         {t.isCompleted ? 'Виконано' : 'В роботі'}
                       </span>
@@ -1091,20 +1082,20 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           {/* TAB 4: INTERNAL NOTES ONLY (БЕЗ ПЕРЕПИСОК ТІЛЬКИ ЗАМІТКИ) */}
           {activeTab === 'notes' && (
             <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="bg-[#0b1020]/80 p-4 rounded-2xl border border-white/10 backdrop-blur-xl">
+              <div className="bg-white dark:bg-[#2C2C2E] p-5 rounded-3xl border border-black/[0.06] dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-white flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Внутрішні замітки команди по клієнту</span>
                   </h3>
 
                   <button
                     type="button"
                     onClick={toggleVoiceDictation}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                    className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 transition active:scale-95 ${
                       isDictating 
-                        ? 'bg-rose-600 text-white animate-pulse' 
-                        : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30'
+                        ? 'bg-[#FF3B30] text-white animate-pulse' 
+                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
                     }`}
                   >
                     <Mic className="w-3.5 h-3.5" />
@@ -1112,21 +1103,21 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveNote} className="space-y-2">
+                <form onSubmit={handleSaveNote} className="space-y-2.5">
                   <textarea
                     rows={2}
                     placeholder="Зафіксуйте домовленості, особливості підприємства, вимоги до персоналу..."
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
-                    className={`w-full bg-slate-900 border rounded-2xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none ${
-                      isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-slate-700 focus:border-emerald-500'
+                    className={`w-full bg-black/[0.03] dark:bg-white/[0.06] border rounded-2xl p-3 text-xs text-[#1D1D1F] dark:text-white placeholder-[#86868B] focus:outline-none transition resize-none ${
+                      isDictating ? 'border-[#FF3B30] ring-2 ring-[#FF3B30]/20' : 'border-black/[0.08] dark:border-white/10 focus:border-[#0071E3] focus:ring-2 focus:ring-[#0071E3]/20'
                     }`}
                   />
                   <div className="flex justify-end">
                     <button
                       type="submit"
                       disabled={isSavingNote || !noteText.trim()}
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                      className="px-4 py-1.5 bg-[#0071E3] hover:bg-[#0077ED] disabled:opacity-50 text-white rounded-full text-xs font-medium transition flex items-center gap-1.5 active:scale-95 shadow-sm"
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>{isSavingNote ? 'Збереження...' : 'Зберегти замітку'}</span>
@@ -1138,22 +1129,22 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               {/* Notes Stream */}
               <div className="space-y-3">
                 {notes.length === 0 ? (
-                  <div className="text-center py-12 bg-[#0b1020]/60 rounded-2xl border border-white/5 p-6 text-slate-400 text-xs">
+                  <div className="text-center py-12 bg-white/70 dark:bg-[#2C2C2E]/60 rounded-3xl border border-dashed border-black/[0.08] dark:border-white/10 p-6 text-[#86868B] text-xs">
                     Заміток по цьому клієнту поки немає. Додайте першу замітку вище або надиктуйте голосом!
                   </div>
                 ) : (
                   notes.map((n: any) => (
                     <div
                       key={n.id}
-                      className="bg-[#0b1020]/80 border border-white/10 rounded-2xl p-4 space-y-1.5 shadow-md"
+                      className="bg-white dark:bg-[#2C2C2E] border border-black/[0.06] dark:border-white/10 rounded-2xl p-4 space-y-1.5 shadow-[0_2px_6px_rgba(0,0,0,0.02)]"
                     >
-                      <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                        <span className="font-bold text-slate-200">
+                      <div className="flex items-center justify-between text-[#86868B] text-[11px]">
+                        <span className="font-semibold text-[#1D1D1F] dark:text-white">
                           {n.user?.name || 'Співробітник CRM'}
                         </span>
                         <span>{new Date(n.createdAt).toLocaleString('uk-UA')}</span>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line select-text">
+                      <p className="text-xs text-[#1D1D1F] dark:text-slate-200 leading-relaxed whitespace-pre-line select-text">
                         {n.text || n.content}
                       </p>
                     </div>
@@ -1166,20 +1157,20 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           {/* TAB 5: DEALS & ORDERS */}
           {activeTab === 'deals' && (
             <div className="space-y-3 animate-in fade-in duration-150">
-              <div className="bg-[#0b1020]/80 p-4 rounded-2xl border border-white/10 flex items-center justify-between">
+              <div className="bg-white dark:bg-[#2C2C2E] p-4 rounded-2xl border border-black/[0.06] dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-indigo-400" />
+                  <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-white flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-[#0071E3]" />
                     <span>Пов'язані угоди та замовлення</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[#86868B] mt-0.5">
                     Усі замовлення та договори, зареєстровані за цим підприємством
                   </p>
                 </div>
               </div>
 
               {((company as any)?.deals || []).length === 0 ? (
-                <div className="text-center py-12 bg-[#0b1020]/60 rounded-2xl border border-white/5 p-6 text-slate-400 text-xs">
+                <div className="text-center py-12 bg-white/70 dark:bg-[#2C2C2E]/60 rounded-3xl border border-dashed border-black/[0.08] dark:border-white/10 p-6 text-[#86868B] text-xs">
                   Активних угод у CRM для цього клієнта поки немає.
                 </div>
               ) : (
@@ -1193,19 +1184,19 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                           onClose();
                         }
                       }}
-                      className="bg-[#0d1428]/90 border border-white/10 hover:border-indigo-500/50 rounded-2xl p-4 shadow-xl cursor-pointer transition space-y-2 group"
+                      className="bg-white dark:bg-[#2C2C2E] border border-black/[0.06] dark:border-white/10 hover:border-[#0071E3]/40 rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md cursor-pointer transition space-y-2 group active:scale-[0.99]"
                     >
                       <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-sm text-white group-hover:text-indigo-300 transition truncate">
+                        <h4 className="font-semibold text-sm text-[#1D1D1F] dark:text-white group-hover:text-[#0071E3] transition truncate">
                           {d.title}
                         </h4>
-                        <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition flex-shrink-0" />
+                        <ChevronRight className="w-4 h-4 text-[#86868B] group-hover:text-[#0071E3] transition flex-shrink-0" />
                       </div>
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
-                        <span className="font-mono font-bold text-emerald-400">
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-black/[0.04] dark:border-white/5">
+                        <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                           {new Intl.NumberFormat('uk-UA').format(d.budget || 0)} ₴
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-white/10 text-slate-300 font-semibold text-[10px]">
+                        <span className="px-2.5 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/10 text-[#86868B] font-medium text-[10px]">
                           {d.stage?.name || 'Угода'}
                         </span>
                       </div>
@@ -1220,35 +1211,35 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
       {/* POPUP MODAL: ATTACH CANDIDATE FROM POOL */}
       {isAttachCandidateModalOpen && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0f172a] border border-purple-500/40 rounded-3xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/30">
+        <div className="fixed inset-0 z-60 bg-black/40 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="bg-[#F5F5F7] dark:bg-[#1C1C1E] border border-black/[0.08] dark:border-white/10 rounded-3xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-[0_24px_70px_rgba(0,0,0,0.2)] overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-4 border-b border-black/[0.06] dark:border-white/10 flex items-center justify-between bg-white/70 dark:bg-black/30 backdrop-blur-md">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 text-purple-400" />
+                <h3 className="text-sm font-semibold text-[#1D1D1F] dark:text-white flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <span>Обрати кандидата для закріплення за {displayName}</span>
                 </h3>
-                <p className="text-[11px] text-slate-400">Оберіть відповідного фахівця з бази рекрутингу</p>
+                <p className="text-[11px] text-[#86868B]">Оберіть відповідного фахівця з бази рекрутингу</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAttachCandidateModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
+                className="w-8 h-8 rounded-full bg-black/[0.05] hover:bg-black/[0.1] dark:bg-white/10 text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white flex items-center justify-center transition active:scale-95"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Search filter in modal */}
-            <div className="p-3 border-b border-white/10 bg-slate-900/60">
+            <div className="p-3 border-b border-black/[0.06] dark:border-white/10 bg-white/50 dark:bg-black/20">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Search className="w-4 h-4 text-[#86868B] absolute left-3 top-2.5" />
                 <input
                   type="text"
                   placeholder="Пошук за посадою, країною або ПІБ кандидата..."
                   value={candidateSearch}
                   onChange={(e) => setCandidateSearch(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-white dark:bg-[#2C2C2E] border border-black/[0.08] dark:border-white/10 rounded-full pl-9 pr-3 py-1.5 text-xs text-[#1D1D1F] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition"
                 />
               </div>
             </div>
@@ -1267,22 +1258,22 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   return (
                     <div
                       key={cand.id}
-                      className="p-3 rounded-xl bg-slate-900/80 border border-white/5 hover:border-purple-500/30 flex items-center justify-between gap-3 text-xs transition"
+                      className="p-3 rounded-2xl bg-white dark:bg-[#2C2C2E] border border-black/[0.06] dark:border-white/10 hover:border-[#0071E3]/30 flex items-center justify-between gap-3 text-xs transition shadow-sm"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-purple-600/20 text-purple-300 font-bold flex items-center justify-center flex-shrink-0">
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold flex items-center justify-center flex-shrink-0">
                           {cand.name.charAt(0)}
                         </div>
                         <div className="min-w-0">
-                          <h5 className="font-bold text-white truncate">{cand.name}</h5>
-                          <p className="text-[11px] text-purple-300 truncate">
+                          <h5 className="font-semibold text-[#1D1D1F] dark:text-white truncate">{cand.name}</h5>
+                          <p className="text-[11px] text-[#86868B] truncate">
                             {cand.profession || 'Фахівець'} • {cand.country || 'Україна'}
                           </p>
                         </div>
                       </div>
 
                       {isAlreadyAssigned ? (
-                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                           Вже закріплено
                         </span>
                       ) : (
@@ -1290,7 +1281,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                           type="button"
                           disabled={attachingId === cand.id}
                           onClick={() => handleAttachCandidate(cand.id)}
-                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 flex-shrink-0"
+                          className="px-3.5 py-1.5 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-medium transition flex items-center gap-1 flex-shrink-0 active:scale-95 shadow-sm"
                         >
                           <UserCheck className="w-3.5 h-3.5" />
                           <span>{attachingId === cand.id ? 'Прикріплення...' : 'Прив’язати'}</span>
