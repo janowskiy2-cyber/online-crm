@@ -43,7 +43,8 @@ import {
   ChevronDown,
   ChevronUp,
   PauseCircle,
-  Smartphone
+  Smartphone,
+  MoreHorizontal
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -130,6 +131,37 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
   const [isTelephonyPairModalOpen, setIsTelephonyPairModalOpen] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string; messageId?: string; channel?: string } | null>(null);
+
+  // Dropdown States for Decluttered Clean UX
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setIsActionsMenuOpen(false);
+      }
+    };
+    if (isActionsMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isActionsMenuOpen]);
+
+  const [isSnippetsOpen, setIsSnippetsOpen] = useState(false);
+  const snippetsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (snippetsRef.current && !snippetsRef.current.contains(e.target as Node)) {
+        setIsSnippetsOpen(false);
+      }
+    };
+    if (isSnippetsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isSnippetsOpen]);
 
   // Documents state
   const [docCategory, setDocCategory] = useState('Договір з підприємством');
@@ -1611,131 +1643,151 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
           </div>
 
-          {/* Quick Action Tools: Direct Link, Open in Tab, Fullscreen, Call, AI, KP, Calc */}
-          <div className="flex items-center gap-1 sm:gap-1.5">
-            {/* 1-Click Copy Shareable Deal URL */}
+          {/* Clean Top Bar: Primary Call Button + Sleek Actions Menu + Window Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Primary Action: Direct Call */}
             <button
               type="button"
-              onClick={handleCopyDealLink}
-              className="hidden sm:flex px-2.5 py-1 bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/[0.08] rounded-xl text-xs font-semibold items-center gap-1.5 transition active:scale-95 shadow-sm"
-              title="Скопіювати пряме посилання на цю угоду"
+              onClick={handleOpenCallModal}
+              className="px-3 sm:px-3.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/35 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+              title="Зателефонувати клієнту"
             >
-              {isCopiedLink ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-bold">Скопійовано!</span>
-                </>
-              ) : (
-                <>
-                  <Link2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="hidden md:inline">Пряме посилання</span>
-                </>
-              )}
+              <Phone className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2.2} />
+              <span>Зателефонувати</span>
             </button>
 
-            {/* Open Deal in New Tab */}
-            <a
-              href={`/deals/${deal.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden md:flex p-1.5 text-slate-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] rounded-xl transition"
-              title="Відкрити в окремій вкладці браузера"
-            >
-              <ExternalLink className="w-4 h-4" strokeWidth={1.75} />
-            </a>
+            {/* Secondary Tools & Actions Dropdown Menu */}
+            <div className="relative" ref={actionsMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border active:scale-95 ${
+                  isActionsMenuOpen 
+                    ? 'bg-blue-600 text-white border-blue-500 shadow-md' 
+                    : 'bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border-white/[0.1]'
+                }`}
+                title="Додаткові дії та інструменти"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+                <span className="hidden sm:inline">Дії</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isActionsMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isActionsMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/15 rounded-2xl p-1.5 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in zoom-in-95 space-y-0.5">
+                  <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Інструменти угоди
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsActionsMenuOpen(false); setIsKPModalOpen(true); }}
+                    className="w-full px-2.5 py-2 hover:bg-white/[0.08] text-slate-200 hover:text-white rounded-xl text-xs font-medium flex items-center gap-2.5 transition text-left"
+                  >
+                    <FileText className="w-4 h-4 text-blue-400" />
+                    <span>Створити КП (PDF)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsActionsMenuOpen(false); setIsCalcModalOpen(true); }}
+                    className="w-full px-2.5 py-2 hover:bg-white/[0.08] text-slate-200 hover:text-white rounded-xl text-xs font-medium flex items-center gap-2.5 transition text-left"
+                  >
+                    <Calculator className="w-4 h-4 text-amber-400" />
+                    <span>Калькулятор найму</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsActionsMenuOpen(false); handleScoreDeal(); }}
+                    className="w-full px-2.5 py-2 hover:bg-white/[0.08] text-slate-200 hover:text-white rounded-xl text-xs font-medium flex items-center justify-between transition text-left"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <span>ШІ-Скоринг угоди</span>
+                    </div>
+                    {aiDealScore && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                        {aiDealScore.score}%
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsActionsMenuOpen(false); setIsPauseModalOpen(true); }}
+                    className="w-full px-2.5 py-2 hover:bg-white/[0.08] text-slate-200 hover:text-white rounded-xl text-xs font-medium flex items-center gap-2.5 transition text-left"
+                  >
+                    <PauseCircle className="w-4 h-4 text-indigo-400" />
+                    <span>Поставити на паузу</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsActionsMenuOpen(false); setIsTelephonyPairModalOpen(true); }}
+                    className="w-full px-2.5 py-2 hover:bg-white/[0.08] text-slate-200 hover:text-white rounded-xl text-xs font-medium flex items-center gap-2.5 transition text-left"
+                  >
+                    <Smartphone className="w-4 h-4 text-cyan-400" />
+                    <span>Підключити SIM-шлюз</span>
+                  </button>
+
+                  <div className="my-1 h-px bg-white/10" />
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsActionsMenuOpen(false); handleCopyDealLink(); }}
+                    className="w-full px-2.5 py-2 hover:bg-white/[0.08] text-slate-200 hover:text-white rounded-xl text-xs font-medium flex items-center gap-2.5 transition text-left"
+                  >
+                    <Link2 className="w-4 h-4 text-slate-400" />
+                    <span>{isCopiedLink ? 'Скопійовано!' : 'Скопіювати пряме посилання'}</span>
+                  </button>
+
+                  <a
+                    href={`/deals/${deal.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setIsActionsMenuOpen(false)}
+                    className="w-full px-2.5 py-2 hover:bg-white/[0.08] text-slate-200 hover:text-white rounded-xl text-xs font-medium flex items-center gap-2.5 transition text-left"
+                  >
+                    <ExternalLink className="w-4 h-4 text-slate-400" />
+                    <span>Відкрити в окремій вкладці</span>
+                  </a>
+
+                  {currentUser?.canDeleteDeals && (
+                    <>
+                      <div className="my-1 h-px bg-white/10" />
+                      <button
+                        type="button"
+                        onClick={() => { setIsActionsMenuOpen(false); handleDeleteDeal(); }}
+                        className="w-full px-2.5 py-2 hover:bg-rose-500/15 text-rose-300 hover:text-rose-200 rounded-xl text-xs font-medium flex items-center gap-2.5 transition text-left"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-400" />
+                        <span>Видалити угоду</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="w-px h-5 bg-white/10 mx-0.5" />
 
             {/* Fullscreen Workspace Toggle */}
             <button
               type="button"
               onClick={() => setIsFullscreen(prev => !prev)}
-              className="hidden md:flex p-1.5 text-slate-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] rounded-xl transition"
-              title={isFullscreen ? "Згорнути у вікно" : "Розгорнути на весь екран (Розвантажити фон)"}
+              className="p-1.5 text-slate-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] rounded-xl transition active:scale-95"
+              title={isFullscreen ? "Згорнути у вікно" : "Розгорнути на весь екран"}
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" strokeWidth={1.75} /> : <Maximize2 className="w-4 h-4" strokeWidth={1.75} />}
             </button>
 
-            <div className="hidden sm:block w-px h-5 bg-white/10 mx-1" />
-
-            <button
-              type="button"
-              onClick={handleOpenCallModal}
-              className="px-2.5 sm:px-3 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(16,185,129,0.15)]"
-              title="Зателефонувати клієнту"
-            >
-              <Phone className="w-3.5 h-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">Зателефонувати</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsCalcModalOpen(true)}
-              className="px-2.5 sm:px-3 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.15)]"
-              title="Калькулятор найму"
-            >
-              <Calculator className="w-3.5 h-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">Калькулятор</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsKPModalOpen(true)}
-              className="hidden sm:flex px-2.5 sm:px-3 py-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(59,130,246,0.15)]"
-            >
-              <FileText className="w-3.5 h-3.5" strokeWidth={2} />
-              <span>КП (PDF)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleScoreDeal}
-              disabled={isScoringDeal}
-              className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 border ${
-                aiDealScore 
-                  ? 'bg-purple-500/25 text-purple-300 border-purple-500/50 shadow-[0_0_14px_rgba(168,85,247,0.25)]'
-                  : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30'
-              }`}
-              title={aiDealScore ? `${aiDealScore.reason}. Наступна дія: ${aiDealScore.nextAction}` : "ШІ-оцінка здоров'я угоди та ймовірності виграшу"}
-            >
-              <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${isScoringDeal ? 'animate-spin' : ''}`} strokeWidth={2} />
-              <span className="hidden sm:inline">{aiDealScore ? `${aiDealScore.temperature} (${aiDealScore.score}%)` : (isScoringDeal ? 'Оцінка...' : 'ШІ-Скоринг')}</span>
-            </button>
-
-            {/* Pause / Delayed Demand Action Button */}
-            <button
-              type="button"
-              onClick={() => setIsPauseModalOpen(true)}
-              className="px-2.5 sm:px-3 py-1 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(99,102,241,0.15)]"
-              title="Перевести в режим відкладеного попиту (пауза)"
-            >
-              <PauseCircle className="w-3.5 h-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">Пауза</span>
-            </button>
-
-            {/* Android GSM SIM Telephony Pair Button */}
-            <button
-              type="button"
-              onClick={() => setIsTelephonyPairModalOpen(true)}
-              className="px-2.5 sm:px-3 py-1 bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_10px_rgba(59,130,246,0.15)]"
-              title="Підключити Android-смартфон для фіксації дзвінків з SIM-карти"
-            >
-              <Smartphone className="w-3.5 h-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">SIM-Шлюз</span>
-            </button>
-
-            {currentUser?.canDeleteDeals && (
-              <button
-                type="button"
-                onClick={handleDeleteDeal}
-                title="Видалити угоду"
-                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition"
-              >
-                <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-              </button>
-            )}
+            {/* Close Modal */}
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.08] rounded-xl transition"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.08] rounded-xl transition active:scale-95"
+              title="Закрити картку"
             >
               <X className="w-4 h-4" strokeWidth={2} />
             </button>
@@ -2242,24 +2294,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   )}
                 </div>
               ) : (
-                /* Ultra-sleek luxury empty state replacing dull box */
-                <div className="relative group overflow-hidden p-3.5 bg-[#0e1628]/70 hover:bg-[#0e1628]/95 border border-white/[0.08] hover:border-purple-500/40 rounded-2xl text-center space-y-2 transition-all duration-200 shadow-sm">
-                  <div className="w-9 h-9 mx-auto rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-200">Підприємство не прив'язано</p>
-                    <p className="text-[10px] text-slate-400">Вкажіть назву заводу чи підприємства</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleStartEditCompany}
-                    className="w-full py-1.5 px-3 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Прив'язати підприємство</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleStartEditCompany}
+                  className="w-full py-2 px-3 border border-dashed border-white/15 hover:border-purple-400/50 rounded-xl text-xs font-semibold text-slate-400 hover:text-purple-300 hover:bg-purple-500/10 transition flex items-center justify-center gap-1.5 active:scale-95 group"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-purple-400/70 group-hover:text-purple-400 transition" />
+                  <span>+ Прив'язати підприємство / завод</span>
+                </button>
               )}
             </div>
 
@@ -2728,16 +2770,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 >
                   <Users className="w-3.5 h-3.5 text-purple-400" />
                   <span>Кандидати ({assignedCandidates.length})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('notes')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'notes' 
-                      ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]' 
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-                  }`}
-                >
-                  Замітки
                 </button>
                 <button
                   onClick={() => setActiveTab('documents')}
@@ -3581,6 +3613,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   )}
 
                   <div className="flex items-center justify-between gap-2 flex-wrap">
+                    {/* Left: Messengers (WhatsApp & Telegram) */}
                     <div className="flex items-center gap-1.5 p-1 bg-[#0c1220] border border-white/[0.06] rounded-2xl">
                       {/* WhatsApp Channel */}
                       <button
@@ -3641,79 +3674,100 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                           </span>
                         )}
                       </button>
-
-                      {/* Quick Call button directly from Chat toolbar */}
-                      <button
-                        type="button"
-                        onClick={handleOpenCallModal}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)] active:scale-95"
-                        title="Зателефонувати клієнту прямо з чату (фіксується в історії подій)"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="hidden sm:inline">Дзвінок</span>
-                      </button>
                     </div>
 
+                    {/* Right: Quick Tools (AI Draft, Templates Dropdown, Voice Dictation, Sound) */}
                     <div className="flex items-center gap-1.5">
+                      {/* AI Draft Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateAiDraft('followup')}
+                        disabled={isGeneratingAiDraft}
+                        className="px-2.5 py-1.5 bg-gradient-to-r from-purple-600/20 to-indigo-600/20 hover:from-purple-600/30 hover:to-indigo-600/30 text-purple-200 border border-purple-500/30 rounded-xl transition flex items-center gap-1.5 text-xs font-semibold shadow-[0_0_10px_rgba(168,85,247,0.15)] active:scale-95"
+                        title="Згенерувати персоналізовану відповідь за контекстом угоди через Gemini AI"
+                      >
+                        <Sparkles className={`w-3.5 h-3.5 text-purple-400 ${isGeneratingAiDraft ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">{isGeneratingAiDraft ? 'Генерація...' : 'ШІ-чернетка'}</span>
+                      </button>
+
+                      {/* Templates Dropdown Menu */}
+                      <div className="relative" ref={snippetsRef}>
+                        <button
+                          type="button"
+                          onClick={() => setIsSnippetsOpen(!isSnippetsOpen)}
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border active:scale-95 ${
+                            isSnippetsOpen
+                              ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                              : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border-white/[0.08]'
+                          }`}
+                          title="Швидкі шаблони повідомлень"
+                        >
+                          <span>⚡</span>
+                          <span className="hidden sm:inline">Шаблони</span>
+                          <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isSnippetsOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isSnippetsOpen && (
+                          <div className="absolute right-0 bottom-full mb-2 w-72 bg-slate-900/95 border border-white/15 rounded-2xl p-2 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in zoom-in-95 space-y-1">
+                            <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              Швидкі відповіді
+                            </div>
+                            {[
+                              { label: '📄 КП на персонал', text: 'Доброго дня! Підготували офіційну комерційну пропозицію щодо персоналу. Надіслати детальний розрахунок у PDF?' },
+                              { label: '💳 Етапи оплати (4х25%)', text: 'Оплата поетапна: 1) Договір (25%) ➔ 2) Затвердження кандидатів (25%) ➔ 3) Робоча віза (25%) ➔ 4) Вихід на підприємство (25%).' },
+                              { label: '🛡️ Гарантія та заміна', text: 'У нас діє 1 місяць повного супроводу координатором та 1 безкоштовна заміна у разі необхідності.' },
+                              { label: '📞 Не зміг додзвонитись', text: 'Доброго дня! Намагався вам зателефонувати щодо заявки на персонал. Підкажіть, будь ласка, коли вам зручно поспілкуватися?' },
+                              { label: '📋 Уточнення вимог', text: "Уточніть, будь ласка: скільки працівників потрібно, який графік роботи та чи надається житло на об'єкті?" }
+                            ].map((snip, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setChatMessageText(snip.text);
+                                  setIsSnippetsOpen(false);
+                                }}
+                                className="w-full text-left p-2 hover:bg-white/[0.08] rounded-xl transition group"
+                              >
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-blue-300 transition">
+                                  {snip.label}
+                                </div>
+                                <div className="text-[11px] text-slate-400 line-clamp-2 mt-0.5 font-normal leading-relaxed">
+                                  {snip.text}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Voice Dictation */}
+                      <button
+                        type="button"
+                        onClick={toggleVoiceDictation}
+                        className={`p-2 rounded-xl text-xs font-bold flex items-center justify-center transition border ${
+                          isDictating 
+                            ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.4)]' 
+                            : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border-white/[0.08]'
+                        }`}
+                        title={isDictating ? 'Зупинити голосове введення' : 'Голосове введення (диктовка)'}
+                      >
+                        <Mic className="w-4 h-4 text-emerald-400" />
+                      </button>
+
+                      {/* Sound Toggle */}
                       <button
                         type="button"
                         onClick={() => setSoundEnabled(soundService.toggle())}
                         title={soundEnabled ? "Звукові сповіщення увімкнено (натисніть щоб вимкнути)" : "Звукові сповіщення вимкнено (натисніть щоб увімкнути)"}
-                        className={`px-2.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 text-[11px] font-semibold ${
+                        className={`p-2 rounded-xl border transition flex items-center justify-center text-xs ${
                           soundEnabled 
                             ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.2)]' 
                             : 'bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-slate-200'
                         }`}
                       >
-                        {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
-                        <span className="hidden sm:inline">{soundEnabled ? 'Звук: Увімк' : 'Звук: Вимк'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={toggleVoiceDictation}
-                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition border ${
-                          isDictating 
-                            ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.4)]' 
-                            : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border-white/[0.08]'
-                        }`}
-                      >
-                        <Mic className="w-3 h-3 text-emerald-400" />
-                        <span>{isDictating ? 'Запис...' : 'Голосове введення'}</span>
+                        {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
                       </button>
                     </div>
-                  </div>
-
-                  {/* Quick Response Snippets with AI Auto-Draft */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateAiDraft('followup')}
-                      disabled={isGeneratingAiDraft}
-                      className="px-2.5 py-1 bg-gradient-to-r from-purple-600/20 to-indigo-600/20 hover:from-purple-600/30 hover:to-indigo-600/30 text-purple-200 border border-purple-500/30 rounded-xl transition flex items-center gap-1 flex-shrink-0 text-[10px] font-bold shadow-[0_0_10px_rgba(168,85,247,0.15)] active:scale-95"
-                      title="Згенерувати персоналізовану відповідь за контекстом угоди через Gemini AI"
-                    >
-                      <Sparkles className={`w-3 h-3 text-purple-400 ${isGeneratingAiDraft ? 'animate-spin' : ''}`} />
-                      <span>{isGeneratingAiDraft ? 'Генерація...' : '✨ ШІ-чернетка'}</span>
-                    </button>
-
-                    <span className="text-[10px] text-slate-500 uppercase font-bold flex-shrink-0 ml-1">Шаблони:</span>
-                    {[
-                      { label: '📄 КП', text: 'Доброго дня! Підготували офіційну комерційну пропозицію щодо персоналу. Надіслати детальний розрахунок у PDF?' },
-                      { label: '💳 4х25%', text: 'Оплата поетапна: 1) Договір (25%) ➔ 2) Затвердження кандидатів (25%) ➔ 3) Робоча віза (25%) ➔ 4) Вихід на підприємство (25%).' },
-                      { label: '🛡️ Гарантія', text: 'У нас діє 1 місяць повного супроводу координатором та 1 безкоштовна заміна у разі необхідності.' },
-                      { label: '📞 Не взяв', text: 'Доброго дня! Намагався вам зателефонувати щодо заявки на персонал. Підкажіть, будь ласка, коли вам зручно поспілкуватися?' },
-                      { label: '📋 Вимоги', text: "Уточніть, будь ласка: скільки працівників потрібно, який графік роботи та чи надається житло на об'єкті?" }
-                    ].map((snip, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setChatMessageText(snip.text)}
-                        className="px-2.5 py-1 bg-white/[0.04] hover:bg-blue-600/20 text-slate-300 hover:text-blue-300 border border-white/[0.06] hover:border-blue-500/30 rounded-xl transition flex-shrink-0 whitespace-nowrap text-[10px] font-medium"
-                      >
-                        {snip.label}
-                      </button>
-                    ))}
                   </div>
 
                   <div className="relative">
@@ -3814,38 +3868,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Tasks Checklist, Quick Notes & Attached Documents (3 Cols) */}
+          {/* Right Column: Tasks Checklist & Quick Client Notes (3 Cols) */}
           <div className={`col-span-12 md:col-span-3 p-3.5 sm:p-4 overflow-y-auto space-y-4 bg-slate-950/45 backdrop-blur-xl h-full ${
             activeMobileTab === 'tasks_notes' ? 'block' : 'hidden md:block'
           }`}>
-            
-            {/* 1-Click Inline Pipeline Stage Selector */}
-            <div className="relative overflow-hidden bg-slate-900/50 border border-white/10 hover:border-blue-500/30 rounded-2xl p-3.5 space-y-2.5 backdrop-blur-md shadow-md transition-all">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/25 to-transparent" />
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Етап воронки</span>
-                </span>
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-[0_0_8px_currentColor]"
-                  style={{ backgroundColor: currentStages.find(s => s.id === deal.stageId)?.color || '#3b82f6', color: currentStages.find(s => s.id === deal.stageId)?.color || '#3b82f6' }}
-                />
-              </div>
-              <select
-                value={deal.stageId}
-                onChange={(e) => handleStageChange(e.target.value)}
-                className="w-full bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500/60 transition cursor-pointer shadow-inner"
-              >
-                {currentStages.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* VIP Prominent Task Control Widget (Always Visible at the Top of Right Column) */}
+            {/* VIP Prominent Task Control Widget (Prioritized at Top of Right Column) */}
             <div className="relative overflow-hidden bg-slate-900/50 border border-amber-500/25 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md transition-all">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
               <div className="flex items-center justify-between">
