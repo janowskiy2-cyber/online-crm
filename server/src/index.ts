@@ -164,6 +164,13 @@ app.use('/api', (req: Request, res: Response) => {
 const dialogViewers = new Map<string, Map<string, string>>(); // dialogKey -> (socketId -> userName)
 
 io.on('connection', (socket) => {
+  socket.on('register_device', (data: any) => {
+    const uid = data?.userId || 'usr-admin';
+    socket.join(`user_${uid}`);
+    socket.join('telephony_gateways');
+    console.log(`📱 [Socket] Android Gateway registered for user: ${uid} (socketId: ${socket.id})`);
+  });
+
   socket.on('dialog_join', ({ dialogKey, userName }: { dialogKey: string; userName?: string }) => {
     if (!dialogKey) return;
     const room = `dialog_${dialogKey}`;

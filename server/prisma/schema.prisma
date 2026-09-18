@@ -88,6 +88,8 @@ model Company {
   email       String?
   website     String?
   address     String?
+  pinCode     String?
+  portalStatus String?
   isDeleted   Boolean   @default(false)
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())

@@ -63,6 +63,8 @@ export const CallModal: React.FC<CallModalProps> = ({
 
   const handleSimClickToCall = async () => {
     setIsSendingSimCall(true);
+    const isMobileDevice = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     try {
       await api.post('/telephony/click-to-call', {
         phoneNumber: phoneNumber || cleanPhone,
@@ -72,9 +74,20 @@ export const CallModal: React.FC<CallModalProps> = ({
       setSimCallSent(true);
       soundService.playSuccess();
       setTimeout(() => setSimCallSent(false), 6000);
-    } catch (e) {
+
+      // If user is currently browsing from mobile, trigger native dialer as well
+      if (isMobileDevice) {
+        window.location.href = `tel:${phoneNumber || cleanPhone}`;
+      }
+    } catch (e: any) {
       console.error('Failed to send SIM call command:', e);
-      alert('Помилка надсилання сигналу на смартфон');
+      if (isMobileDevice) {
+        // Immediate seamless fallback on smartphone: open native phone dialer
+        window.location.href = `tel:${phoneNumber || cleanPhone}`;
+      } else {
+        const errorMsg = e?.response?.data?.error || e?.message || '';
+        alert(`Помилка надсилання сигналу на смартфон: ${errorMsg || 'переконайтеся, що на телефоні активний додаток OnlineCRM Gateway'}`);
+      }
     } finally {
       setIsSendingSimCall(false);
     }

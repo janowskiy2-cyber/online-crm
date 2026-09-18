@@ -63,16 +63,21 @@ class TelephonyGatewayService : Service() {
             val opts = IO.Options().apply {
                 reconnection = true
                 reconnectionAttempts = Int.MAX_VALUE
-                reconnectionDelay = 5000
+                reconnectionDelay = 3000
                 timeout = 20000
+                transports = arrayOf("websocket", "polling")
             }
 
             socket = IO.socket(serverUrl, opts).apply {
                 on(Socket.EVENT_CONNECT) {
-                    Log.i(TAG, "Socket connected to CRM server")
+                    Log.i(TAG, "Socket connected to CRM server ($serverUrl)")
                     emit("register_device", JSONObject().apply {
                         put("userId", userId)
                     })
+                }
+
+                on(Socket.EVENT_CONNECT_ERROR) { args ->
+                    Log.w(TAG, "Socket connect error: ${args.getOrNull(0)}")
                 }
 
                 // Click-to-Call event received from Web CRM desktop
