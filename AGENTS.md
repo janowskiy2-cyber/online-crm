@@ -48,4 +48,7 @@ cd .. && node test-crm-robot.js
 - `crm-ui-ux-designer`: Архитектура дизайн-системы Calm Design, премиальный Glassmorphism, устранение монотонных серых интерфейсов, 1-клик эргономика карточек и модалок уровня Attio/Linear/amoCRM.
 - `premium-crm-visual-designer`: Элитная визуальная эстетика Linear/Raycast/Apple Pro, спекулярные 1px грани, тактильные микротекстуры, неоновые гало статусов и кинематика микроинтеракций.
 - `apple-design`: Фирменный стандарт дизайна Apple (WWDC Designing Fluid Interfaces), физика пружин (damping/response), прерываемые жесты (interruptibility), 1:1 direct manipulation, кинематика и оптика типографики для веба.
+- `mobile-crm-ux`: Мобильная адаптация CRM для смартфонов: эргономика Thumb Zone, нижний док навигации, полноэкранные мобильные модалки с табами, 100dvh, safe-area-inset, 1-tap звонки и мессенджеры.
+- `responsive-craft`: Глубокая адаптивная верстка (intrinsic CSS, clamp, container queries, sticky координация, защита от экранной клавиатуры).
+- `mobile-app-ui-design`: Мобильный UI/UX дизайн (правило 60/30/10, 8pt сетка, тач-таргеты >= 44px, мобильные сценарии рекрутинга и продаж).
 

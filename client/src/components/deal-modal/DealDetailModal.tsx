@@ -1601,7 +1601,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     <div className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'} font-['Inter',sans-serif]`}>
       <div 
         className={`relative flex flex-col shadow-[0_25px_70px_-15px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-300 border border-white/[0.15] ${
-          isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:rounded-3xl sm:max-w-[1520px] 2xl:max-w-[1760px] sm:h-[95vh] animate-in fade-in zoom-in-95 duration-200'
+          isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-[100dvh] max-h-[100dvh] sm:rounded-3xl sm:max-w-[1520px] 2xl:max-w-[1760px] sm:h-[95vh] animate-in fade-in zoom-in-95 duration-200'
         }`}
         style={{
           backgroundImage: `
@@ -1930,42 +1930,42 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         </div>
 
         {/* Mobile Navigation Tabs (Phone/Tablet portrait): Chat | Info | Tasks */}
-        <div className="md:hidden flex items-center bg-slate-950/50 backdrop-blur-md border-b border-white/10 p-1.5 gap-1.5 text-xs flex-shrink-0">
+        <div className="md:hidden flex items-center bg-slate-950/70 backdrop-blur-xl border-b border-white/10 p-1.5 gap-1.5 flex-shrink-0 z-20">
           <button
             type="button"
             onClick={() => setActiveMobileTab('chat')}
-            className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
+            className={`flex-1 py-2.5 px-2 min-h-[44px] rounded-2xl flex items-center justify-center gap-1.5 transition-all duration-150 text-xs active:scale-95 ${
               activeMobileTab === 'chat'
-                ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08]'
+                ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] font-bold border border-blue-400/40'
+                : 'text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08]'
             }`}
           >
-            <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-            <span className="truncate">Чат ({(deal?.messages || []).length})</span>
+            <MessageSquare className="w-4 h-4 text-blue-300" />
+            <span className="truncate font-semibold">Чат ({(deal?.messages || []).length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveMobileTab('info')}
-            className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
+            className={`flex-1 py-2.5 px-2 min-h-[44px] rounded-2xl flex items-center justify-center gap-1.5 transition-all duration-150 text-xs active:scale-95 ${
               activeMobileTab === 'info'
-                ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08]'
+                ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)] font-bold border border-purple-400/40'
+                : 'text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08]'
             }`}
           >
-            <Building2 className="w-3.5 h-3.5 text-purple-400" />
-            <span className="truncate">Інфо / Потреба</span>
+            <Building2 className="w-4 h-4 text-purple-300" />
+            <span className="truncate font-semibold">Інфо</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveMobileTab('tasks_notes')}
-            className={`flex-1 py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition text-xs font-semibold ${
+            className={`flex-1 py-2.5 px-2 min-h-[44px] rounded-2xl flex items-center justify-center gap-1.5 transition-all duration-150 text-xs active:scale-95 ${
               activeMobileTab === 'tasks_notes'
-                ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08]'
+                ? 'bg-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.4)] font-bold border border-amber-400/40'
+                : 'text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08]'
             }`}
           >
-            <CheckSquare className="w-3.5 h-3.5 text-amber-400" />
-            <span className="truncate">Задачі ({(deal?.tasks || []).length})</span>
+            <CheckSquare className="w-4 h-4 text-amber-300" />
+            <span className="truncate font-semibold">Задачі ({(deal?.tasks || []).length})</span>
           </button>
         </div>
 
@@ -3611,8 +3611,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
 
             {/* Input / Message Bar */}
-            <div className="relative p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-white/[0.06] bg-[#090e18]/95 space-y-2.5 flex-shrink-0 backdrop-blur-xl">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="relative p-3 sm:p-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-white/10 bg-slate-950/75 space-y-2.5 flex-shrink-0 backdrop-blur-2xl">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
               {activeTab === 'notes' ? (
                 /* Dedicated Voice Dictation & Note Box */
                 <div className="space-y-2">
@@ -3643,8 +3643,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       placeholder="Надиктуйте голосом або напишіть замітку..."
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
-                      className={`flex-1 bg-[#0c1220] border rounded-2xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
-                        isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/[0.08] focus:border-amber-500/60 shadow-inner'
+                      className={`flex-1 bg-slate-900/60 border rounded-2xl p-2.5 text-base sm:text-xs text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                        isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/10 focus:border-amber-500/60 shadow-inner'
                       }`}
                       style={{ minHeight: '48px', maxHeight: '180px' }}
                     />
@@ -3921,7 +3921,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             handleSendMessage();
                           }
                         }}
-                        className={`flex-1 bg-slate-900/60 border rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                        className={`flex-1 bg-slate-900/60 border rounded-2xl px-4 py-2.5 text-base sm:text-xs text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
                           isDictating ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/10 focus:border-blue-500/60 shadow-inner'
                         }`}
                         style={{ minHeight: '40px', maxHeight: '220px' }}

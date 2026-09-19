@@ -590,6 +590,35 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
       </div>
 
+      {/* Mobile Sticky Stage Quick-Jump Bar (1-Tap stage navigation on smartphone) */}
+      <div className="md:hidden flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1.5 px-2 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 flex-shrink-0 z-20">
+        {stagesList.map((stage) => {
+          const stageDealsCount = (filteredDeals || []).filter((d) => d && d.stageId === stage.id).length;
+          return (
+            <button
+              key={stage.id}
+              type="button"
+              onClick={() => {
+                const el = document.getElementById(`kanban-stage-${stage.id}`);
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] active:scale-95 transition border border-white/10 flex-shrink-0 text-xs text-slate-200"
+            >
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm"
+                style={{ backgroundColor: stage.color || '#0071E3' }}
+              />
+              <span className="font-semibold whitespace-nowrap">{stage.name}</span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-white/10 text-slate-300">
+                {stageDealsCount}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth touch-pan-x">
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="flex gap-3 h-full min-w-max pb-2 px-1">

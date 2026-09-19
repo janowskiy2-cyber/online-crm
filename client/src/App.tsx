@@ -238,7 +238,7 @@ export function App() {
         />
 
         {/* Dynamic Views & Bitrix24 Right Utility Widgets + Right Quick Dock */}
-        <main className={`flex-1 flex overflow-hidden ${isMobileChatActive ? 'pb-0' : 'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]'} md:pb-0`}>
+        <main className={`flex-1 flex overflow-hidden ${isMobileChatActive ? 'pb-0' : 'pb-[calc(4rem+env(safe-area-inset-bottom,0px))]'} md:pb-0`}>
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <Suspense fallback={<ViewLoader />}>
               <Routes>
@@ -341,55 +341,65 @@ export function App() {
           </div>
         </main>
 
-        {/* Native Mobile Bottom Navigation Bar (iOS / Android App Style with Safe Area Insets) */}
+        {/* Native Mobile Bottom Navigation Bar (Apple Frosted Glass Dock with Safe Area Insets) */}
         {!isMobileChatActive && (
-          <div className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-[#0e1320]/95 backdrop-blur-lg border-t border-slate-800/90 z-30 flex items-center justify-around px-1 select-none">
+          <div className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-slate-950/85 backdrop-blur-2xl border-t border-white/[0.12] z-40 flex items-center justify-around px-2 select-none shadow-[0_-10px_35px_rgba(0,0,0,0.6)]">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+            
             <button
               onClick={() => { setCurrentTab('deals'); navigate('/deals'); }}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-                location.pathname.startsWith('/deals') ? 'text-blue-400 font-bold' : 'text-slate-400'
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1.5 min-h-[48px] rounded-2xl transition-all duration-150 active:scale-90 ${
+                location.pathname.startsWith('/deals') 
+                  ? 'text-blue-400 font-bold bg-blue-500/10' 
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Kanban className="w-4 h-4" />
-              <span className="text-[10px]">Воронка</span>
+              <Kanban className="w-5 h-5 stroke-[2.2]" />
+              <span className="text-[11px] font-medium tracking-tight">Воронка</span>
             </button>
 
             <button
               onClick={() => { setCurrentTab('inbox'); navigate('/inbox'); }}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-                location.pathname.startsWith('/inbox') ? 'text-emerald-400 font-bold' : 'text-slate-400'
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1.5 min-h-[48px] rounded-2xl transition-all duration-150 active:scale-90 ${
+                location.pathname.startsWith('/inbox') 
+                  ? 'text-emerald-400 font-bold bg-emerald-500/10' 
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
-              <span className="text-[10px]">Чати</span>
+              <MessageSquare className="w-5 h-5 stroke-[2.2]" />
+              <span className="text-[11px] font-medium tracking-tight">Чати</span>
             </button>
 
             <button
               onClick={() => { setCurrentTab('candidates'); navigate('/candidates'); }}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-                location.pathname.startsWith('/candidates') ? 'text-purple-400 font-bold' : 'text-slate-400'
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1.5 min-h-[48px] rounded-2xl transition-all duration-150 active:scale-90 ${
+                location.pathname.startsWith('/candidates') 
+                  ? 'text-purple-400 font-bold bg-purple-500/10' 
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Users className="w-4 h-4" />
-              <span className="text-[10px]">Кандидати</span>
+              <Users className="w-5 h-5 stroke-[2.2]" />
+              <span className="text-[11px] font-medium tracking-tight">Кандидати</span>
             </button>
 
             <button
               onClick={() => { setCurrentTab('tasks'); navigate('/tasks'); }}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition ${
-                location.pathname.startsWith('/tasks') ? 'text-amber-400 font-bold' : 'text-slate-400'
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1.5 min-h-[48px] rounded-2xl transition-all duration-150 active:scale-90 ${
+                location.pathname.startsWith('/tasks') 
+                  ? 'text-amber-400 font-bold bg-amber-500/10' 
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <CheckSquare className="w-4 h-4" />
-              <span className="text-[10px]">Завдання</span>
+              <CheckSquare className="w-5 h-5 stroke-[2.2]" />
+              <span className="text-[11px] font-medium tracking-tight">Завдання</span>
             </button>
 
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="flex flex-col items-center justify-center gap-1 flex-1 py-1 text-slate-400 hover:text-white transition"
+              className="flex flex-col items-center justify-center gap-1 flex-1 py-1.5 min-h-[48px] rounded-2xl text-slate-400 hover:text-white transition-all duration-150 active:scale-90"
             >
-              <Menu className="w-4 h-4" />
-              <span className="text-[10px]">Меню</span>
+              <Menu className="w-5 h-5 stroke-[2.2]" />
+              <span className="text-[11px] font-medium tracking-tight">Меню</span>
             </button>
           </div>
         )}
