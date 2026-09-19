@@ -42,6 +42,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   PauseCircle,
   Smartphone,
   MoreHorizontal
@@ -162,6 +164,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isSnippetsOpen]);
+
+  // Expandable Side Panels state (Left: Client & Company, Right: Tasks & Notes)
+  const [isLeftExpanded, setIsLeftExpanded] = useState(false);
+  const [isRightExpanded, setIsRightExpanded] = useState(false);
 
   // Documents state
   const [docCategory, setDocCategory] = useState('Договір з підприємством');
@@ -1927,13 +1933,33 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </button>
         </div>
 
-        {/* 3-Column Content Layout */}
-        <div className="flex-1 grid grid-cols-12 overflow-hidden bg-transparent min-h-0">
+        {/* 3-Column Content Layout with Smooth Width Expansion */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-transparent min-h-0 relative">
           
-          {/* Left Column: Client & Project Params (3 Cols) */}
-          <div className={`col-span-12 md:col-span-3 border-r border-white/10 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-950/45 backdrop-blur-xl text-xs h-full ${
-            activeMobileTab === 'info' ? 'block' : 'hidden md:block'
+          {/* Left Column: Client & Project Params */}
+          <div className={`relative h-full border-r border-white/10 transition-all duration-300 ease-in-out ${
+            activeMobileTab === 'info' ? 'block w-full' : 'hidden md:block'
+          } ${
+            isLeftExpanded 
+              ? 'md:w-[46%] lg:w-[42%] flex-shrink-0' 
+              : isRightExpanded 
+                ? 'md:w-[20%] lg:w-[18%] flex-shrink-0' 
+                : 'md:w-[28%] lg:w-[25%] flex-shrink-0'
           }`}>
+            {/* Floating Toggle Arrow on Right Border */}
+            <div className="hidden md:block absolute -right-3.5 top-1/2 -translate-y-1/2 z-30">
+              <button
+                type="button"
+                onClick={() => setIsLeftExpanded(prev => !prev)}
+                className="w-7 h-7 rounded-full bg-slate-900/95 hover:bg-blue-600 text-slate-300 hover:text-white border border-white/20 hover:border-blue-400 shadow-[0_2px_12px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 group"
+                title={isLeftExpanded ? "Згорнути панель інфо" : "Розширити панель інфо"}
+              >
+                <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${isLeftExpanded ? 'rotate-180 text-blue-400 group-hover:text-white' : 'text-slate-300 group-hover:text-white'}`} />
+              </button>
+            </div>
+
+            {/* Inner Scrollable Area */}
+            <div className="h-full overflow-y-auto p-4 sm:p-5 space-y-4 bg-slate-950/45 backdrop-blur-xl text-xs">
             {/* Responsible manager */}
             <div className="bg-slate-900/50 border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-sm backdrop-blur-md">
               <div className="flex items-center justify-between">
@@ -1941,7 +1967,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <UserIcon className="w-3.5 h-3.5 text-blue-400" />
                   <span>Відповідальний менеджер</span>
                 </label>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                  <button
+                    type="button"
+                    onClick={() => setIsLeftExpanded(prev => !prev)}
+                    className="hidden md:flex p-0.5 hover:bg-white/[0.08] text-slate-400 hover:text-white rounded transition"
+                    title={isLeftExpanded ? "Згорнути панель інфо" : "Розширити панель інфо"}
+                  >
+                    {isLeftExpanded ? <Minimize2 className="w-3 h-3 text-blue-400" /> : <Maximize2 className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
               <select
                 value={deal.responsibleId}
@@ -2731,10 +2767,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Central Column: Live Timeline & Messengers Chat (6 Cols) */}
-          <div className={`col-span-12 md:col-span-6 flex flex-col min-h-0 h-full bg-slate-950/35 backdrop-blur-xl border-r border-white/10 ${
-            activeMobileTab === 'chat' ? 'flex' : 'hidden md:flex'
+          {/* Central Column: Live Timeline & Messengers Chat */}
+          <div className={`flex flex-col min-h-0 h-full bg-slate-950/35 backdrop-blur-xl border-r border-white/10 flex-1 transition-all duration-300 ease-in-out relative ${
+            activeMobileTab === 'chat' ? 'flex w-full' : 'hidden md:flex'
           }`}>
             {/* Timeline Filter tabs */}
             <div className="p-2 sm:p-2.5 border-b border-white/10 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none bg-slate-950/40 backdrop-blur-md flex-shrink-0">
@@ -3868,36 +3905,66 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Tasks Checklist & Quick Client Notes (3 Cols) */}
-          <div className={`col-span-12 md:col-span-3 p-3.5 sm:p-4 overflow-y-auto space-y-4 bg-slate-950/45 backdrop-blur-xl h-full ${
-            activeMobileTab === 'tasks_notes' ? 'block' : 'hidden md:block'
+          {/* Right Column: Tasks Checklist & Quick Client Notes */}
+          <div className={`relative h-full transition-all duration-300 ease-in-out ${
+            activeMobileTab === 'tasks_notes' ? 'block w-full' : 'hidden md:block'
+          } ${
+            isRightExpanded 
+              ? 'md:w-[50%] lg:w-[48%] flex-shrink-0 shadow-[-12px_0_30px_rgba(0,0,0,0.5)] z-10' 
+              : isLeftExpanded 
+                ? 'md:w-[20%] lg:w-[18%] flex-shrink-0' 
+                : 'md:w-[28%] lg:w-[25%] flex-shrink-0'
           }`}>
-            {/* VIP Prominent Task Control Widget (Prioritized at Top of Right Column) */}
-            <div className="relative overflow-hidden bg-slate-900/50 border border-amber-500/25 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md transition-all">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  <h3 className="text-xs font-black text-amber-300 uppercase tracking-wider">
-                    Завдання
-                  </h3>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    modalActiveTasks.length > 0 
-                      ? (isModalTaskOverdue ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]')
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
-                  }`}>
-                    {modalActiveTasks.length > 0 ? `${modalActiveTasks.length} активні` : 'Без задачі'}
-                  </span>
+            {/* Floating Toggle Arrow on Left Border (as requested by user with circle and arrow) */}
+            <div className="hidden md:block absolute -left-3.5 top-1/2 -translate-y-1/2 z-30">
+              <button
+                type="button"
+                onClick={() => setIsRightExpanded(prev => !prev)}
+                className="w-7 h-7 rounded-full bg-slate-900/95 hover:bg-blue-600 text-slate-300 hover:text-white border border-white/20 hover:border-blue-400 shadow-[0_2px_12px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 group"
+                title={isRightExpanded ? "Згорнути панель заміток та задач" : "Розширити панель заміток та задач"}
+              >
+                <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${isRightExpanded ? 'rotate-180 text-blue-400 group-hover:text-white' : 'text-slate-300 group-hover:text-white'}`} />
+              </button>
+            </div>
+
+            {/* Inner Scrollable Area */}
+            <div className="h-full overflow-y-auto p-3.5 sm:p-4 space-y-4 bg-slate-950/45 backdrop-blur-xl">
+              {/* VIP Prominent Task Control Widget (Prioritized at Top of Right Column) */}
+              <div className="relative overflow-hidden bg-slate-900/50 border border-amber-500/25 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md transition-all">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                      Завдання
+                    </h3>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      modalActiveTasks.length > 0 
+                        ? (isModalTaskOverdue ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]')
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
+                    }`}>
+                      {modalActiveTasks.length > 0 ? `${modalActiveTasks.length} активні` : 'Без задачі'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsRightExpanded(prev => !prev)}
+                      className="hidden md:flex p-1 hover:bg-white/[0.08] text-slate-400 hover:text-white rounded-lg transition items-center gap-1 text-[10px] font-semibold"
+                      title={isRightExpanded ? "Згорнути панель" : "Розширити панель"}
+                    >
+                      {isRightExpanded ? <Minimize2 className="w-3.5 h-3.5 text-blue-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingTask(!isAddingTask)}
+                      className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{isAddingTask ? 'Сховати' : 'Завдання'}</span>
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsAddingTask(!isAddingTask)}
-                  className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isAddingTask ? 'Сховати' : 'Завдання'}</span>
-                </button>
-              </div>
 
               {/* No task warning banner with 1-click action presets */}
               {modalTaskStatus === 'no_task' && (
@@ -4126,9 +4193,19 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <FileText className="w-4 h-4 text-amber-400" />
                   <span>Замітки по клієнту</span>
                 </h3>
-                <span className="text-[11px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
-                  {(deal.notes || []).length} записів
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                    {(deal.notes || []).length} записів
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsRightExpanded(prev => !prev)}
+                    className="hidden md:flex p-1 hover:bg-white/[0.08] text-slate-400 hover:text-white rounded-lg transition items-center gap-1"
+                    title={isRightExpanded ? "Згорнути панель" : "Розширити панель заміток"}
+                  >
+                    {isRightExpanded ? <Minimize2 className="w-3.5 h-3.5 text-blue-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
 
               {/* Note creation input */}
@@ -4338,6 +4415,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               )}
             </div>
           </div>
+        </div>
 
         </div>
       </div>
