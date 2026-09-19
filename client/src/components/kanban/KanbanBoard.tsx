@@ -13,7 +13,8 @@ import {
   Calendar,
   TrendingUp,
   Archive,
-  Download
+  Download,
+  Copy
 } from 'lucide-react';
 import { Deal, Pipeline, Stage } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +24,7 @@ import { LossReasonModal } from '../modals/LossReasonModal';
 import { PauseDealModal } from '../modals/PauseDealModal';
 import { AnalyticsDashboardModal } from '../analytics/AnalyticsDashboardModal';
 import { ArchivedDealsModal } from '../modals/ArchivedDealsModal';
+import { DuplicateDealsScannerModal } from '../modals/DuplicateDealsScannerModal';
 import { DealCard } from './DealCard';
 
 interface KanbanBoardProps {
@@ -55,6 +57,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [activeFilter, setActiveFilter] = useState<'all' | 'future_tasks' | 'no_tasks' | 'overdue' | 'my_deals' | 'deferred'>('all');
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false);
   const [recentlyMovedDealId, setRecentlyMovedDealId] = useState<string | null>(null);
 
   const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
@@ -540,6 +543,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           )}
 
           <button
+            onClick={() => setIsDuplicatesModalOpen(true)}
+            className="px-3.5 py-1.5 bg-white hover:bg-[#FAFAFB] dark:bg-[#090e1a]/80 dark:hover:bg-slate-800 text-[#1D1D1F] dark:text-slate-200 hover:text-amber-500 dark:hover:text-amber-400 rounded-full text-xs font-medium flex items-center gap-1.5 transition border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.97]"
+            title="Пошук та об'єднання дублів за номерами телефонів"
+          >
+            <Copy className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.75} />
+            <span className="hidden sm:inline">Пошук дублів</span>
+          </button>
+
+          <button
             onClick={() => setIsArchiveOpen(true)}
             className="px-3.5 py-1.5 bg-white hover:bg-[#FAFAFB] dark:bg-[#090e1a]/80 dark:hover:bg-slate-800 text-[#1D1D1F] dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 rounded-full text-xs font-medium flex items-center gap-1.5 transition border border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.97]"
             title="Кошик та безпечне відновлення угод (30 днів)"
@@ -700,6 +712,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             setDeals((prev) => [restoredDeal, ...prev]);
             fetchDeals();
           }}
+        />
+      )}
+
+      {/* Duplicate Deals Scanner & Merger Modal */}
+      {isDuplicatesModalOpen && (
+        <DuplicateDealsScannerModal
+          onClose={() => {
+            setIsDuplicatesModalOpen(false);
+            fetchDeals();
+          }}
+          onOpenDeal={onOpenDeal}
         />
       )}
     </div>

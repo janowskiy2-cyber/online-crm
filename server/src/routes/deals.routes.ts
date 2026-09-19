@@ -116,37 +116,59 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     }
   });
 
-  // Anti-Duplicate Guard: Checks if phone or company already exists
+  // Anti-Duplicate Guard: Checks if phone, title or company already exists
   router.get('/check-duplicate', async (req, res) => {
     try {
-      const { query, dealId } = req.query;
+      const { query, dealId, phone } = req.query;
       const term = (String(query || '')).trim();
-      if (!term || term.length < 3) {
+      const phoneInput = (String(phone || '')).trim();
+
+      const orConditions: any[] = [];
+
+      if (phoneInput) {
+        const cleanDigits = phoneInput.replace(/\D/g, '');
+        if (cleanDigits.length >= 7) {
+          const searchSuffix = cleanDigits.slice(-9);
+          orConditions.push(
+            { contact: { phone: { contains: searchSuffix } } },
+            { contact: { phone2: { contains: searchSuffix } } },
+            { contact: { whatsapp: { contains: searchSuffix } } }
+          );
+        }
+      }
+
+      if (term && term.length >= 3) {
+        orConditions.push(
+          { title: { contains: term, mode: 'insensitive' } },
+          { company: { name: { contains: term, mode: 'insensitive' } } },
+          { contact: { phone: { contains: term, mode: 'insensitive' } } },
+          { contact: { name: { contains: term, mode: 'insensitive' } } },
+          { contact: { email: { contains: term, mode: 'insensitive' } } }
+        );
+      }
+
+      if (orConditions.length === 0) {
         return res.json({ duplicateFound: false, duplicates: [] });
       }
 
       const matchedDeals = await prisma.deal.findMany({
         where: {
+          isDeleted: false,
           AND: [
             dealId ? { id: { not: String(dealId) } } : {},
-            {
-              OR: [
-                { title: { contains: term, mode: 'insensitive' } },
-                { company: { name: { contains: term, mode: 'insensitive' } } },
-                { contact: { phone: { contains: term, mode: 'insensitive' } } },
-                { contact: { name: { contains: term, mode: 'insensitive' } } },
-                { contact: { email: { contains: term, mode: 'insensitive' } } }
-              ]
-            }
+            { OR: orConditions }
           ]
         },
         include: {
           company: true,
           contact: true,
           responsible: true,
-          stage: true
+          stage: true,
+          tasks: { where: { isDeleted: false } },
+          notes: true,
+          messages: true
         },
-        take: 3
+        take: 5
       });
 
       if (matchedDeals.length > 0) {
@@ -157,9 +179,15 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
             title: d.title,
             companyName: d.company?.name || d.title,
             contactName: d.contact?.name,
-            phone: d.contact?.phone,
+            phone: d.contact?.phone || d.contact?.whatsapp || d.contact?.phone2,
             stageName: d.stage?.name || 'Етап',
-            responsibleName: d.responsible?.name || 'Менеджер'
+            stageColor: d.stage?.color || '#3b82f6',
+            responsibleName: d.responsible?.name || 'Менеджер',
+            budget: d.budget,
+            tasksCount: d.tasks.length,
+            notesCount: d.notes.length,
+            messagesCount: d.messages.length,
+            createdAt: d.createdAt
           }))
         });
       }
@@ -167,6 +195,255 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
       res.json({ duplicateFound: false, duplicates: [] });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Find all duplicates grouped by phone number across the entire CRM
+  router.get('/duplicates/by-phone', async (req, res) => {
+    try {
+      const deals = await prisma.deal.findMany({
+        where: {
+          isDeleted: false,
+          contact: {
+            OR: [
+              { phone: { not: null } },
+              { phone2: { not: null } },
+              { whatsapp: { not: null } }
+            ]
+          }
+        },
+        include: {
+          contact: true,
+          company: true,
+          stage: true,
+          responsible: true,
+          tasks: { where: { isDeleted: false } },
+          notes: true,
+          messages: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      const phoneGroups = new Map<string, any[]>();
+
+      for (const d of deals) {
+        const rawPhones = [d.contact?.phone, d.contact?.phone2, d.contact?.whatsapp].filter(Boolean);
+        const seenInThisDeal = new Set<string>();
+
+        for (const raw of rawPhones) {
+          const digits = (raw as string).replace(/\D/g, '');
+          if (digits.length >= 7) {
+            const key = digits.slice(-9); // Last 9 digits
+            if (!seenInThisDeal.has(key)) {
+              seenInThisDeal.add(key);
+              if (!phoneGroups.has(key)) {
+                phoneGroups.set(key, []);
+              }
+              phoneGroups.get(key)!.push(d);
+            }
+          }
+        }
+      }
+
+      // Keep only groups where more than 1 deal shares this phone
+      const duplicateGroups: any[] = [];
+      phoneGroups.forEach((groupDeals, key) => {
+        const uniqueDealMap = new Map<string, any>();
+        groupDeals.forEach(d => uniqueDealMap.set(d.id, d));
+        const uniqueDeals = Array.from(uniqueDealMap.values());
+
+        if (uniqueDeals.length > 1) {
+          const representativePhone = uniqueDeals[0].contact?.phone || uniqueDeals[0].contact?.whatsapp || key;
+          duplicateGroups.push({
+            phoneKey: key,
+            displayPhone: representativePhone,
+            count: uniqueDeals.length,
+            deals: uniqueDeals.map(d => ({
+              id: d.id,
+              title: d.title,
+              companyName: d.company?.name || d.title,
+              contactName: d.contact?.name || 'Клієнт',
+              phone: d.contact?.phone || d.contact?.whatsapp,
+              stageName: d.stage?.name || 'Етап',
+              stageColor: d.stage?.color || '#3b82f6',
+              responsibleName: d.responsible?.name || 'Менеджер',
+              budget: d.budget,
+              tasksCount: d.tasks.length,
+              notesCount: d.notes.length,
+              messagesCount: d.messages.length,
+              createdAt: d.createdAt,
+              updatedAt: d.updatedAt
+            }))
+          });
+        }
+      });
+
+      res.json({
+        totalDuplicateGroups: duplicateGroups.length,
+        groups: duplicateGroups
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Merge Duplicates Endpoint: Merges sourceDeal into targetDeal
+  router.post('/merge', async (req, res) => {
+    try {
+      const { targetDealId, sourceDealId } = req.body;
+      const currentUserId = (req as any).user?.id;
+
+      if (!targetDealId || !sourceDealId) {
+        return res.status(400).json({ error: 'targetDealId and sourceDealId are required' });
+      }
+
+      if (targetDealId === sourceDealId) {
+        return res.status(400).json({ error: 'Неможливо об’єднати угоду саму з собою' });
+      }
+
+      const [targetDeal, sourceDeal] = await Promise.all([
+        prisma.deal.findUnique({
+          where: { id: targetDealId },
+          include: { contact: true, company: true, stage: true, responsible: true }
+        }),
+        prisma.deal.findUnique({
+          where: { id: sourceDealId },
+          include: { contact: true, company: true, stage: true, responsible: true }
+        })
+      ]);
+
+      if (!targetDeal || targetDeal.isDeleted) {
+        return res.status(404).json({ error: 'Основна угода не знайдена або вже видалена' });
+      }
+      if (!sourceDeal || sourceDeal.isDeleted) {
+        return res.status(404).json({ error: 'Угода-дубль не знайдена або вже була об’єднана/видалена' });
+      }
+
+      // 1. Move all tasks
+      const tasksMoved = await prisma.task.updateMany({
+        where: { dealId: sourceDealId },
+        data: { dealId: targetDealId }
+      });
+
+      // 2. Move all notes (including call recordings)
+      const notesMoved = await prisma.dealNote.updateMany({
+        where: { dealId: sourceDealId },
+        data: { dealId: targetDealId }
+      });
+
+      // 3. Move all chat messages
+      const msgsMoved = await prisma.chatMessage.updateMany({
+        where: { dealId: sourceDealId },
+        data: { dealId: targetDealId }
+      });
+
+      // 4. Merge contact details if contacts are different
+      if (sourceDeal.contact && targetDeal.contact && sourceDeal.contactId !== targetDeal.contactId) {
+        const updateContactData: any = {};
+        if (!targetDeal.contact.phone2 && sourceDeal.contact.phone && sourceDeal.contact.phone !== targetDeal.contact.phone) {
+          updateContactData.phone2 = sourceDeal.contact.phone;
+        }
+        if (!targetDeal.contact.email && sourceDeal.contact.email) {
+          updateContactData.email = sourceDeal.contact.email;
+        }
+        if (!targetDeal.contact.telegram && sourceDeal.contact.telegram) {
+          updateContactData.telegram = sourceDeal.contact.telegram;
+        }
+        if (!targetDeal.contact.whatsapp && sourceDeal.contact.whatsapp) {
+          updateContactData.whatsapp = sourceDeal.contact.whatsapp;
+        }
+        if (!targetDeal.contact.position && sourceDeal.contact.position) {
+          updateContactData.position = sourceDeal.contact.position;
+        }
+        if (Object.keys(updateContactData).length > 0) {
+          await prisma.contact.update({
+            where: { id: targetDeal.contactId! },
+            data: updateContactData
+          });
+        }
+      }
+
+      // 5. Merge custom fields
+      let mergedCustomFields = targetDeal.customFields;
+      if (sourceDeal.customFields) {
+        try {
+          const targetObj = targetDeal.customFields ? JSON.parse(targetDeal.customFields) : {};
+          const sourceObj = JSON.parse(sourceDeal.customFields);
+          for (const [k, v] of Object.entries(sourceObj)) {
+            if (!targetObj[k] || targetObj[k] === '') {
+              targetObj[k] = v;
+            }
+          }
+          mergedCustomFields = JSON.stringify(targetObj);
+        } catch (e) {}
+      }
+
+      // 6. Update Target Deal
+      const dealUpdateData: any = {
+        customFields: mergedCustomFields
+      };
+      if (targetDeal.budget === 0 && sourceDeal.budget > 0) {
+        dealUpdateData.budget = sourceDeal.budget;
+      }
+      if (!targetDeal.companyId && sourceDeal.companyId) {
+        dealUpdateData.companyId = sourceDeal.companyId;
+      }
+
+      await prisma.deal.update({
+        where: { id: targetDealId },
+        data: dealUpdateData
+      });
+
+      // 7. Add system audit note to Target Deal
+      await prisma.dealNote.create({
+        data: {
+          dealId: targetDealId,
+          userId: currentUserId || targetDeal.responsibleId,
+          type: 'system',
+          content: `🔄 Об'єднано з дублем «${sourceDeal.title}» (Етап: ${sourceDeal.stage?.name || 'невідомо'}, Менеджер: ${sourceDeal.responsible?.name || 'невідомо'}). Перенесено: завдань: ${tasksMoved.count}, заміток/дзвінків: ${notesMoved.count}, повідомлень: ${msgsMoved.count}.`,
+          metadata: JSON.stringify({
+            action: 'merge_deals',
+            sourceDealId,
+            sourceTitle: sourceDeal.title,
+            tasksCount: tasksMoved.count,
+            notesCount: notesMoved.count,
+            msgsCount: msgsMoved.count,
+            mergedAt: new Date().toISOString()
+          })
+        }
+      });
+
+      // 8. Soft-delete / archive duplicate Deal
+      await prisma.deal.update({
+        where: { id: sourceDealId },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          title: `[ДУБЛЬ - Об'єднано] ${sourceDeal.title}`
+        }
+      });
+
+      // 9. Fetch fresh Target Deal
+      const updatedDeal = await prisma.deal.findUnique({
+        where: { id: targetDealId },
+        include: {
+          contact: true,
+          company: true,
+          stage: true,
+          responsible: true,
+          tasks: { where: { isDeleted: false } },
+          notes: { orderBy: { createdAt: 'desc' }, include: { user: true } }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Угоди успішно об'єднано! Перенесено ${tasksMoved.count} завдань та ${notesMoved.count} заміток.`,
+        deal: updatedDeal
+      });
+    } catch (e: any) {
+      console.error('Error merging deals:', e);
+      res.status(500).json({ error: e.message || 'Failed to merge deals' });
     }
   });
 

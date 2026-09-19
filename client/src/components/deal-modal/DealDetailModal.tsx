@@ -46,7 +46,8 @@ import {
   ChevronRight,
   PauseCircle,
   Smartphone,
-  MoreHorizontal
+  MoreHorizontal,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -67,6 +68,7 @@ import { CannedResponse } from '../../constants/cannedResponses';
 import { ClientDetailModal } from '../contacts/ClientDetailModal';
 import { PauseDealModal } from '../modals/PauseDealModal';
 import { TelephonyPairModal } from '../telephony/TelephonyPairModal';
+import { MergeDuplicatesModal } from '../modals/MergeDuplicatesModal';
 
 const resolveMediaUrl = (url?: string) => {
   if (!url) return '';
@@ -132,6 +134,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
   const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
   const [isTelephonyPairModalOpen, setIsTelephonyPairModalOpen] = useState(false);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [viewingMedia, setViewingMedia] = useState<{ url: string; type: 'image' | 'pdf' | 'video' | 'document'; title?: string; messageId?: string; channel?: string } | null>(null);
 
   // Dropdown States for Decluttered Clean UX
@@ -423,11 +426,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           checkMessengers(contactPhone);
         }
 
-        // Anti-Duplicate check
-        api.get(`/deals/check-duplicate?query=${encodeURIComponent(res.data.title)}&dealId=${dealId}`)
+        // Anti-Duplicate check (by contact phone and title)
+        const dupParams = new URLSearchParams({
+          dealId: String(dealId),
+          query: res.data.title || ''
+        });
+        if (contactPhone) {
+          dupParams.append('phone', contactPhone);
+        }
+        api.get(`/deals/check-duplicate?${dupParams.toString()}`)
           .then(dupRes => {
             if (dupRes.data.duplicateFound && dupRes.data.duplicates.length > 0) {
               setDuplicateAlert(dupRes.data.duplicates[0]);
+            } else {
+              setDuplicateAlert(null);
             }
           })
           .catch(() => {});
@@ -1737,6 +1749,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     <span>Підключити SIM-шлюз</span>
                   </button>
 
+                  {duplicateAlert && (
+                    <button
+                      type="button"
+                      onClick={() => { setIsActionsMenuOpen(false); setIsMergeModalOpen(true); }}
+                      className="w-full px-2.5 py-2 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-xl text-xs font-bold flex items-center gap-2.5 transition text-left shadow-sm"
+                    >
+                      <ArrowRightLeft className="w-4 h-4 text-amber-400" />
+                      <span>Об'єднати з дублем</span>
+                    </button>
+                  )}
+
                   <div className="my-1 h-px bg-white/10" />
 
                   <button
@@ -1800,22 +1823,35 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Anti-Duplicate Guard Banner */}
+        {/* Anti-Duplicate Guard Banner with Merge Action */}
         {duplicateAlert && (
-          <div className="bg-amber-950/70 border-b border-amber-500/40 px-4 sm:px-6 py-2 flex items-center justify-between text-xs text-amber-200 animate-in fade-in flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" strokeWidth={2} />
-              <span>
-                <strong>Увага (Захист від дублів):</strong> Знайдено схожу угоду: <strong>«{duplicateAlert.title}»</strong> ({duplicateAlert.stageName})
-              </span>
+          <div className="bg-gradient-to-r from-amber-950/90 via-orange-950/80 to-amber-950/90 border-b border-amber-500/40 px-4 sm:px-6 py-2.5 flex items-center justify-between text-xs text-amber-200 animate-in fade-in flex-shrink-0 backdrop-blur-md">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center border border-amber-500/30 flex-shrink-0 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div className="truncate">
+                <strong className="text-amber-300">Виявлено дубль:</strong> схожа угода {duplicateAlert.phone ? `за номером ${duplicateAlert.phone}` : ''} — <strong>«{duplicateAlert.title}»</strong> ({duplicateAlert.stageName}, {duplicateAlert.responsibleName})
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setDuplicateAlert(null)}
-              className="text-amber-400 hover:underline text-[11px] font-bold ml-2"
-            >
-              Зрозуміло
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+              <button
+                type="button"
+                onClick={() => setIsMergeModalOpen(true)}
+                className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold rounded-xl transition shadow-[0_0_12px_rgba(245,158,11,0.3)] active:scale-95 flex items-center gap-1.5 text-xs"
+                title="Об'єднати завдання, замітки та історію листування в одну угоду"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Об'єднати дублі</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDuplicateAlert(null)}
+                className="text-amber-400/80 hover:text-amber-300 text-xs px-2 py-1"
+              >
+                Сховати
+              </button>
+            </div>
           </div>
         )}
 
@@ -4419,6 +4455,21 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
         </div>
       </div>
+
+      {/* Merge Duplicates Modal */}
+      {isMergeModalOpen && duplicateAlert && (
+        <MergeDuplicatesModal
+          currentDeal={deal}
+          duplicateDeal={duplicateAlert}
+          onClose={() => setIsMergeModalOpen(false)}
+          onMerged={(updatedDeal) => {
+            setDeal(updatedDeal);
+            setDuplicateAlert(null);
+            onDealUpdated(updatedDeal);
+            fetchDealDetails();
+          }}
+        />
+      )}
 
       {/* KP Generator Modal */}
       {isKPModalOpen && (
