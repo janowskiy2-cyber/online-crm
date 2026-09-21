@@ -47,7 +47,8 @@ import {
   PauseCircle,
   Smartphone,
   MoreHorizontal,
-  ArrowRightLeft
+  ArrowRightLeft,
+  CheckCheck
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -471,13 +472,28 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       fetchDealDetails();
     };
 
+    const handleStatusUpdated = ({ externalMsgId, status }: { externalMsgId: string; status: string }) => {
+      setDeal((prev: any) => {
+        if (!prev || !prev.messages) return prev;
+        const updatedMessages = prev.messages.map((m: any) => {
+          if (m.externalMsgId === externalMsgId || m.id === externalMsgId) {
+            return { ...m, status };
+          }
+          return m;
+        });
+        return { ...prev, messages: updatedMessages };
+      });
+    };
+
     socket.on('new_message', handleMessage);
+    socket.on('message_status_updated', handleStatusUpdated);
     socket.on('deal_note_added', handleNoteAdded);
     socket.on('task_created', handleTaskUpdated);
     socket.on('task_updated', handleTaskUpdated);
 
     return () => {
       socket.off('new_message', handleMessage);
+      socket.off('message_status_updated', handleStatusUpdated);
       socket.off('deal_note_added', handleNoteAdded);
       socket.off('task_created', handleTaskUpdated);
       socket.off('task_updated', handleTaskUpdated);
@@ -3438,8 +3454,25 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <span className="text-[11px] text-slate-400">
                               {isOutgoing ? 'Менеджер' : (item.senderName || 'Клієнт')}
                             </span>
-                            <span className="text-[10px] text-slate-500">
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1">
                               {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {isOutgoing && (
+                                <span className="inline-flex items-center ml-0.5" title={
+                                  item.status === 'read' ? 'Прочитано (2 сині галочки)' :
+                                  item.status === 'delivered' ? 'Доставлено (2 сірі галочки)' :
+                                  item.status === 'sent' ? 'Надіслано (1 сіра галочка)' : 'Відправка...'
+                                }>
+                                  {item.status === 'read' ? (
+                                    <CheckCheck className="w-3.5 h-3.5 text-cyan-400" />
+                                  ) : item.status === 'delivered' ? (
+                                    <CheckCheck className="w-3.5 h-3.5 text-slate-400" />
+                                  ) : item.status === 'sent' ? (
+                                    <Check className="w-3.5 h-3.5 text-slate-400" />
+                                  ) : (
+                                    <Clock className="w-3 h-3 text-slate-500 animate-pulse" />
+                                  )}
+                                </span>
+                              )}
                             </span>
                           </div>
 

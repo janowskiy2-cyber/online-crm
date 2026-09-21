@@ -14,12 +14,18 @@ import {
   TrendingUp,
   Archive,
   Download,
-  Copy
+  Copy,
+  Trash2,
+  Users,
+  Check,
+  CheckSquare,
+  X
 } from 'lucide-react';
 import { Deal, Pipeline, Stage } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { api, socket } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { soundService } from '../../services/sound.service';
 import { LossReasonModal } from '../modals/LossReasonModal';
 import { PauseDealModal } from '../modals/PauseDealModal';
 import { AnalyticsDashboardModal } from '../analytics/AnalyticsDashboardModal';
@@ -49,7 +55,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   openCreateDeal,
 }) => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, users } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingLossDeal, setPendingLossDeal] = useState<{ id: string; title: string; targetStageId: string } | null>(null);
@@ -59,6 +65,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false);
   const [recentlyMovedDealId, setRecentlyMovedDealId] = useState<string | null>(null);
+
+  // Bulk Actions State
+  const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [isBulkExecuting, setIsBulkExecuting] = useState(false);
+  const [bulkStageId, setBulkStageId] = useState<string>('');
+  const [bulkResponsibleId, setBulkResponsibleId] = useState<string>('');
 
   const stagesList = (pipeline && pipeline.stages && Array.isArray(pipeline.stages)) ? pipeline.stages : [];
   const currentUserId = currentUser?.id || (typeof localStorage !== 'undefined' ? localStorage.getItem('crm_user_id') : 'usr-admin') || 'usr-admin';
@@ -151,15 +164,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       setDeals((prev) => prev.filter(d => d.id !== deletedId));
     };
 
+    const handleBulkDeleted = (data: { dealIds: string[] }) => {
+      if (data?.dealIds && Array.isArray(data.dealIds)) {
+        const idSet = new Set(data.dealIds);
+        setDeals((prev) => prev.filter(d => !idSet.has(d.id)));
+      }
+    };
+
     socket.on('deal_created', handleDealCreated);
     socket.on('deal_updated', handleDealUpdated);
     socket.on('deal_deleted', handleDealDeleted);
+    socket.on('deals_bulk_deleted', handleBulkDeleted);
 
     return () => {
       clearInterval(interval);
       socket.off('deal_created', handleDealCreated);
       socket.off('deal_updated', handleDealUpdated);
       socket.off('deal_deleted', handleDealDeleted);
+      socket.off('deals_bulk_deleted', handleBulkDeleted);
     };
   }, [pipeline?.id, projectId, searchQuery, refreshTrigger]);
 
@@ -361,6 +383,119 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     } catch (err) {
       console.error('Export deals error:', err);
       alert('Помилка завантаження експорту угод');
+    }
+  };
+
+  const handleToggleSelectDeal = (dealId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedDealIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(dealId)) {
+        next.delete(dealId);
+      } else {
+        next.add(dealId);
+      }
+      if (next.size > 0 && !isSelectionMode) {
+        setIsSelectionMode(true);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const allIds = filteredDeals.map((d) => d.id);
+    setSelectedDealIds(new Set(allIds));
+    setIsSelectionMode(true);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedDealIds(new Set());
+    setIsSelectionMode(false);
+    setBulkStageId('');
+    setBulkResponsibleId('');
+  };
+
+  const handleToggleSelectStage = (stageId: string) => {
+    const stageDealIds = filteredDeals.filter((d) => d.stageId === stageId).map((d) => d.id);
+    setSelectedDealIds((prev) => {
+      const next = new Set(prev);
+      const allStageSelected = stageDealIds.length > 0 && stageDealIds.every((id) => next.has(id));
+      if (allStageSelected) {
+        stageDealIds.forEach((id) => next.delete(id));
+      } else {
+        stageDealIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedDealIds.size;
+    if (count === 0) return;
+    if (!window.confirm(`Перемістити ${count} угод до кошика? Усі дані зберігаються в архіві з можливістю відновлення протягом 30 днів.`)) {
+      return;
+    }
+
+    setIsBulkExecuting(true);
+    try {
+      const idsArray = Array.from(selectedDealIds);
+      await api.post('/deals/bulk-action', {
+        dealIds: idsArray,
+        action: 'delete'
+      });
+      setDeals((prev) => prev.filter((d) => !selectedDealIds.has(d.id)));
+      soundService.playSuccess();
+      handleClearSelection();
+      fetchDeals();
+    } catch (err: any) {
+      console.error('Bulk delete error:', err);
+      alert(err?.response?.data?.error || 'Помилка видалення вибраних угод');
+    } finally {
+      setIsBulkExecuting(false);
+    }
+  };
+
+  const handleBulkChangeStage = async (targetStageId: string) => {
+    if (!targetStageId || selectedDealIds.size === 0) return;
+    setIsBulkExecuting(true);
+    try {
+      const idsArray = Array.from(selectedDealIds);
+      await api.post('/deals/bulk-action', {
+        dealIds: idsArray,
+        action: 'change_stage',
+        targetStageId
+      });
+      setDeals((prev) => prev.map((d) => selectedDealIds.has(d.id) ? { ...d, stageId: targetStageId } : d));
+      soundService.playSuccess();
+      handleClearSelection();
+      fetchDeals();
+    } catch (err: any) {
+      console.error('Bulk change stage error:', err);
+      alert(err?.response?.data?.error || 'Помилка зміни етапу');
+    } finally {
+      setIsBulkExecuting(false);
+    }
+  };
+
+  const handleBulkChangeResponsible = async (targetResponsibleId: string) => {
+    if (!targetResponsibleId || selectedDealIds.size === 0) return;
+    setIsBulkExecuting(true);
+    try {
+      const idsArray = Array.from(selectedDealIds);
+      await api.post('/deals/bulk-action', {
+        dealIds: idsArray,
+        action: 'change_responsible',
+        targetResponsibleId
+      });
+      setDeals((prev) => prev.map((d) => selectedDealIds.has(d.id) ? { ...d, responsibleId: targetResponsibleId } : d));
+      soundService.playSuccess();
+      handleClearSelection();
+      fetchDeals();
+    } catch (err: any) {
+      console.error('Bulk change responsible error:', err);
+      alert(err?.response?.data?.error || 'Помилка призначення відповідального');
+    } finally {
+      setIsBulkExecuting(false);
     }
   };
 
@@ -570,6 +705,29 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </button>
 
           <button
+            onClick={() => {
+              if (isSelectionMode && selectedDealIds.size === 0) {
+                setIsSelectionMode(false);
+              } else if (isSelectionMode) {
+                handleClearSelection();
+              } else {
+                setIsSelectionMode(true);
+              }
+            }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition border shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.97] ${
+              isSelectionMode || selectedDealIds.size > 0
+                ? 'bg-[#0071E3] text-white border-[#0071E3] shadow-[0_0_12px_rgba(0,113,227,0.35)]'
+                : 'bg-white hover:bg-[#FAFAFB] dark:bg-[#090e1a]/80 dark:hover:bg-slate-800 text-[#1D1D1F] dark:text-slate-200 border-black/[0.06] dark:border-white/[0.08]'
+            }`}
+            title="Масові дії з лідами (видалення, переміщення, призначення)"
+          >
+            <CheckSquare className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span className="hidden sm:inline">
+              {selectedDealIds.size > 0 ? `Вибрано: ${selectedDealIds.size}` : isSelectionMode ? 'Режим вибору' : 'Масові дії'}
+            </span>
+          </button>
+
+          <button
             onClick={handleExportDeals}
             className="px-3.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium flex items-center gap-1.5 transition border border-emerald-500/20 shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.97]"
             title="Експорт поточних угод у форматі CSV (Excel)"
@@ -635,6 +793,26 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   {/* Column Header */}
                   <div className="p-3.5 border-b border-black/[0.05] dark:border-white/[0.06] bg-white/80 dark:bg-[#0e1424]/90 flex items-center justify-between flex-shrink-0 backdrop-blur-md">
                     <div className="flex items-center gap-2 min-w-0">
+                      {isSelectionMode && stageDeals.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectStage(stage.id)}
+                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all flex-shrink-0 active:scale-90 ${
+                            stageDeals.every(d => selectedDealIds.has(d.id))
+                              ? 'bg-[#0071E3] border-[#0071E3] text-white shadow-sm ring-2 ring-[#0071E3]/30'
+                              : stageDeals.some(d => selectedDealIds.has(d.id))
+                              ? 'bg-[#0071E3]/20 border-[#0071E3] text-[#0071E3]'
+                              : 'bg-white/80 dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                          }`}
+                          title={stageDeals.every(d => selectedDealIds.has(d.id)) ? "Зняти виділення з колонки" : "Вибрати всі угоди в колонці"}
+                        >
+                          {stageDeals.every(d => selectedDealIds.has(d.id)) ? (
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          ) : stageDeals.some(d => selectedDealIds.has(d.id)) ? (
+                            <div className="w-2 h-0.5 bg-[#0071E3] rounded" />
+                          ) : null}
+                        </button>
+                      )}
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
                         style={{ backgroundColor: stage.color || '#0071E3' }}
@@ -678,6 +856,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                   stages={stagesList}
                                   onMoveStage={handleMoveDealStage}
                                   onDealUpdated={(updated) => setDeals(prev => prev.map(d => d.id === updated.id ? { ...d, ...updated } : d))}
+                                  isSelected={selectedDealIds.has(deal.id)}
+                                  onToggleSelect={handleToggleSelectDeal}
+                                  isSelectionMode={isSelectionMode || selectedDealIds.size > 0}
                                 />
                               </div>
                             )}
@@ -753,6 +934,100 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           }}
           onOpenDeal={onOpenDeal}
         />
+      )}
+
+      {/* Floating Bulk Action Bar (Glassmorphic Luxury Dock) */}
+      {selectedDealIds.size > 0 && (
+        <div className="fixed bottom-6 inset-x-0 z-50 flex justify-center px-4 pointer-events-none animate-in slide-in-from-bottom-6 fade-in duration-200">
+          <div className="pointer-events-auto bg-[#0a1020]/95 border border-blue-500/35 backdrop-blur-2xl px-4 sm:px-6 py-3 rounded-2xl sm:rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.7),0_0_20px_rgba(0,113,227,0.2)] flex flex-wrap items-center justify-between gap-3 text-white max-w-4xl w-full ring-1 ring-white/10">
+            {/* Left: Selection Counter and Select All / Deselect */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1 bg-blue-500/20 border border-blue-500/30 rounded-xl">
+                <Check className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-bold text-blue-200">
+                  Вибрано: <span className="font-mono text-white text-sm">{selectedDealIds.size}</span>
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={selectedDealIds.size === filteredDeals.length ? handleClearSelection : handleSelectAll}
+                className="text-xs text-slate-300 hover:text-white underline underline-offset-4 decoration-slate-500 hover:decoration-white transition"
+              >
+                {selectedDealIds.size === filteredDeals.length ? 'Зняти всі' : `Вибрати всі (${filteredDeals.length})`}
+              </button>
+            </div>
+
+            {/* Right: Actions (Change Stage, Change Manager, Delete) */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Change Stage Dropdown */}
+              <div className="relative">
+                <select
+                  value={bulkStageId}
+                  disabled={isBulkExecuting}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBulkStageId(val);
+                    if (val) handleBulkChangeStage(val);
+                  }}
+                  className="bg-slate-800/90 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50"
+                >
+                  <option value="">📁 Перемістити на етап...</option>
+                  {stagesList.map(stg => (
+                    <option key={stg.id} value={stg.id} className="bg-slate-900 text-white">
+                      {stg.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Change Responsible Dropdown */}
+              {users && users.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={bulkResponsibleId}
+                    disabled={isBulkExecuting}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBulkResponsibleId(val);
+                      if (val) handleBulkChangeResponsible(val);
+                    }}
+                    className="bg-slate-800/90 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50"
+                  >
+                    <option value="">👤 Призначити менеджера...</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id} className="bg-slate-900 text-white">
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Mass Delete to Recycle Bin */}
+              <button
+                type="button"
+                disabled={isBulkExecuting}
+                onClick={handleBulkDelete}
+                className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-rose-600/30 flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                title="Перемістити вибрані угоди до кошика з 30-денним вікном відновлення"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Видалити в кошик</span>
+              </button>
+
+              {/* Cancel / Close */}
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition active:scale-95"
+                title="Скасувати виділення"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

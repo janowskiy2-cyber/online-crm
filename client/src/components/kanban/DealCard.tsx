@@ -34,6 +34,9 @@ interface DealCardProps {
   stages?: Stage[];
   onMoveStage?: (dealId: string, stageId: string) => void;
   onDealUpdated?: (updatedDeal: Deal) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (dealId: string, e: React.MouseEvent) => void;
+  isSelectionMode?: boolean;
 }
 
 export const DealCard: React.FC<DealCardProps> = ({ 
@@ -42,7 +45,10 @@ export const DealCard: React.FC<DealCardProps> = ({
   stageColor = '#3b82f6',
   stages = [],
   onMoveStage,
-  onDealUpdated
+  onDealUpdated,
+  isSelected = false,
+  onToggleSelect,
+  isSelectionMode = false
 }) => {
   const { currentUser, users } = useAuth();
   const [copiedLink, setCopiedLink] = useState(false);
@@ -350,7 +356,11 @@ export const DealCard: React.FC<DealCardProps> = ({
     <div
       onClick={onClick}
       style={{ borderLeftColor: stageColor }}
-      className={`group relative border border-black/[0.06] dark:border-white/[0.08] border-l-[3.5px] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03),0_12px_24px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 active:scale-[0.985] transition-all duration-200 cursor-pointer overflow-hidden backdrop-blur-xl bg-white/95 dark:bg-[#0f172a]/95`}
+      className={`group relative border border-black/[0.06] dark:border-white/[0.08] border-l-[3.5px] rounded-2xl p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03),0_12px_24px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 active:scale-[0.985] transition-all duration-200 cursor-pointer overflow-hidden backdrop-blur-xl ${
+        isSelected 
+          ? 'bg-blue-50/90 dark:bg-blue-950/30 ring-2 ring-[#0071E3] shadow-md' 
+          : 'bg-white/95 dark:bg-[#0f172a]/95'
+      }`}
     >
       {/* Dynamic Ambient Stage Glow in Top Right Corner */}
       <div 
@@ -358,9 +368,38 @@ export const DealCard: React.FC<DealCardProps> = ({
         style={{ backgroundColor: stageColor }}
       />
 
-      {/* Top Header: Status Indicator + Title & Quick Action Buttons */}
+      {/* Top Header: Selection Checkbox + Status Indicator + Title & Quick Action Buttons */}
       <div className="relative flex items-start justify-between gap-2 mb-2">
         <div className="flex items-start gap-1.5 min-w-0 flex-1">
+          {/* Bulk Select Checkbox */}
+          {(isSelectionMode || isSelected) ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect?.(deal.id, e);
+              }}
+              className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all mt-0.5 flex-shrink-0 active:scale-90 ${
+                isSelected
+                  ? 'bg-[#0071E3] border-[#0071E3] text-white shadow-sm ring-2 ring-[#0071E3]/30'
+                  : 'bg-white/80 dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-[#0071E3]'
+              }`}
+              title={isSelected ? "Зняти виділення" : "Вибрати угоду"}
+            >
+              {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect?.(deal.id, e);
+              }}
+              className="opacity-0 group-hover:opacity-100 w-4 h-4 rounded-md border border-slate-300 dark:border-slate-600 bg-white/80 dark:bg-slate-800 hover:border-[#0071E3] hover:bg-blue-50 dark:hover:bg-slate-700 transition-all mt-0.5 flex-shrink-0 active:scale-90"
+              title="Вибрати для масової дії"
+            />
+          )}
+
           {taskStatus === 'future' && (
             <span 
               className="w-2 h-2 rounded-full bg-[#34C759] shadow-[0_0_6px_rgba(52,199,89,0.8)] mt-1 flex-shrink-0" 

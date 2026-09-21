@@ -153,6 +153,19 @@ export interface ChatMessage {
   senderTgId?: string;
   text: string;
   status: string;
+  externalMsgId?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  contact?: {
+    id: string;
+    name: string;
+    phone?: string;
+  };
+  deal?: {
+    id: string;
+    title: string;
+    responsibleId?: string;
+  };
   createdAt: string;
 }
 

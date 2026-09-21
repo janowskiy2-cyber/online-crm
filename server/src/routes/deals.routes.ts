@@ -447,6 +447,139 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
     }
   });
 
+  // Bulk Actions: Archive (Soft-delete), Change Stage, Change Responsible
+  router.post('/bulk-action', async (req, res) => {
+    try {
+      const { dealIds, action, targetStageId, targetResponsibleId } = req.body;
+      const currentUserId = (req as any).userId as string | undefined;
+      const currentUserRole = (req as any).userRole as string | undefined;
+
+      if (!dealIds || !Array.isArray(dealIds) || dealIds.length === 0) {
+        return res.status(400).json({ error: 'Не вибрано жодної угоди для масової дії' });
+      }
+
+      if (action === 'delete') {
+        // Enforce RBAC: check if user can delete deals
+        let canDelete = currentUserRole === 'super_admin' || currentUserRole === 'sales_director' || currentUserRole === 'admin';
+        if (!canDelete && currentUserId) {
+          const user = await prisma.user.findUnique({ where: { id: currentUserId } });
+          if (user?.canDeleteDeals) {
+            canDelete = true;
+          }
+        }
+
+        // Soft-delete strictly adhering to Zero Data Loss standard in AGENTS.md
+        const updateResult = await prisma.deal.updateMany({
+          where: {
+            id: { in: dealIds },
+            isDeleted: false,
+            ...(!canDelete && currentUserId ? { responsibleId: currentUserId } : {})
+          },
+          data: {
+            isDeleted: true,
+            deletedAt: new Date()
+          }
+        });
+
+        if (io) {
+          dealIds.forEach((id: string) => io.emit('deal_deleted', { id }));
+          io.emit('deals_bulk_deleted', { dealIds, count: updateResult.count });
+        }
+
+        return res.json({
+          success: true,
+          count: updateResult.count,
+          message: `Успішно переміщено в кошик ${updateResult.count} угод. Їх можна відновити протягом 30 днів.`
+        });
+      }
+
+      if (action === 'change_stage') {
+        if (!targetStageId) {
+          return res.status(400).json({ error: 'Не вказано цільовий етап воронки' });
+        }
+        const stage = await prisma.stage.findUnique({ where: { id: targetStageId } });
+        if (!stage) {
+          return res.status(404).json({ error: 'Цільовий етап не знайдено' });
+        }
+
+        const updateResult = await prisma.deal.updateMany({
+          where: { id: { in: dealIds }, isDeleted: false },
+          data: {
+            stageId: targetStageId,
+            pipelineId: stage.pipelineId,
+            updatedAt: new Date()
+          }
+        });
+
+        // Add audit notes for the moved deals
+        for (const dId of dealIds) {
+          await prisma.dealNote.create({
+            data: {
+              dealId: dId,
+              userId: currentUserId || 'usr-admin',
+              content: `📁 [Масова дія]: Угоду переміщено на етап "${stage.name}"`,
+              type: 'status_change'
+            }
+          }).catch(() => {});
+        }
+
+        if (io) {
+          io.emit('deals_bulk_updated', { dealIds, stageId: targetStageId, pipelineId: stage.pipelineId });
+        }
+
+        return res.json({
+          success: true,
+          count: updateResult.count,
+          message: `Успішно переміщено ${updateResult.count} угод на етап "${stage.name}".`
+        });
+      }
+
+      if (action === 'change_responsible') {
+        if (!targetResponsibleId) {
+          return res.status(400).json({ error: 'Не вказано нового відповідального менеджера' });
+        }
+        const targetUser = await prisma.user.findUnique({ where: { id: targetResponsibleId } });
+        if (!targetUser) {
+          return res.status(404).json({ error: 'Користувача не знайдено' });
+        }
+
+        const updateResult = await prisma.deal.updateMany({
+          where: { id: { in: dealIds }, isDeleted: false },
+          data: {
+            responsibleId: targetResponsibleId,
+            updatedAt: new Date()
+          }
+        });
+
+        for (const dId of dealIds) {
+          await prisma.dealNote.create({
+            data: {
+              dealId: dId,
+              userId: currentUserId || 'usr-admin',
+              content: `👤 [Масова дія]: Відповідальним менеджером призначено "${targetUser.name}"`,
+              type: 'system'
+            }
+          }).catch(() => {});
+        }
+
+        if (io) {
+          io.emit('deals_bulk_updated', { dealIds, responsibleId: targetResponsibleId });
+        }
+
+        return res.json({
+          success: true,
+          count: updateResult.count,
+          message: `Успішно призначено ${targetUser.name} відповідальним за ${updateResult.count} угод.`
+        });
+      }
+
+      return res.status(400).json({ error: 'Невідома дія (підтримуються delete, change_stage, change_responsible)' });
+    } catch (e: any) {
+      console.error('Error in bulk-action:', e);
+      res.status(500).json({ error: e.message || 'Помилка масової дії над угодами' });
+    }
+  });
+
   // Get single deal with full relations (messages paginated to last 50)
   router.get('/:id', async (req, res) => {
     try {

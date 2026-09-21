@@ -563,20 +563,59 @@ export class WhatsAppService {
           for (const u of updates) {
             if (!u.key?.id) continue;
             const statusNum = u.update?.status;
-            let newStatus: 'delivered' | 'read' | null = null;
-            if (statusNum === 3) newStatus = 'delivered';
+            let newStatus: 'sent' | 'delivered' | 'read' | null = null;
+            if (statusNum === 2) newStatus = 'sent';
+            else if (statusNum === 3) newStatus = 'delivered';
             else if (statusNum === 4 || statusNum === 5) newStatus = 'read';
 
-            if (newStatus && this.io) {
-              this.io.emit('message_status_updated', {
-                externalMsgId: u.key.id,
-                status: newStatus,
-                channel: 'whatsapp'
+            if (newStatus) {
+              await this.prisma.chatMessage.updateMany({
+                where: { externalMsgId: u.key.id },
+                data: { status: newStatus }
               });
+
+              if (this.io) {
+                this.io.emit('message_status_updated', {
+                  externalMsgId: u.key.id,
+                  status: newStatus,
+                  channel: 'whatsapp'
+                });
+              }
             }
           }
         } catch (updateErr) {
           console.warn('Error handling WhatsApp messages.update:', updateErr);
+        }
+      });
+
+      // Handle WhatsApp delivery & read receipts (message-receipt.update)
+      this.sock.ev.on('message-receipt.update', async (receipts: any) => {
+        try {
+          if (!receipts || !Array.isArray(receipts)) return;
+          for (const r of receipts) {
+            const extId = r.key?.id;
+            if (!extId) continue;
+            const isRead = !!r.receipt?.readTimestamp || !!r.receipt?.playedTimestamp;
+            const isDelivered = !isRead && !!r.receipt?.receiptTimestamp;
+            const newStatus = isRead ? 'read' : (isDelivered ? 'delivered' : null);
+
+            if (newStatus) {
+              await this.prisma.chatMessage.updateMany({
+                where: { externalMsgId: extId },
+                data: { status: newStatus }
+              });
+
+              if (this.io) {
+                this.io.emit('message_status_updated', {
+                  externalMsgId: extId,
+                  status: newStatus,
+                  channel: 'whatsapp'
+                });
+              }
+            }
+          }
+        } catch (receiptErr) {
+          console.warn('Error handling WhatsApp message-receipt.update:', receiptErr);
         }
       });
     } catch (err) {
@@ -612,12 +651,20 @@ export class WhatsAppService {
       if (!contact) {
         contact = await this.prisma.contact.create({
           data: {
-            name: pushName || `Клієнт (+${cleanPhone})`,
+            name: (!isFromMe && pushName && !pushName.startsWith('Клієнт (+') && !pushName.startsWith('+')) ? pushName : `Клієнт (+${cleanPhone})`,
             phone: formattedPhone,
             whatsapp: formattedPhone,
             position: 'Клієнт (WhatsApp)'
           }
         });
+      } else if (!isFromMe && pushName && !pushName.startsWith('Клієнт (+') && !pushName.startsWith('+')) {
+        // If contact had a placeholder name, upgrade it with real client WhatsApp name
+        if (!contact.name || contact.name.startsWith('Клієнт (+') || contact.name.startsWith('+') || contact.name === 'Новий лід') {
+          contact = await this.prisma.contact.update({
+            where: { id: contact.id },
+            data: { name: pushName }
+          });
+        }
       }
 
       let deal = await this.prisma.deal.findFirst({
@@ -650,13 +697,15 @@ export class WhatsAppService {
         }) || null;
       }
 
+      const senderDisplayName = isFromMe ? 'Менеджер' : (pushName || contact.name || `Клієнт (+${cleanPhone})`);
+
       const savedMsg = await this.prisma.chatMessage.create({
         data: {
           channel: 'whatsapp',
           direction: isFromMe ? 'outgoing' : 'incoming',
           dealId: deal?.id,
           contactId: contact.id,
-          senderName: pushName,
+          senderName: senderDisplayName,
           senderPhone: cleanPhone,
           text,
           mediaUrl: mediaUrl || null,
@@ -807,8 +856,12 @@ export class WhatsAppService {
 
     this.markMessageAsSentLocally(cleanPhone, text);
 
+    let extMsgId: string | null = null;
     try {
-      await this.sock.sendMessage(targetJid, { text });
+      const sentMsg = await this.sock.sendMessage(targetJid, { text });
+      if (sentMsg?.key?.id) {
+        extMsgId = sentMsg.key.id;
+      }
     } catch (err: any) {
       console.error('Error sending text via WhatsApp socket:', err);
       throw new Error(`Помилка надсилання в WhatsApp: ${err.message || 'Збій передачі'}`);
@@ -822,7 +875,8 @@ export class WhatsAppService {
         contactId,
         senderPhone: cleanPhone,
         text,
-        status: 'sent'
+        status: 'sent',
+        externalMsgId: extMsgId
       }
     });
 

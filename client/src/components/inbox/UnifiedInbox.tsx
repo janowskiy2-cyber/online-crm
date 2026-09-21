@@ -274,7 +274,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   useEffect(() => {
     const handleStatusUpdate = ({ externalMsgId, status }: { externalMsgId: string; status: string }) => {
       setMessages(prev => prev.map(m => {
-        if ((m as any).externalId === externalMsgId || m.id === externalMsgId) {
+        if ((m as any).externalMsgId === externalMsgId || (m as any).externalId === externalMsgId || m.id === externalMsgId) {
           return { ...m, status: status as any };
         }
         return m;
@@ -353,12 +353,30 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     dealId?: string;
   }>();
 
+  const getSenderBestName = (msg: ChatMessage) => {
+    // 1. Prioritize real CRM contact name
+    if (msg.contact?.name && !msg.contact.name.startsWith('Клієнт (+') && !msg.contact.name.startsWith('+') && msg.contact.name !== 'Новий лід') {
+      return msg.contact.name;
+    }
+    // 2. Incoming message pushName
+    if (msg.direction === 'incoming' && msg.senderName && msg.senderName !== 'Я' && msg.senderName !== 'Менеджер' && !msg.senderName.startsWith('WhatsApp (+') && !msg.senderName.startsWith('+')) {
+      return msg.senderName;
+    }
+    // 3. Deal title if meaningful
+    if (msg.deal?.title && !msg.deal.title.startsWith('Запит WhatsApp:')) {
+      return msg.deal.title;
+    }
+    // 4. Contact name or formatted phone
+    return msg.contact?.name || (msg.senderPhone ? `+${msg.senderPhone}` : (msg.senderTgId ? `TG: ${msg.senderTgId}` : 'Клієнт'));
+  };
+
   messages.forEach(msg => {
     const key = msg.senderPhone || msg.senderTgId || (msg.dealId ? `deal_${msg.dealId}` : msg.id);
+    const resolvedName = getSenderBestName(msg);
     if (!dialogsMap.has(key)) {
       dialogsMap.set(key, {
         key,
-        senderName: msg.senderName || (msg.channel === 'whatsapp' ? `WhatsApp (+${msg.senderPhone})` : `Telegram (${msg.senderTgId})`),
+        senderName: resolvedName,
         channel: msg.channel,
         phoneOrId: msg.senderPhone || msg.senderTgId || '',
         lastMessage: msg,
@@ -371,6 +389,12 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       d.lastMessage = msg;
       if (!d.dealId && msg.dealId) {
         d.dealId = msg.dealId;
+      }
+      // Upgrade dialog name if a better real name is found
+      const isCurrentNamePlaceholder = d.senderName.startsWith('+') || d.senderName.startsWith('WhatsApp (+') || d.senderName === 'Я' || d.senderName === 'Менеджер' || d.senderName === 'Клієнт';
+      const isNewNameReal = resolvedName && !resolvedName.startsWith('+') && !resolvedName.startsWith('WhatsApp (+') && resolvedName !== 'Я' && resolvedName !== 'Менеджер' && resolvedName !== 'Клієнт';
+      if (isCurrentNamePlaceholder && isNewNameReal) {
+        d.senderName = resolvedName;
       }
     }
   });
@@ -1267,7 +1291,23 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                             isOut ? 'text-blue-200/90' : 'text-slate-400'
                           }`}>
                             <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            {isOut && <CheckCheck className="w-3.5 h-3.5 text-blue-200 ml-0.5" />}
+                            {isOut && (
+                              <span className="inline-flex items-center ml-0.5" title={
+                                m.status === 'read' ? 'Прочитано (дві сині галочки)' :
+                                m.status === 'delivered' ? 'Доставлено (дві сірі галочки)' :
+                                m.status === 'sent' ? 'Надіслано (одна сіра галочка)' : 'Відправка...'
+                              }>
+                                {m.status === 'read' ? (
+                                  <CheckCheck className="w-3.5 h-3.5 text-sky-400 font-bold" />
+                                ) : m.status === 'delivered' ? (
+                                  <CheckCheck className="w-3.5 h-3.5 text-slate-300" />
+                                ) : m.status === 'sent' ? (
+                                  <Check className="w-3.5 h-3.5 text-slate-300" />
+                                ) : (
+                                  <Clock className="w-3 h-3 text-slate-400" />
+                                )}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <button
