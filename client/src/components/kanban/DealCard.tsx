@@ -8,6 +8,9 @@ import {
   AlertTriangle,
   MessageSquare,
   Phone,
+  PhoneIncoming,
+  PhoneOutgoing,
+  PhoneMissed,
   Link2,
   Check,
   ChevronDown,
@@ -141,16 +144,17 @@ export const DealCard: React.FC<DealCardProps> = ({
   const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
   const tgUser = deal.contact?.telegram ? deal.contact.telegram.replace('@', '') : '';
 
-  // Call Info & Duration Extraction for GSM Telephony
-  const latestCallNote = (deal.notes || []).find(n => n.type === 'call_record');
+  // Call Info & Duration Extraction for GSM Telephony and WhatsApp Calls
+  const latestCallNote = (deal.notes || []).find(n => n.type === 'call_record' || n.type === 'call');
   let callMeta: any = null;
   if (latestCallNote?.metadata) {
-    try { callMeta = JSON.parse(latestCallNote.metadata); } catch {}
+    try { callMeta = typeof latestCallNote.metadata === 'string' ? JSON.parse(latestCallNote.metadata) : latestCallNote.metadata; } catch {}
   }
 
-  const hasCallRecord = !!latestCallNote || tags.includes('GSM SIM') || deal.title.startsWith('📞') || deal.title.startsWith('🚨') || deal.title.startsWith('Дзвінок');
+  const hasCallRecord = !!latestCallNote || tags.includes('GSM SIM') || tags.includes('WhatsApp Call') || deal.title.startsWith('📞') || deal.title.startsWith('🚨') || deal.title.startsWith('Дзвінок');
   let callDurationStr: string | null = null;
   let callDirection: 'inbound' | 'outbound' | 'missed' = 'outbound';
+  let callExactTimeStr: string | null = null;
 
   if (callMeta) {
     if (callMeta.status === 'missed' || callMeta.status === 'rejected' || (callMeta.direction === 'inbound' && callMeta.duration === 0)) {
@@ -166,6 +170,14 @@ export const DealCard: React.FC<DealCardProps> = ({
       const s = callMeta.duration % 60;
       callDurationStr = m === 0 ? `${s} сек` : `${m} хв ${s} сек`;
     }
+
+    if (callMeta.exactTimeStr) {
+      callExactTimeStr = callMeta.exactTimeStr;
+    } else if (callMeta.startedAt) {
+      try {
+        callExactTimeStr = new Date(callMeta.startedAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+      } catch {}
+    }
   }
 
   if (!callDurationStr && latestCallNote?.content) {
@@ -175,6 +187,12 @@ export const DealCard: React.FC<DealCardProps> = ({
       callDirection = 'missed';
       callDurationStr = 'Пропущений';
     }
+  }
+
+  if (!callExactTimeStr && latestCallNote?.createdAt) {
+    try {
+      callExactTimeStr = new Date(latestCallNote.createdAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    } catch {}
   }
 
   if (!callDurationStr) {
@@ -455,21 +473,39 @@ export const DealCard: React.FC<DealCardProps> = ({
         </div>
       </div>
 
-      {/* GSM SIM Call Indicator with Duration Badge */}
+      {/* Call Indicator with Distinct Icon & Exact Timestamp */}
       {hasCallRecord && (
         <div className="relative mb-2 flex items-center gap-1.5 flex-wrap">
           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition shadow-sm ${
             callDirection === 'missed'
               ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 animate-pulse'
               : callDirection === 'inbound'
-              ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/25'
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
               : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25 hover:bg-blue-500/15'
           }`}>
-            <span className="text-xs">{callDirection === 'missed' ? '🚨' : (callDirection === 'inbound' ? '📥' : '📞')}</span>
+            {callDirection === 'missed' ? (
+              <PhoneMissed className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+            ) : callDirection === 'inbound' ? (
+              <PhoneIncoming className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            ) : (
+              <PhoneOutgoing className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            )}
             <span className="font-medium">
-              {callDirection === 'missed' ? 'Пропущений' : (callDirection === 'inbound' ? 'Вхідний SIM' : 'Вихідний SIM')}
+              {callDirection === 'missed' 
+                ? (callMeta?.channel === 'whatsapp' ? 'Пропущений WhatsApp' : 'Пропущений дзвінок')
+                : (callDirection === 'inbound' 
+                    ? (callMeta?.channel === 'whatsapp' ? 'Вхідний WhatsApp' : 'Вхідний SIM') 
+                    : (callMeta?.channel === 'whatsapp' ? 'Вихідний WhatsApp' : 'Вихідний SIM'))}
             </span>
-            {callDurationStr && (
+            {callExactTimeStr && (
+              <>
+                <span className="opacity-40">•</span>
+                <span className="font-mono text-[10px] opacity-80" title="Точний час дзвінка">
+                  🕒 {callExactTimeStr}
+                </span>
+              </>
+            )}
+            {callDurationStr && callDirection !== 'missed' && (
               <>
                 <span className="opacity-40">•</span>
                 <span className="font-mono font-bold tracking-tight">{callDurationStr}</span>

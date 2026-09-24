@@ -30,6 +30,16 @@ export class WhatsAppService {
 
   private recentSentMessages = new Map<string, number>();
   private backupDebounceTimer: NodeJS.Timeout | null = null;
+  private activeCalls = new Map<string, {
+    callId: string;
+    from: string;
+    startTime: number;
+    dealId?: string;
+    responsibleId?: string;
+    contactName?: string;
+    isAnswered?: boolean;
+    isEnded?: boolean;
+  }>();
 
   public getLineStatus() {
     return this.lineStatus;
@@ -433,7 +443,7 @@ export class WhatsAppService {
         }
       });
 
-      // Handle real incoming audio / video calls on WhatsApp
+      // Handle real incoming audio / video calls on WhatsApp (Deduplicated with exact time & status)
       this.sock.ev.on('call', async (callEvents: any) => {
         try {
           if (!callEvents || !Array.isArray(callEvents)) return;
@@ -441,70 +451,97 @@ export class WhatsAppService {
             const rawPhone = (call.from || '').split('@')[0].split(':')[0].replace(/\D/g, '');
             if (!rawPhone) continue;
             const formattedPhone = `+${rawPhone}`;
+            const callId = String(call.id || `${rawPhone}_${call.date ? new Date(call.date).getTime() : Date.now()}`);
 
-            const contact = await this.prisma.contact.findFirst({
-              where: {
-                OR: [
-                  { phone: { contains: rawPhone } },
-                  { whatsapp: { contains: rawPhone } },
-                  { phone2: { contains: rawPhone } }
-                ]
-              },
-              include: { deals: { include: { stage: true, responsible: true } } }
-            });
+            // 1. In-memory deduplication cache check
+            const now = Date.now();
+            for (const [id, s] of this.activeCalls.entries()) {
+              if (now - s.startTime > 600000) this.activeCalls.delete(id);
+            }
 
-            let deal = contact?.deals?.[0];
-            let responsibleId = deal?.responsibleId || 'usr-admin';
+            let callState = this.activeCalls.get(callId);
+            if (!callState) {
+              callState = {
+                callId,
+                from: formattedPhone,
+                startTime: call.date ? new Date(call.date).getTime() : now,
+                isAnswered: false,
+                isEnded: false
+              };
+              this.activeCalls.set(callId, callState);
+            }
 
-            if (!deal) {
-              const newContact = contact || await this.prisma.contact.create({
-                data: {
-                  name: `Клієнт (${formattedPhone})`,
-                  phone: formattedPhone,
-                  whatsapp: formattedPhone,
-                  position: 'Вхідний дзвінок'
+            // If call has already finalized, skip duplicate webhook triggers (terminate/reject loop)
+            if (callState.isEnded) {
+              continue;
+            }
+
+            // 2. Find or associate Deal & Contact
+            let deal: any = null;
+            let responsibleId = 'usr-admin';
+            let contactName = `Клієнт (${formattedPhone})`;
+
+            if (callState.dealId) {
+              deal = await this.prisma.deal.findUnique({
+                where: { id: callState.dealId },
+                include: { contact: true, stage: true, responsible: true }
+              });
+              responsibleId = callState.responsibleId || deal?.responsibleId || 'usr-admin';
+              contactName = callState.contactName || deal?.contact?.name || contactName;
+            } else {
+              const contact = await this.prisma.contact.findFirst({
+                where: {
+                  OR: [
+                    { phone: { contains: rawPhone } },
+                    { whatsapp: { contains: rawPhone } },
+                    { phone2: { contains: rawPhone } }
+                  ]
+                },
+                include: { deals: { include: { stage: true, responsible: true } } }
+              });
+
+              deal = contact?.deals?.[0];
+              responsibleId = deal?.responsibleId || 'usr-admin';
+              contactName = contact?.name || contactName;
+
+              if (!deal) {
+                const newContact = contact || await this.prisma.contact.create({
+                  data: {
+                    name: `Клієнт (${formattedPhone})`,
+                    phone: formattedPhone,
+                    whatsapp: formattedPhone,
+                    position: 'Вхідний дзвінок'
+                  }
+                });
+                contactName = newContact.name;
+
+                const newDeal = await this.distributionService.processInboundLead({
+                  title: `Вхідний дзвінок: ${newContact.name}`,
+                  contactId: newContact.id,
+                  channel: 'whatsapp',
+                  text: 'Вхідний аудіо-виклик WhatsApp'
+                });
+                if (newDeal) {
+                  deal = newDeal as any;
+                  responsibleId = newDeal.responsibleId;
                 }
-              });
+              }
 
-              const newDeal = await this.distributionService.processInboundLead({
-                title: `Вхідний дзвінок: ${newContact.name}`,
-                contactId: newContact.id,
-                channel: 'whatsapp',
-                text: 'Вхідний аудіо-виклик WhatsApp'
-              });
-              if (newDeal) {
-                deal = newDeal as any;
-                responsibleId = newDeal.responsibleId;
+              if (deal) {
+                callState.dealId = deal.id;
+                callState.responsibleId = responsibleId;
+                callState.contactName = contactName;
               }
             }
 
             const isOffer = call.status === 'offer' || call.status === 'ringing';
-            const isMissed = call.status === 'timeout' || call.status === 'reject';
+            const isAccept = call.status === 'accept';
+            const isTerminated = call.status === 'terminate' || call.status === 'reject' || call.status === 'timeout';
 
             if (isOffer) {
               if (this.lineStatus.isBusy) {
-                this.sendMessage(rawPhone, 'Вітаємо! Корпоративна лінія наразі зайнята розмовою з іншим клієнтом. Ваш персональний менеджер уже бачить ваш дзвінок і перетелефонує вам рівно за 2 хвилини! Якщо питання термінове — напишіть повідомлення або надішліть голосове тут.').catch(() => {});
-
-                if (deal) {
-                  await this.prisma.dealNote.create({
-                    data: {
-                      dealId: deal.id,
-                      userId: responsibleId,
-                      type: 'call_record',
-                      content: `⚠️ Вхідний дзвінок при ЗАЙНЯТІЙ ЛІНІЇ від ${contact?.name || formattedPhone} о ${new Date().toLocaleTimeString('uk-UA')}. Клієнту надіслано авто-повідомлення.`
-                    }
-                  }).catch(() => {});
-
-                  await this.prisma.task.create({
-                    data: {
-                      dealId: deal.id,
-                      responsibleId,
-                      createdById: responsibleId,
-                      type: 'call',
-                      text: `🔥 ТЕРМІНОВО: Дзвінок при зайнятій лінії від ${contact?.name || formattedPhone}! Набрати одразу після звільнення лінії!`,
-                      dueDate: new Date(Date.now() + 3 * 60 * 1000)
-                    }
-                  }).catch(() => {});
+                if (!callState.isAnswered && !callState.isEnded) {
+                  this.sendMessage(rawPhone, 'Вітаємо! Корпоративна лінія наразі зайнята розмовою з іншим клієнтом. Ваш персональний менеджер уже бачить ваш дзвінок і перетелефонує вам рівно за 2 хвилини! Якщо питання термінове — напишіть повідомлення або надішліть голосове тут.').catch(() => {});
                 }
               } else {
                 this.setLineStatus(true, 'Вхідний виклик', formattedPhone);
@@ -514,40 +551,134 @@ export class WhatsAppService {
                 this.io.emit('incoming_call', {
                   channel: 'whatsapp',
                   callerPhone: formattedPhone,
-                  callerName: contact?.name || `Клієнт (${formattedPhone})`,
+                  callerName: contactName,
                   dealId: deal?.id,
                   dealTitle: deal?.title,
                   stageName: deal?.stage?.name || 'Етап',
                   responsibleId,
-                  callId: call.id,
+                  callId,
                   isVideo: !!call.isVideo,
-                  timestamp: new Date().toISOString()
+                  timestamp: new Date(callState.startTime).toISOString()
                 });
               }
-            } else if (call.status === 'accept') {
+            } else if (isAccept) {
+              callState.isAnswered = true;
               this.setLineStatus(true, 'Розмова', formattedPhone);
-            } else if (isMissed || call.status === 'terminate' || call.status === 'reject') {
+            } else if (isTerminated) {
+              callState.isEnded = true;
               this.setLineStatus(false);
-              if (deal) {
-                await this.prisma.dealNote.create({
-                  data: {
-                    dealId: deal.id,
-                    userId: responsibleId,
-                    type: 'call_record',
-                    content: `🔴 Пропущений аудіодзвінок WhatsApp від ${contact?.name || formattedPhone} о ${new Date().toLocaleTimeString('uk-UA')}`
-                  }
-                }).catch(() => {});
 
-                await this.prisma.task.create({
-                  data: {
+              const callStartTime = callState.startTime;
+              const callEndTime = Date.now();
+              const durationSec = callState.isAnswered ? Math.max(1, Math.round((callEndTime - callStartTime) / 1000)) : 0;
+              const isMissed = !callState.isAnswered || call.status === 'timeout' || call.status === 'reject';
+
+              const m = Math.floor(durationSec / 60);
+              const s = durationSec % 60;
+              const durationStr = isMissed ? 'Пропущений' : (m === 0 ? `${s} сек` : `${m} хв ${s} сек`);
+
+              const callDateObj = new Date(callStartTime);
+              const exactTimeStr = callDateObj.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              const exactDateStr = callDateObj.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+
+              if (deal) {
+                // Check if a note for this callId already exists in DB to prevent race condition duplicates
+                const alreadyCreatedNote = await this.prisma.dealNote.findFirst({
+                  where: {
                     dealId: deal.id,
-                    responsibleId,
-                    createdById: responsibleId,
-                    type: 'call',
-                    text: `🔥 ПРОПУЩЕНИЙ ДЗВІНОК від ${contact?.name || formattedPhone} у WhatsApp! Терміново передзвонити клієнту!`,
-                    dueDate: new Date(Date.now() + 5 * 60 * 1000)
+                    type: 'call_record',
+                    metadata: { contains: callId }
                   }
-                }).catch(() => {});
+                });
+
+                if (!alreadyCreatedNote) {
+                  const noteContent = isMissed
+                    ? `🚨 Пропущений вхідний дзвінок WhatsApp від ${contactName} (${formattedPhone}) о ${exactTimeStr} (${exactDateStr})`
+                    : `📥 Вхідний дзвінок WhatsApp від ${contactName} (${formattedPhone}) о ${exactTimeStr} • ${durationStr}`;
+
+                  const createdNote = await this.prisma.dealNote.create({
+                    data: {
+                      dealId: deal.id,
+                      userId: responsibleId,
+                      type: 'call_record',
+                      content: noteContent,
+                      metadata: JSON.stringify({
+                        callId,
+                        channel: 'whatsapp',
+                        direction: 'inbound',
+                        status: isMissed ? 'missed' : 'answered',
+                        duration: durationSec,
+                        durationStr,
+                        startedAt: new Date(callStartTime).toISOString(),
+                        endedAt: new Date(callEndTime).toISOString(),
+                        formattedPhone,
+                        phoneNumber: formattedPhone,
+                        callerName: contactName,
+                        isVideo: !!call.isVideo
+                      })
+                    },
+                    include: { user: true }
+                  });
+
+                  // Update deal tags and title
+                  let currentTags: string[] = [];
+                  try {
+                    currentTags = deal.tags ? (typeof deal.tags === 'string' ? JSON.parse(deal.tags) : deal.tags) : [];
+                  } catch {}
+                  currentTags = currentTags.filter((t: string) => !t.includes('сек') && !t.includes('хв') && t !== 'Пропущений');
+                  if (!currentTags.includes('WhatsApp Дзвінок')) currentTags.unshift('WhatsApp Дзвінок');
+                  if (!currentTags.includes('Вхідний')) currentTags.push('Вхідний');
+                  currentTags.push(durationStr);
+
+                  let newTitle = deal.title;
+                  if (deal.title.startsWith('Вхідний дзвінок') || deal.title.startsWith('📞') || deal.title.startsWith('🚨')) {
+                    newTitle = isMissed ? `🚨 Пропущений WhatsApp: ${formattedPhone}` : `📞 Вхідний WhatsApp: ${formattedPhone} (${durationStr})`;
+                  }
+
+                  const updatedDeal = await this.prisma.deal.update({
+                    where: { id: deal.id },
+                    data: {
+                      title: newTitle,
+                      updatedAt: new Date(),
+                      tags: JSON.stringify(currentTags)
+                    },
+                    include: { contact: true, stage: true, responsible: true }
+                  });
+
+                  if (this.io) {
+                    this.io.emit('deal_note_added', createdNote);
+                    this.io.emit('deal_updated', updatedDeal);
+                    this.io.emit('call_logged', {
+                      callId,
+                      channel: 'whatsapp',
+                      dealId: deal.id,
+                      phoneNumber: formattedPhone,
+                      formattedPhone,
+                      direction: 'inbound',
+                      duration: durationSec,
+                      durationStr,
+                      isMissed,
+                      startedAt: new Date(callStartTime).toISOString()
+                    });
+                  }
+
+                  if (isMissed) {
+                    const task = await this.prisma.task.create({
+                      data: {
+                        dealId: deal.id,
+                        responsibleId,
+                        createdById: responsibleId,
+                        type: 'call',
+                        text: `🔥 ТЕРМІНОВО: Пропущений дзвінок WhatsApp від ${contactName} (${formattedPhone}) о ${exactTimeStr}!`,
+                        dueDate: new Date(Date.now() + 5 * 60 * 1000)
+                      },
+                      include: { responsible: true }
+                    });
+                    if (this.io) {
+                      this.io.emit('task_created', task);
+                    }
+                  }
+                }
               }
             }
           }

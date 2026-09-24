@@ -48,7 +48,10 @@ import {
   Smartphone,
   MoreHorizontal,
   ArrowRightLeft,
-  CheckCheck
+  CheckCheck,
+  PhoneIncoming,
+  PhoneOutgoing,
+  PhoneMissed
 } from 'lucide-react';
 import { Deal, Pipeline, Stage, User } from '../../types';
 import { api, socket } from '../../services/api';
@@ -123,6 +126,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   };
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(val) + ' ₴';
+  };
+
+  const formatDuration = (secs: number): string => {
+    if (!secs || secs <= 0) return '0 сек';
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    if (m === 0) return `${s} сек`;
+    if (s === 0) return `${m} хв`;
+    return `${m} хв ${s} сек`;
   };
 
   const [selectedClientIdForModal, setSelectedClientIdForModal] = useState<string | null>(null);
@@ -1270,7 +1282,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       return item.itemType === 'message';
     }
     if (activeTab === 'notes') {
-      const isCall = item.type === 'call' || (typeof (item.text || item.content) === 'string' && (item.text || item.content).includes('📞'));
+      const isCall = item.type === 'call' || item.type === 'call_record' || (typeof (item.text || item.content) === 'string' && (
+        (item.text || item.content).includes('дзвінок') ||
+        (item.text || item.content).includes('SIM-карт') ||
+        (item.text || item.content).includes('📞') ||
+        (item.text || item.content).includes('Пропущений')
+      ));
       return item.itemType === 'note' && !isCall;
     }
     // 'all' displays everything: messages, notes, calls, audit events!
@@ -3565,32 +3582,123 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       );
                     }
 
-                    const isCall = item.type === 'call' || (typeof (item.text || item.content) === 'string' && (item.text || item.content).includes('📞'));
+                    let callMeta: any = {};
+                    if (item.metadata) {
+                      try { callMeta = typeof item.metadata === 'string' ? JSON.parse(item.metadata) : item.metadata; } catch {}
+                    }
+
+                    const isCall = item.type === 'call' || item.type === 'call_record' || (typeof (item.text || item.content) === 'string' && (
+                      (item.text || item.content).includes('дзвінок') ||
+                      (item.text || item.content).includes('SIM-карт') ||
+                      (item.text || item.content).includes('📞') ||
+                      (item.text || item.content).includes('Пропущений')
+                    ));
                     const isAudit = item.type === 'status_change' || item.type === 'system';
 
                     if (isCall) {
+                      const noteText = String(item.text || item.content || '');
+                      const isMissed = callMeta?.status === 'missed' || callMeta?.status === 'rejected' || noteText.includes('Пропущений') || noteText.includes('🚨');
+                      const isInbound = !isMissed && (callMeta?.direction === 'inbound' || noteText.toLowerCase().includes('вхідний') || noteText.includes('📥'));
+
+                      const callTime = callMeta?.startedAt || item.createdAt;
+                      const exactDateDisplay = new Date(callTime).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+                      const exactTimeDisplay = new Date(callTime).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                      const durationSec = typeof callMeta?.duration === 'number' ? callMeta.duration : 0;
+                      const durationStr = isMissed 
+                        ? 'Пропущений' 
+                        : (callMeta?.durationStr || (durationSec > 0 ? formatDuration(durationSec) : null));
+
+                      const isWhatsAppCall = callMeta?.channel === 'whatsapp' || noteText.includes('WhatsApp');
+                      const recordingUrl = callMeta?.recordingUrl;
+
                       return (
                         <div
                           key={item.id}
-                          className="rounded-2xl p-3.5 text-xs space-y-1.5 bg-emerald-950/40 border border-emerald-500/30 shadow-sm transition select-text"
+                          className={`rounded-2xl p-3.5 text-xs space-y-2 transition select-text shadow-sm border ${
+                            isMissed
+                              ? 'bg-rose-950/30 border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.12)]'
+                              : isInbound
+                              ? 'bg-emerald-950/30 border-emerald-500/35 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                              : 'bg-sky-950/30 border-sky-500/35 shadow-[0_0_15px_rgba(14,165,233,0.1)]'
+                          }`}
                         >
-                          <div className="flex items-center justify-between text-slate-400">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold text-[10px] flex items-center gap-1 border border-emerald-500/30">
-                                <Phone className="w-3 h-3 text-emerald-400" />
-                                <span>Дзвінок клієнту</span>
+                          <div className="flex items-center justify-between text-slate-400 flex-wrap gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Distinct Direction Badge with matching icon */}
+                              {isMissed ? (
+                                <span className="px-2.5 py-1 rounded-xl bg-rose-500/20 text-rose-300 font-bold text-[11px] flex items-center gap-1.5 border border-rose-500/40 shadow-sm animate-pulse">
+                                  <PhoneMissed className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                                  <span>Пропущений дзвінок</span>
+                                </span>
+                              ) : isInbound ? (
+                                <span className="px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 font-bold text-[11px] flex items-center gap-1.5 border border-emerald-500/40 shadow-sm">
+                                  <PhoneIncoming className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                  <span>Вхідний дзвінок</span>
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-xl bg-sky-500/20 text-sky-300 font-bold text-[11px] flex items-center gap-1.5 border border-sky-500/40 shadow-sm">
+                                  <PhoneOutgoing className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                                  <span>Вихідний дзвінок</span>
+                                </span>
+                              )}
+
+                              {/* Channel badge */}
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                                isWhatsAppCall 
+                                  ? 'bg-[#25D366]/15 text-emerald-300 border-[#25D366]/30' 
+                                  : 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                              }`}>
+                                {isWhatsAppCall ? 'WhatsApp Call' : 'GSM SIM'}
                               </span>
-                              <span className="font-semibold text-slate-200">
-                                {item.user?.name || 'Менеджер'}
+
+                              <span className="font-semibold text-slate-300 text-[11px]">
+                                {item.user?.name || (isInbound ? 'Клієнт' : 'Менеджер')}
                               </span>
                             </div>
-                            <span className="text-[10px] text-slate-500">
-                              {new Date(item.createdAt).toLocaleString('uk-UA')}
-                            </span>
+
+                            {/* Exact Timestamp Display with seconds */}
+                            <div className="flex items-center gap-2 text-slate-400 text-[11px] font-mono font-medium">
+                              <span className="text-slate-300 font-semibold">{exactDateDisplay}</span>
+                              <span className="text-slate-500">•</span>
+                              <span className="text-amber-300/90 font-bold bg-black/30 px-2 py-0.5 rounded-md border border-white/5">
+                                🕒 {exactTimeDisplay}
+                              </span>
+                            </div>
                           </div>
-                          <p className="leading-relaxed whitespace-pre-line text-emerald-100 font-medium select-text">
-                            {item.text || item.content}
-                          </p>
+
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="leading-relaxed whitespace-pre-line text-slate-100 font-medium select-text flex-1">
+                              {noteText}
+                            </p>
+                            {durationStr && !isMissed && (
+                              <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-slate-300 text-[10px] font-mono font-bold whitespace-nowrap border border-white/10">
+                                ⏱️ {durationStr}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Recording Audio Player if audio recording exists */}
+                          {recordingUrl && (
+                            <div className="mt-2 p-2 bg-[#060a14] border border-blue-500/30 rounded-xl flex items-center justify-between gap-2 shadow-inner">
+                              <audio 
+                                controls 
+                                src={resolveMediaUrl(recordingUrl)} 
+                                className="w-full h-8 accent-blue-500" 
+                                preload="metadata"
+                              />
+                              <a
+                                href={resolveMediaUrl(recordingUrl)}
+                                download
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Завантажити аудіозапис"
+                                className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition flex-shrink-0"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          )}
                         </div>
                       );
                     }
@@ -4331,23 +4439,64 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                     const isCall = n.type === 'call_record' || (n.content && (n.content.includes('дзвінок') || n.content.includes('SIM-карт') || n.content.includes('📞')));
                     const recordingUrl = meta?.recordingUrl;
 
+                    const noteContent = String(n.content || '');
+                    const isMissed = meta?.status === 'missed' || meta?.status === 'rejected' || noteContent.includes('Пропущений') || noteContent.includes('🚨');
+                    const isInbound = !isMissed && (meta?.direction === 'inbound' || noteContent.toLowerCase().includes('вхідний') || noteContent.includes('📥'));
+
+                    const callTime = meta?.startedAt || n.createdAt;
+                    const exactDateDisplay = new Date(callTime).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+                    const exactTimeDisplay = new Date(callTime).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    const durationSec = typeof meta?.duration === 'number' ? meta.duration : 0;
+                    const durationStr = isMissed 
+                      ? 'Пропущений' 
+                      : (meta?.durationStr || (durationSec > 0 ? formatDuration(durationSec) : null));
+
+                    const isWhatsAppCall = meta?.channel === 'whatsapp' || noteContent.includes('WhatsApp');
+
                     return (
                       <div 
                         key={n.id} 
-                        className={`p-3.5 bg-[#080c16]/80 border rounded-2xl space-y-2 group transition shadow-sm ${
+                        className={`p-3.5 border rounded-2xl space-y-2 group transition shadow-sm ${
                           isCall 
-                            ? 'border-blue-500/30 hover:border-blue-500/50 bg-blue-950/15' 
-                            : 'border-white/[0.06] hover:border-amber-500/30'
+                            ? isMissed
+                              ? 'border-rose-500/40 bg-rose-950/20 shadow-[0_0_12px_rgba(244,63,94,0.1)]'
+                              : isInbound
+                              ? 'border-emerald-500/35 bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.1)]'
+                              : 'border-sky-500/35 bg-sky-950/20 shadow-[0_0_12px_rgba(14,165,233,0.1)]'
+                            : 'bg-[#080c16]/80 border-white/[0.06] hover:border-amber-500/30'
                         }`}
                       >
-                        <div className="flex items-center justify-between text-xs text-slate-400">
-                          <div className="flex items-center gap-2 font-bold">
+                        <div className="flex items-center justify-between text-xs text-slate-400 flex-wrap gap-1.5">
+                          <div className="flex items-center gap-2 font-bold flex-wrap">
                             {isCall ? (
-                              <div className="flex items-center gap-2 text-blue-400">
-                                <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center text-[11px] font-black border border-blue-500/30">
-                                  📞
+                              <div className="flex items-center gap-1.5">
+                                {isMissed ? (
+                                  <span className="px-2 py-0.5 rounded-lg bg-rose-500/20 text-rose-300 font-bold text-[10px] flex items-center gap-1 border border-rose-500/30 animate-pulse">
+                                    <PhoneMissed className="w-3 h-3 text-rose-400" />
+                                    <span>Пропущений</span>
+                                  </span>
+                                ) : isInbound ? (
+                                  <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold text-[10px] flex items-center gap-1 border border-emerald-500/30">
+                                    <PhoneIncoming className="w-3 h-3 text-emerald-400" />
+                                    <span>Вхідний</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 font-bold text-[10px] flex items-center gap-1 border border-sky-500/30">
+                                    <PhoneOutgoing className="w-3 h-3 text-sky-400" />
+                                    <span>Вихідний</span>
+                                  </span>
+                                )}
+
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                                  isWhatsAppCall 
+                                    ? 'bg-[#25D366]/15 text-emerald-300 border-[#25D366]/30' 
+                                    : 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                                }`}>
+                                  {isWhatsAppCall ? 'WhatsApp' : 'GSM'}
                                 </span>
-                                <span>{n.user?.name || 'SIM Дзвінок'}</span>
+
+                                <span className="text-slate-300 text-[11px] font-semibold">{n.user?.name || (isInbound ? 'Клієнт' : 'Менеджер')}</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 text-amber-300">
@@ -4359,8 +4508,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-mono text-slate-400">
-                              {new Date(n.createdAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            <span className="text-[11px] font-mono text-amber-300/90 font-bold bg-black/40 px-2 py-0.5 rounded-md border border-white/5">
+                              🕒 {exactTimeDisplay} ({exactDateDisplay})
                             </span>
                             <button
                               type="button"
@@ -4372,9 +4521,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             </button>
                           </div>
                         </div>
-                        <p className="text-slate-100 leading-relaxed whitespace-pre-line text-xs sm:text-sm pl-0.5">
-                          {n.content}
-                        </p>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-slate-100 leading-relaxed whitespace-pre-line text-xs sm:text-sm pl-0.5 flex-1">
+                            {n.content}
+                          </p>
+                          {durationStr && !isMissed && (
+                            <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-slate-300 text-[10px] font-mono font-bold whitespace-nowrap border border-white/10">
+                              ⏱️ {durationStr}
+                            </span>
+                          )}
+                        </div>
 
                         {/* Interactive Call Audio Player */}
                         {recordingUrl && (

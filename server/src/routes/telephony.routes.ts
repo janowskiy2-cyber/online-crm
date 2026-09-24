@@ -435,54 +435,126 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         }
       }
 
-      // 2. Create DealNote with call record
+      // 2. Exact timestamp formatting
+      const callDate = startedAt ? new Date(startedAt) : new Date();
+      const exactTimeStr = callDate.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const exactDateStr = callDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+
+      // Note title with exact time and direction icon
       const noteTitle = isMissed 
-        ? `🚨 Пропущений ${direction === 'inbound' ? 'вхідний' : 'вихідний'} дзвінок (${formattedPhone})`
-        : `📞 ${direction === 'inbound' ? 'Вхідний' : 'Вихідний'} дзвінок з SIM-карти (${formattedPhone}) • ${durationStr}`;
+        ? `🚨 Пропущений ${direction === 'inbound' ? 'вхідний' : 'вихідний'} дзвінок (${formattedPhone}) о ${exactTimeStr} (${exactDateStr})`
+        : `📞 ${direction === 'inbound' ? 'Вхідний' : 'Вихідний'} дзвінок з SIM-карти (${formattedPhone}) о ${exactTimeStr} • ${durationStr}`;
 
-      const note = await prisma.dealNote.create({
-        data: {
-          dealId: activeDeal.id,
-          userId: responsibleId,
-          type: 'call_record',
-          content: noteTitle,
-          metadata: JSON.stringify({
-            callId: callId || `call-${Date.now()}`,
-            direction,
-            duration: numericDuration,
-            status,
-            simSlot,
-            phoneNumber: normalizedPhone,
-            formattedPhone,
-            startedAt: startedAt || new Date().toISOString(),
-            endedAt: endedAt || new Date().toISOString()
-          })
-        },
-        include: { user: true }
-      });
-
-      // 3. If call was missed, auto-create high-priority call-back task for the manager!
-      if (isMissed) {
-        const taskDue = new Date(Date.now() + 15 * 60 * 1000); // in 15 minutes
-        const task = await prisma.task.create({
-          data: {
+      // Check if a call note with this callId or matching recent phone already exists (Deduplication)
+      let existingNote = null;
+      if (callId) {
+        existingNote = await prisma.dealNote.findFirst({
+          where: {
             dealId: activeDeal.id,
-            responsibleId,
-            createdById: responsibleId,
-            type: 'call',
-            text: `🔥 ТЕРМІНОВО: Передзвонити клієнту (${formattedPhone}) — пропущений дзвінок!`,
-            dueDate: taskDue
+            type: 'call_record',
+            metadata: { contains: callId }
+          }
+        });
+      }
+
+      if (!existingNote && searchSuffix) {
+        const twoMinutesAgo = new Date(Date.now() - 120 * 1000);
+        existingNote = await prisma.dealNote.findFirst({
+          where: {
+            dealId: activeDeal.id,
+            type: 'call_record',
+            createdAt: { gte: twoMinutesAgo },
+            metadata: { contains: searchSuffix }
           },
-          include: { responsible: true }
+          orderBy: { createdAt: 'desc' }
+        });
+      }
+
+      let note;
+      if (existingNote) {
+        let meta: any = {};
+        try { meta = JSON.parse(existingNote.metadata || '{}'); } catch {}
+        meta.callId = callId || meta.callId;
+        meta.direction = direction;
+        meta.duration = numericDuration || meta.duration || 0;
+        meta.durationStr = durationStr;
+        meta.status = isMissed ? 'missed' : status;
+        meta.startedAt = startedAt || meta.startedAt || new Date().toISOString();
+        meta.endedAt = endedAt || new Date().toISOString();
+        meta.phoneNumber = normalizedPhone;
+        meta.formattedPhone = formattedPhone;
+
+        note = await prisma.dealNote.update({
+          where: { id: existingNote.id },
+          data: {
+            content: noteTitle,
+            metadata: JSON.stringify(meta)
+          },
+          include: { user: true }
         });
 
         if (io) {
-          io.emit('task_created', task);
+          io.emit('deal_note_updated', note);
+        }
+      } else {
+        note = await prisma.dealNote.create({
+          data: {
+            dealId: activeDeal.id,
+            userId: responsibleId,
+            type: 'call_record',
+            content: noteTitle,
+            metadata: JSON.stringify({
+              callId: callId || `call-${Date.now()}`,
+              direction,
+              duration: numericDuration,
+              durationStr,
+              status: isMissed ? 'missed' : status,
+              simSlot,
+              phoneNumber: normalizedPhone,
+              formattedPhone,
+              startedAt: startedAt || new Date().toISOString(),
+              endedAt: endedAt || new Date().toISOString()
+            })
+          },
+          include: { user: true }
+        });
+
+        if (io) {
+          io.emit('deal_note_added', note);
+        }
+      }
+
+      // 3. If call was missed, auto-create high-priority call-back task for the manager (prevent duplicate tasks)
+      if (isMissed) {
+        const existingPendingTask = await prisma.task.findFirst({
+          where: {
+            dealId: activeDeal.id,
+            isCompleted: false,
+            text: { contains: formattedPhone }
+          }
+        });
+
+        if (!existingPendingTask) {
+          const taskDue = new Date(Date.now() + 15 * 60 * 1000); // in 15 minutes
+          const task = await prisma.task.create({
+            data: {
+              dealId: activeDeal.id,
+              responsibleId,
+              createdById: responsibleId,
+              type: 'call',
+              text: `🔥 ТЕРМІНОВО: Передзвонити клієнту (${formattedPhone}) — пропущений дзвінок!`,
+              dueDate: taskDue
+            },
+            include: { responsible: true }
+          });
+
+          if (io) {
+            io.emit('task_created', task);
+          }
         }
       }
 
       if (io) {
-        io.emit('deal_note_added', note);
         io.emit('call_logged', {
           callId,
           dealId: activeDeal.id,
@@ -550,14 +622,28 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
       }
 
       if (targetDealId) {
-        // Try finding recent note with this callId
-        const existingNote = await prisma.dealNote.findFirst({
-          where: {
-            dealId: targetDealId,
-            type: 'call_record',
-            metadata: { contains: callId || '' }
-          }
-        });
+        // Try finding recent note with this callId or matching recent call_record
+        let existingNote = null;
+        if (callId) {
+          existingNote = await prisma.dealNote.findFirst({
+            where: {
+              dealId: targetDealId,
+              type: 'call_record',
+              metadata: { contains: callId }
+            }
+          });
+        }
+        if (!existingNote) {
+          const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000);
+          existingNote = await prisma.dealNote.findFirst({
+            where: {
+              dealId: targetDealId,
+              type: 'call_record',
+              createdAt: { gte: fifteenMinAgo }
+            },
+            orderBy: { createdAt: 'desc' }
+          });
+        }
 
         if (existingNote) {
           let meta: any = {};
