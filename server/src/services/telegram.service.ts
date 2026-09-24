@@ -203,7 +203,8 @@ export class TelegramService {
       try {
         const sender: any = await message.getSender();
         const senderName = `${sender?.firstName || ''} ${sender?.lastName || ''}`.trim() || sender?.username || 'Користувач Telegram';
-        const senderUsername = sender?.username ? `@${sender.username}` : (sender?.phone ? `+${sender.phone}` : `tg_${sender?.id}`);
+        const directUsername = sender?.username || (Array.isArray(sender?.usernames) && sender?.usernames.length > 0 ? sender?.usernames[0]?.username : undefined);
+        const senderUsername = directUsername ? `@${directUsername.replace('@', '')}` : (sender?.phone ? `+${sender.phone}` : `tg_${sender?.id}`);
         let text = message.text || '';
 
         let mediaUrl: string | undefined;
@@ -335,18 +336,61 @@ export class TelegramService {
 
       if (res && res.users && res.users.length > 0) {
         const u = res.users[0];
+        const primaryUsername = u.username || (Array.isArray(u.usernames) && u.usernames.length > 0 ? (u.usernames[0]?.username || u.usernames[0]) : undefined);
+        const formattedUsername = primaryUsername ? `@${String(primaryUsername).replace('@', '')}` : undefined;
+
         return {
           exists: true,
-          username: u.username ? `@${u.username}` : undefined,
+          username: formattedUsername,
           firstName: u.firstName || u.first_name || '',
           userId: String(u.id),
-          phoneLink
+          phoneLink: formattedUsername ? `https://t.me/${formattedUsername.replace('@', '')}` : phoneLink
         };
       }
       return { exists: false, phoneLink };
     } catch (e) {
       return { exists: false, phoneLink };
     }
+  }
+
+  /**
+   * Automatically resolve Telegram user by phone number and persist username into CRM contact and active deals
+   */
+  public async autoResolveAndSaveTelegram(contactId: string, phone: string): Promise<string | null> {
+    if (!this.client || this.status !== 'connected' || !phone) return null;
+    const cleanDigits = phone.replace(/\D/g, '');
+    if (cleanDigits.length < 9) return null;
+
+    try {
+      const res = await this.checkNumber(cleanDigits);
+      if (res.exists && res.username) {
+        const contact = await this.prisma.contact.findUnique({ where: { id: contactId } });
+        if (contact && (!contact.telegram || !contact.telegram.startsWith('@'))) {
+          const updated = await this.prisma.contact.update({
+            where: { id: contactId },
+            data: { telegram: res.username }
+          });
+
+          if (this.io) {
+            this.io.emit('contact_updated', updated);
+
+            const deals = await this.prisma.deal.findMany({
+              where: { contactId, isDeleted: false },
+              include: { contact: true, company: true, stage: true, responsible: true }
+            });
+            for (const d of deals) {
+              this.io.emit('deal_updated', d);
+            }
+          }
+
+          console.log(`✨ [Telegram] Автоматично виявлено та прив'язано нікнейм ${res.username} для контакту ${contact.name} (${cleanDigits})`);
+          return res.username;
+        }
+      }
+    } catch (e: any) {
+      console.warn(`⚠️ [Telegram] autoResolveAndSaveTelegram for ${cleanDigits}:`, e?.message || e);
+    }
+    return null;
   }
 
   /**
@@ -590,12 +634,15 @@ export class TelegramService {
             position: 'Клієнт (Telegram)'
           }
         });
-      } else if (!contact.telegram) {
-        // Auto-save telegram username if matched by phone!
+      } else if (!contact.telegram || (formattedTg.startsWith('@') && !contact.telegram.startsWith('@'))) {
+        // Auto-save telegram username if matched by phone or upgrading from raw phone/tg_id!
         contact = await this.prisma.contact.update({
           where: { id: contact.id },
           data: { telegram: formattedTg }
         });
+        if (this.io) {
+          this.io.emit('contact_updated', contact);
+        }
       }
 
       let deal = await this.prisma.deal.findFirst({
@@ -666,6 +713,13 @@ export class TelegramService {
             }
           }).then(task => {
             if (this.io && task) this.io.emit('task_created', task);
+          }).catch(() => {});
+
+          this.prisma.deal.findUnique({
+            where: { id: deal.id },
+            include: { contact: true, company: true, stage: true, responsible: true }
+          }).then(fullDeal => {
+            if (this.io && fullDeal) this.io.emit('deal_updated', fullDeal);
           }).catch(() => {});
         }
       }

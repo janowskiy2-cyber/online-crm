@@ -98,6 +98,27 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
     return () => clearTimeout(timer);
   }, [contactPhone, companyName]);
 
+  // Auto-detect Telegram username when entering phone number
+  const [isDetectingTelegram, setIsDetectingTelegram] = useState(false);
+  useEffect(() => {
+    const clean = contactPhone.replace(/\D/g, '');
+    if (clean.length >= 10 && (!contactTelegram || !contactTelegram.startsWith('@'))) {
+      const timer = setTimeout(async () => {
+        try {
+          setIsDetectingTelegram(true);
+          const res = await api.post('/chat/check-contact', { phone: clean });
+          if (res.data?.telegram?.username && (!contactTelegram || !contactTelegram.startsWith('@'))) {
+            setContactTelegram(res.data.telegram.username);
+          }
+        } catch (e) {
+        } finally {
+          setIsDetectingTelegram(false);
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [contactPhone]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -340,13 +361,20 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                 onChange={(e) => setContactPhone2(e.target.value)}
                 className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono"
               />
-              <input
-                type="text"
-                placeholder="Telegram (@username)"
-                value={contactTelegram}
-                onChange={(e) => setContactTelegram(e.target.value)}
-                className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Telegram (@username)"
+                  value={contactTelegram}
+                  onChange={(e) => setContactTelegram(e.target.value)}
+                  className="w-full bg-white/80 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 font-mono pr-8"
+                />
+                {isDetectingTelegram && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-sky-500 font-mono animate-pulse" title="Пошук Telegram за номером...">
+                    TG...
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Live Duplicate Warning Banner */}

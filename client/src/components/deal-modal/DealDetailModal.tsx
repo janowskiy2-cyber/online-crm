@@ -420,6 +420,24 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         } else if (res.data.telegram?.exists) {
           setChatChannel('telegram');
         }
+
+        // Auto-update deal contact telegram if discovered via messenger check
+        if (res.data.telegram?.username) {
+          const detectedTg = res.data.telegram.username;
+          setDeal(prev => {
+            if (!prev || !prev.contact) return prev;
+            if (!prev.contact.telegram || !prev.contact.telegram.startsWith('@')) {
+              return {
+                ...prev,
+                contact: {
+                  ...prev.contact,
+                  telegram: detectedTg
+                }
+              };
+            }
+            return prev;
+          });
+        }
       }
     } catch (err) {
       setMessengerStatus(prev => ({ ...prev, loading: false }));
@@ -708,7 +726,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     setEditContactName(deal?.contact?.name || '');
     setEditContactPhone(deal?.contact?.phone || '');
     setEditContactPhone2(deal?.contact?.phone2 || '');
-    setEditContactTg(deal?.contact?.telegram || '');
+    const currentTg = deal?.contact?.telegram || (messengerStatus.telegram?.username ? messengerStatus.telegram.username : '');
+    setEditContactTg(currentTg);
     setEditContactEmail(deal?.contact?.email || '');
     setEditContactPosition(deal?.contact?.position || 'Клієнт');
     setIsEditingContact(true);

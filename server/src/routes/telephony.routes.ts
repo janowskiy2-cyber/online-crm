@@ -127,7 +127,7 @@ export function formatDuration(secs: number): string {
   return `${m} хв ${s} сек`;
 }
 
-export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketIOServer | null) {
+export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketIOServer | null, telegramService?: any) {
   const router = Router();
 
   /**
@@ -374,6 +374,10 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
           include: { deals: true }
         });
 
+        if (telegramService && normalizedPhone) {
+          telegramService.autoResolveAndSaveTelegram(contact.id, normalizedPhone).catch(() => {});
+        }
+
         activeDeal = await prisma.deal.create({
           data: {
             title: dealTitle,
@@ -395,6 +399,9 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
           io.emit('deal_created', activeDeal);
         }
       } else {
+        if (telegramService && normalizedPhone && (!contact.telegram || !contact.telegram.startsWith('@'))) {
+          telegramService.autoResolveAndSaveTelegram(contact.id, normalizedPhone).catch(() => {});
+        }
         // Contact exists. If an active deal exists, bump updatedAt and refresh tags so it appears at top of Kanban
         if (activeDeal) {
           let currentTags: string[] = [];

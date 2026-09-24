@@ -141,8 +141,10 @@ export const DealCard: React.FC<DealCardProps> = ({
     }
   };
 
-  const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
-  const tgUser = deal.contact?.telegram ? deal.contact.telegram.replace('@', '') : '';
+  const rawTg = deal.contact?.telegram || '';
+  const cleanTgHandle = rawTg.replace('https://t.me/', '').replace('tg://resolve?domain=', '').replace('@', '').trim();
+  const tgUser = cleanTgHandle;
+  const tgDisplay = cleanTgHandle ? `@${cleanTgHandle}` : '';
 
   // Call Info & Duration Extraction for GSM Telephony and WhatsApp Calls
   const latestCallNote = (deal.notes || []).find(n => n.type === 'call_record' || n.type === 'call');
@@ -553,8 +555,12 @@ export const DealCard: React.FC<DealCardProps> = ({
               href={tgUser ? `https://t.me/${tgUser}` : `tg://resolve?phone=${primaryPhone}`}
               target="_blank"
               rel="noreferrer"
-              title="Написати у Telegram"
-              className="px-1.5 py-0.5 rounded-full bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition text-[9px] font-bold leading-none active:scale-95"
+              title={tgDisplay ? `Написати у Telegram (${tgDisplay})` : "Написати у Telegram"}
+              className={`px-1.5 py-0.5 rounded-full transition text-[9px] font-bold leading-none active:scale-95 ${
+                tgUser
+                  ? 'bg-sky-500/20 text-sky-600 dark:text-sky-300 border border-sky-500/30'
+                  : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400'
+              }`}
             >
               TG
             </a>
@@ -579,9 +585,24 @@ export const DealCard: React.FC<DealCardProps> = ({
             </div>
           )}
           {deal.contact && (
-            <div className="flex items-center gap-1.5 truncate">
-              <UserIcon className="w-3 h-3 text-[#86868B] dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
-              <span className="truncate">{deal.contact.name}</span>
+            <div className="flex items-center justify-between gap-1.5 min-w-0">
+              <div className="flex items-center gap-1.5 truncate min-w-0">
+                <UserIcon className="w-3 h-3 text-[#86868B] dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
+                <span className="truncate">{deal.contact.name}</span>
+              </div>
+              {tgDisplay && (
+                <a
+                  href={`https://t.me/${tgUser}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/25 text-[10px] font-mono font-bold transition shrink-0 max-w-[130px] truncate active:scale-95 shadow-sm"
+                  title={`Telegram: ${tgDisplay}`}
+                >
+                  <span className="text-[10px] leading-none">✈️</span>
+                  <span className="truncate">{tgDisplay}</span>
+                </a>
+              )}
             </div>
           )}
         </div>

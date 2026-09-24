@@ -4,7 +4,7 @@ import { CloudinaryService } from '../services/cloudinary.service';
 import { SemanticSearchService } from '../services/semantic-search.service';
 import { ResumePdfService } from '../services/resume-pdf.service';
 
-export function createContactRouter(prisma: PrismaClient) {
+export function createContactRouter(prisma: PrismaClient, telegramService?: any, getIo?: () => any) {
   const router = Router();
 
   // Get aggregated stats overview for employers and candidates
@@ -173,6 +173,14 @@ export function createContactRouter(prisma: PrismaClient) {
         include: { company: true }
       });
       res.status(201).json(contact);
+
+      // In the background, check if contact has Telegram and save their @username automatically
+      if (telegramService && (!contact.telegram || !contact.telegram.startsWith('@'))) {
+        const phoneToTest = contact.phone || contact.whatsapp || contact.phone2;
+        if (phoneToTest) {
+          telegramService.autoResolveAndSaveTelegram(contact.id, phoneToTest).catch(() => {});
+        }
+      }
     } catch (e) {
       res.status(500).json({ error: 'Failed to create contact' });
     }
@@ -455,6 +463,14 @@ export function createContactRouter(prisma: PrismaClient) {
         include: { company: true }
       });
       res.json(updated);
+
+      // In the background, check if contact has Telegram and save their @username automatically
+      if (telegramService && (!updated.telegram || !updated.telegram.startsWith('@'))) {
+        const phoneToTest = updated.phone || updated.whatsapp || updated.phone2;
+        if (phoneToTest) {
+          telegramService.autoResolveAndSaveTelegram(updated.id, phoneToTest).catch(() => {});
+        }
+      }
     } catch (e) {
       res.status(500).json({ error: 'Failed to update contact' });
     }

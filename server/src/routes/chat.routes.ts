@@ -6,7 +6,8 @@ import { TelegramService } from '../services/telegram.service';
 export function createChatRouter(
   prisma: PrismaClient,
   whatsappService: WhatsAppService,
-  telegramService: TelegramService
+  telegramService: TelegramService,
+  getIo?: () => any
 ) {
   const router = Router();
 
@@ -286,6 +287,47 @@ export function createChatRouter(
       const telegramData = tgResult.status === 'fulfilled' 
         ? tgResult.value 
         : { exists: false, phoneLink: `https://t.me/+${cleanPhone}` };
+
+      // If Telegram username was resolved, auto-save to any matching contacts in DB!
+      if (telegramData.exists && (telegramData as any).username) {
+        const tgUsername = (telegramData as any).username;
+        try {
+          const matchingContacts = await prisma.contact.findMany({
+            where: {
+              OR: [
+                { phone: { contains: cleanPhone } },
+                { phone2: { contains: cleanPhone } },
+                { whatsapp: { contains: cleanPhone } }
+              ]
+            }
+          });
+
+          const io = getIo ? getIo() : null;
+
+          for (const c of matchingContacts) {
+            if (!c.telegram || !c.telegram.startsWith('@')) {
+              const updated = await prisma.contact.update({
+                where: { id: c.id },
+                data: { telegram: tgUsername }
+              });
+
+              if (io) {
+                io.emit('contact_updated', updated);
+
+                const deals = await prisma.deal.findMany({
+                  where: { contactId: c.id, isDeleted: false },
+                  include: { contact: true, company: true, stage: true, responsible: true }
+                });
+                for (const d of deals) {
+                  io.emit('deal_updated', d);
+                }
+              }
+            }
+          }
+        } catch (dbErr) {
+          console.warn('⚠️ [Telegram] Error auto-updating contact telegram username:', dbErr);
+        }
+      }
 
       res.json({
         phone: `+${cleanPhone}`,

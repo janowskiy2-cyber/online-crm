@@ -133,7 +133,7 @@ app.use('/api/users/verify-admin-pin', authLimiter);
 // ── Public routes (no auth required) ──
 app.use('/api/auth', createAuthRouter(prisma));
 app.use('/api/webhooks', webhookLimiter, createWebhookRouter(prisma, leadDistributionService, io));
-app.use('/api/telephony', createTelephonyRouter(prisma, () => io));
+app.use('/api/telephony', createTelephonyRouter(prisma, () => io, tgService));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -143,9 +143,9 @@ app.get('/api/health', (req, res) => {
 // ── Protected routes (require JWT Bearer token) ──
 app.use('/api/deals', authRequired, createDealsRouter(prisma, io));
 app.use('/api/pipelines', authRequired, createPipelineRouter(prisma));
-app.use('/api/contacts', authRequired, express.json({ limit: '100mb' }), createContactRouter(prisma));
+app.use('/api/contacts', authRequired, express.json({ limit: '100mb' }), createContactRouter(prisma, tgService, () => io));
 app.use('/api/tasks', authRequired, createTaskRouter(prisma, () => io));
-app.use('/api/chat', authRequired, express.json({ limit: '50mb' }), createChatRouter(prisma, waService, tgService));
+app.use('/api/chat', authRequired, express.json({ limit: '50mb' }), createChatRouter(prisma, waService, tgService, () => io));
 app.use('/api/users', authRequired, createUsersRouter(prisma));
 app.use('/api/analytics', authRequired, createAnalyticsRouter(prisma));
 app.use('/api/automation', authRequired, createAutomationRouter(prisma));
