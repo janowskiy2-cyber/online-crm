@@ -135,9 +135,16 @@ app.use('/api/auth', createAuthRouter(prisma));
 app.use('/api/webhooks', webhookLimiter, createWebhookRouter(prisma, leadDistributionService, io));
 app.use('/api/telephony', createTelephonyRouter(prisma, () => io, tgService));
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+// Health check with database connectivity probe & auto-healing
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'ok';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (e: any) {
+    dbStatus = 'reconnecting';
+    prisma.$disconnect().then(() => prisma.$connect()).catch(() => {});
+  }
+  res.json({ status: 'ok', database: dbStatus, time: new Date().toISOString() });
 });
 
 // ── Protected routes (require JWT Bearer token) ──
@@ -256,6 +263,26 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 
 const PORT = process.env.PORT || 4000;
 
+// ── Supabase Database Anti-Sleep Keep-Alive Heartbeat & Auto-Healing ──
+// Supabase free tier pauses after 7 days of zero query activity.
+// This recurring ping executes every 15 minutes, guaranteeing Supabase never falls asleep.
+// It also self-heals broken pool connections if network drops.
+const DB_HEARTBEAT_INTERVAL_MS = 15 * 60 * 1000;
+setInterval(async () => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (err: any) {
+    console.warn('⚠️ [Database Heartbeat] Ping failed, self-healing Prisma connection...', err?.message || err);
+    try {
+      await prisma.$disconnect();
+      await prisma.$connect();
+      console.log('✅ [Database Heartbeat] Prisma reconnected to Supabase successfully.');
+    } catch (recErr: any) {
+      console.error('❌ [Database Heartbeat] Reconnect failed:', recErr?.message || recErr);
+    }
+  }
+}, DB_HEARTBEAT_INTERVAL_MS).unref();
+
 // ── Optional self-pinger for free-tier hosting ──
 // Disabled by default: an external uptime monitor is used to keep the instance awake.
 // Enable with ENABLE_SELF_PING=true if needed.
@@ -318,6 +345,13 @@ process.on('SIGINT', () => { shutdown('SIGINT'); });
 
 server.listen(PORT, async () => {
   console.log(`🚀 Production CRM Server running on port ${PORT}`);
+  try {
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('✅ [Database] Initial connection to Supabase verified successfully.');
+  } catch (e: any) {
+    console.error('❌ [Database] Initial connection warning:', e?.message || e);
+  }
   ArchiveRetentionService.startSchedule(prisma);
   await waService.initialize();
   await tgService.initialize();

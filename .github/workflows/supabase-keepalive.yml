@@ -1,0 +1,35 @@
+name: Supabase Anti-Sleep KeepAlive
+
+on:
+  schedule:
+    # Runs at 04:00 UTC every 3 days
+    - cron: '0 4 */3 * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Generate Prisma Client
+        working-directory: server
+        run: npx prisma generate
+
+      - name: Ping Supabase Database
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres.sbqjusveuwvnfizxbtnv:Elitkamen88@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require' }}
+        run: node scripts/keep-supabase-alive.js
