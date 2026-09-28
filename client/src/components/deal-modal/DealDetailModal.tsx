@@ -484,7 +484,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     fetchDealDetails();
 
     const handleMessage = (msg: any) => {
-      if (msg.dealId === dealId) {
+      if (msg.dealId === dealId || (deal?.contactId && msg.contactId === deal.contactId)) {
         if (!msg.isFromUser && msg.type !== 'system') {
           soundService.playIncoming();
         }

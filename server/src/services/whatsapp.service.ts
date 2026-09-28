@@ -798,10 +798,32 @@ export class WhatsAppService {
         }
       }
 
-      let deal = await this.prisma.deal.findFirst({
-        where: { contactId: contact.id, isDeleted: false },
-        orderBy: { updatedAt: 'desc' }
+      // Smart Deal Resolution:
+      // Priority 1: Check the most recently active deal where manager or client chatted with this contact
+      const recentChatMessage = await this.prisma.chatMessage.findFirst({
+        where: {
+          contactId: contact.id,
+          dealId: { not: null },
+          deal: { isDeleted: false }
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { dealId: true }
       });
+
+      let deal: any = null;
+      if (recentChatMessage?.dealId) {
+        deal = await this.prisma.deal.findFirst({
+          where: { id: recentChatMessage.dealId, isDeleted: false }
+        });
+      }
+
+      // Priority 2: Most recently updated non-deleted deal for this contact
+      if (!deal) {
+        deal = await this.prisma.deal.findFirst({
+          where: { contactId: contact.id, isDeleted: false },
+          orderBy: { updatedAt: 'desc' }
+        });
+      }
 
       // Auto-restore deal if it was soft-deleted
       if (!deal) {
@@ -826,6 +848,14 @@ export class WhatsAppService {
           text,
           budget: 0
         }) || null;
+      }
+
+      // Bump deal updatedAt so it stays top-of-mind and in active conversation sync
+      if (deal) {
+        await this.prisma.deal.update({
+          where: { id: deal.id },
+          data: { updatedAt: new Date() }
+        }).catch(() => {});
       }
 
       const senderDisplayName = isFromMe ? 'Менеджер' : (pushName || contact.name || `Клієнт (+${cleanPhone})`);
@@ -1011,6 +1041,13 @@ export class WhatsAppService {
       }
     });
 
+    if (dealId) {
+      await this.prisma.deal.update({
+        where: { id: dealId },
+        data: { updatedAt: new Date() }
+      }).catch(() => {});
+    }
+
     if (this.io) {
       this.io.emit('new_message', savedMsg);
     }
@@ -1127,6 +1164,13 @@ export class WhatsAppService {
         externalMsgId: extMsgId || null
       }
     });
+
+    if (dealId) {
+      await this.prisma.deal.update({
+        where: { id: dealId },
+        data: { updatedAt: new Date() }
+      }).catch(() => {});
+    }
 
     if (this.io) {
       this.io.emit('new_message', savedMsg);

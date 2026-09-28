@@ -600,18 +600,29 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
           notes: {
             include: { user: { select: { id: true, name: true, avatar: true } } },
             orderBy: { createdAt: 'desc' }
-          },
-          messages: {
-            take: msgLimit,
-            orderBy: { createdAt: 'desc' }
           }
         }
       });
 
       if (!deal) return res.status(404).json({ error: 'Deal not found' });
 
-      // Reverse messages to chronological order for the frontend
-      deal.messages.reverse();
+      // Unified Communication: include all messages for this deal OR associated contact so no customer reply is ever lost
+      const messagesWhere: any = deal.contactId
+        ? {
+            OR: [
+              { dealId: deal.id },
+              { contactId: deal.contactId }
+            ]
+          }
+        : { dealId: deal.id };
+
+      const messages = await prisma.chatMessage.findMany({
+        where: messagesWhere,
+        take: msgLimit,
+        orderBy: { createdAt: 'desc' }
+      });
+
+      (deal as any).messages = messages.reverse();
       res.json(deal);
     } catch (e) {
       res.status(500).json({ error: 'Failed to fetch deal' });
