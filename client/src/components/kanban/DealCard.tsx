@@ -373,6 +373,21 @@ export const DealCard: React.FC<DealCardProps> = ({
     ? { text: `⚡ ${aiScore}%`, color: 'text-blue-500 dark:text-blue-400 bg-blue-500/10 border-blue-500/30', label: 'Перспективна' }
     : { text: `⚠️ ${aiScore}%`, color: 'text-rose-500 dark:text-rose-400 bg-rose-500/10 border-rose-500/30', label: 'Потребує уваги' };
 
+  const cleanContactName = useMemo(() => {
+    const raw = deal.contact?.name || '';
+    if (!raw) return deal.contact?.phone || '';
+    if (
+      raw.startsWith('Вихідний дзвінок') ||
+      raw.startsWith('Вхідний дзвінок') ||
+      raw.startsWith('Дзвінок (') ||
+      raw.startsWith('Клієнт (+')
+    ) {
+      const match = raw.match(/\((.*?)\)/);
+      return match ? match[1] : (deal.contact?.phone || raw);
+    }
+    return raw;
+  }, [deal.contact?.name, deal.contact?.phone]);
+
   return (
     <div
       onClick={onClick}
@@ -589,7 +604,7 @@ export const DealCard: React.FC<DealCardProps> = ({
             <div className="flex items-center justify-between gap-1.5 min-w-0">
               <div className="flex items-center gap-1.5 truncate min-w-0">
                 <UserIcon className="w-3 h-3 text-[#86868B] dark:text-slate-500 flex-shrink-0" strokeWidth={1.5} />
-                <span className="truncate">{deal.contact.name}</span>
+                <span className="truncate">{cleanContactName}</span>
               </div>
               {tgDisplay && (
                 <a

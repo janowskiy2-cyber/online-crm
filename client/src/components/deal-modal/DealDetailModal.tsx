@@ -100,6 +100,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 }) => {
   const { currentUser, users } = useAuth();
   const [deal, setDeal] = useState<Deal | null>(null);
+  const dealRef = useRef<Deal | null>(deal);
+  dealRef.current = deal;
   const [activeTab, setActiveTab] = useState<'all' | 'chat' | 'candidates' | 'documents' | 'notes' | 'tasks'>('all');
   const [activeMobileTab, setActiveMobileTab] = useState<'chat' | 'info' | 'tasks_notes'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -484,10 +486,32 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     fetchDealDetails();
 
     const handleMessage = (msg: any) => {
-      if (msg.dealId === dealId || (deal?.contactId && msg.contactId === deal.contactId)) {
-        if (!msg.isFromUser && msg.type !== 'system') {
+      const currentDeal = dealRef.current;
+      const cleanMsgPhone = (msg.senderPhone || '').replace(/\D/g, '');
+      const currentContactPhone = (currentDeal?.contact?.phone || currentDeal?.contact?.whatsapp || '').replace(/\D/g, '');
+
+      const isMatch = 
+        msg.dealId === dealId || 
+        (currentDeal?.contactId && msg.contactId === currentDeal.contactId) ||
+        (cleanMsgPhone.length >= 7 && currentContactPhone.length >= 7 && currentContactPhone.includes(cleanMsgPhone));
+
+      if (isMatch) {
+        if (!msg.isFromUser && msg.type !== 'system' && msg.direction !== 'outgoing') {
           soundService.playIncoming();
         }
+        fetchDealDetails();
+      }
+    };
+
+    const handleDealUpdated = (updated: any) => {
+      if (updated?.id === dealId) {
+        fetchDealDetails();
+      }
+    };
+
+    const handleContactUpdated = (updatedContact: any) => {
+      const currentDeal = dealRef.current;
+      if (currentDeal && (currentDeal.contactId === updatedContact?.id || currentDeal.contact?.id === updatedContact?.id)) {
         fetchDealDetails();
       }
     };
@@ -518,6 +542,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     socket.on('new_message', handleMessage);
     socket.on('message_status_updated', handleStatusUpdated);
     socket.on('deal_note_added', handleNoteAdded);
+    socket.on('deal_updated', handleDealUpdated);
+    socket.on('contact_updated', handleContactUpdated);
     socket.on('task_created', handleTaskUpdated);
     socket.on('task_updated', handleTaskUpdated);
 
@@ -525,6 +551,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       socket.off('new_message', handleMessage);
       socket.off('message_status_updated', handleStatusUpdated);
       socket.off('deal_note_added', handleNoteAdded);
+      socket.off('deal_updated', handleDealUpdated);
+      socket.off('contact_updated', handleContactUpdated);
       socket.off('task_created', handleTaskUpdated);
       socket.off('task_updated', handleTaskUpdated);
     };
@@ -723,7 +751,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   };
 
   const handleStartEditContact = () => {
-    setEditContactName(deal?.contact?.name || '');
+    const isCallPlaceholder = !deal?.contact?.name ||
+      deal.contact.name.startsWith('Вихідний дзвінок') ||
+      deal.contact.name.startsWith('Вхідний дзвінок') ||
+      deal.contact.name.startsWith('Клієнт (+') ||
+      deal.contact.name === 'Новий лід' ||
+      deal.contact.name === 'Не вказано' ||
+      deal.contact.name === 'Користувач Telegram' ||
+      deal.contact.name === 'Telegram';
+
+    setEditContactName(isCallPlaceholder ? '' : (deal?.contact?.name || ''));
     setEditContactPhone(deal?.contact?.phone || '');
     setEditContactPhone2(deal?.contact?.phone2 || '');
     const currentTg = deal?.contact?.telegram || (messengerStatus.telegram?.username ? messengerStatus.telegram.username : '');
@@ -2211,13 +2248,34 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/30 to-transparent" />
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 font-extrabold text-xs flex-shrink-0">
-                        {deal.contact.name.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-extrabold text-xs text-white truncate">{deal.contact.name}</div>
-                        <div className="text-[10px] text-slate-400 font-medium truncate">{deal.contact.position || 'Клієнт / Керівник'}</div>
-                      </div>
+                      {(() => {
+                        const isCallPlaceholder = !deal.contact.name ||
+                          deal.contact.name.startsWith('Вихідний дзвінок') ||
+                          deal.contact.name.startsWith('Вхідний дзвінок') ||
+                          deal.contact.name.startsWith('Клієнт (+') ||
+                          deal.contact.name === 'Новий лід' ||
+                          deal.contact.name === 'Не вказано' ||
+                          deal.contact.name === 'Користувач Telegram' ||
+                          deal.contact.name === 'Telegram';
+
+                        const displayName = isCallPlaceholder
+                          ? (deal.contact.phone || deal.contact.whatsapp || 'Клієнт')
+                          : deal.contact.name;
+
+                        const avatarChar = isCallPlaceholder ? null : displayName.charAt(0).toUpperCase();
+
+                        return (
+                          <>
+                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 font-extrabold text-xs flex-shrink-0">
+                              {avatarChar ? avatarChar : <UserIcon className="w-4 h-4 text-blue-400" />}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-extrabold text-xs text-white truncate">{displayName}</div>
+                              <div className="text-[10px] text-slate-400 font-medium truncate">{deal.contact.position || 'Клієнт'}</div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -2526,7 +2584,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent" />
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-xs text-white truncate">
-                      {(customFieldsObj as any)?.orderInfo?.position || deal.title || 'Посада не вказана'}
+                      {(() => {
+                        const isAutoDealTitle = deal.title.startsWith('🚨') ||
+                          deal.title.startsWith('📞') ||
+                          deal.title.startsWith('Дзвінок') ||
+                          deal.title.startsWith('Запит ') ||
+                          deal.title.startsWith('Нова угода');
+
+                        return (customFieldsObj as any)?.orderInfo?.position ||
+                          (!isAutoDealTitle ? deal.title : null) ||
+                          'Посада / спеціальність не вказана';
+                      })()}
                     </span>
                     {(customFieldsObj as any)?.orderInfo?.count && (
                       <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-300 text-[10px] font-extrabold border border-emerald-500/30 font-mono">
@@ -3490,11 +3558,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <span className="text-[11px] text-slate-400">
                               {isOutgoing 
                                 ? 'Менеджер' 
-                                : ((deal?.contact?.name && !deal.contact.name.startsWith('+') && !deal.contact.name.startsWith('Клієнт (+') && deal.contact.name !== 'Користувач Telegram' && deal.contact.name !== 'Новий лід' && deal.contact.name !== 'Не вказано')
+                                : ((deal?.contact?.name && !deal.contact.name.startsWith('+') && !deal.contact.name.startsWith('Клієнт (+') && !deal.contact.name.startsWith('Вихідний дзвінок') && !deal.contact.name.startsWith('Вхідний дзвінок') && deal.contact.name !== 'Користувач Telegram' && deal.contact.name !== 'Новий лід' && deal.contact.name !== 'Не вказано')
                                     ? deal.contact.name
-                                    : (item.senderName && !item.senderName.startsWith('+') && !item.senderName.startsWith('Клієнт (+') && !item.senderName.startsWith('WhatsApp (+') && item.senderName !== 'Клієнт'
+                                    : (item.senderName && !item.senderName.startsWith('+') && !item.senderName.startsWith('Клієнт (+') && !item.senderName.startsWith('WhatsApp (+') && !item.senderName.startsWith('Вихідний дзвінок') && !item.senderName.startsWith('Вхідний дзвінок') && item.senderName !== 'Клієнт' && item.senderName !== 'Користувач Telegram'
                                         ? item.senderName
-                                        : (deal?.contact?.name || item.senderName || 'Клієнт')))}
+                                        : (deal?.contact?.phone || deal?.contact?.whatsapp || item.senderPhone || 'Клієнт')))}
                             </span>
                             <span className="text-[10px] text-slate-500 flex items-center gap-1">
                               {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -3692,16 +3760,36 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="leading-relaxed whitespace-pre-line text-slate-100 font-medium select-text flex-1">
-                              {noteText}
-                            </p>
-                            {durationStr && !isMissed && (
-                              <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-slate-300 text-[10px] font-mono font-bold whitespace-nowrap border border-white/10">
-                                ⏱️ {durationStr}
-                              </span>
-                            )}
-                          </div>
+                          {(() => {
+                            const isAutoNote = noteText.startsWith('🚨') || noteText.startsWith('📞') || noteText.includes('дзвінок');
+                            const targetPhone = callMeta?.phoneNumber || callMeta?.formattedPhone || deal.contact?.phone || '';
+                            const directionText = isMissed
+                              ? (isInbound ? 'Вхідний виклик не прийнято (пропущено)' : 'Вихідний виклик (абонент не відповів)')
+                              : (isInbound ? 'Вхідний виклик успішно прийнято' : 'Вихідний виклик успішно здійснено');
+
+                            return (
+                              <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 text-xs flex-wrap">
+                                  {targetPhone && (
+                                    <span className="font-mono font-bold text-white bg-black/40 px-2 py-0.5 rounded-md border border-white/10 shadow-sm">
+                                      {targetPhone}
+                                    </span>
+                                  )}
+                                  <span className="text-slate-300 font-medium">{directionText}</span>
+                                  {!isAutoNote && noteText.trim() && (
+                                    <p className="w-full text-slate-200 mt-1 leading-relaxed whitespace-pre-line select-text">
+                                      {noteText}
+                                    </p>
+                                  )}
+                                </div>
+                                {durationStr && !isMissed && (
+                                  <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-slate-300 text-[10px] font-mono font-bold whitespace-nowrap border border-white/10">
+                                    ⏱️ {durationStr}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {/* Recording Audio Player if audio recording exists */}
                           {recordingUrl && (
@@ -4388,77 +4476,81 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             </div>
 
             {/* Spacious Client Notes & Customer Insights with Voice Dictation */}
-            <div className="relative overflow-hidden bg-slate-900/50 border border-white/10 hover:border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md flex-1 flex flex-col transition-all">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/25 to-transparent" />
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-amber-400" />
-                  <span>Замітки по клієнту</span>
-                </h3>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
-                    {(deal.notes || []).length} записів
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsRightExpanded(prev => !prev)}
-                    className="hidden md:flex p-1 hover:bg-white/[0.08] text-slate-400 hover:text-white rounded-lg transition items-center gap-1"
-                    title={isRightExpanded ? "Згорнути панель" : "Розширити панель заміток"}
-                  >
-                    {isRightExpanded ? <Minimize2 className="w-3.5 h-3.5 text-blue-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              </div>
+            {(() => {
+              const clientNotesOnly = (deal.notes || []).filter((n: any) => n.type !== 'call_record' && n.type !== 'call' && !(n.content && (n.content.includes('дзвінок') || n.content.includes('SIM-карт') || n.content.includes('📞'))));
 
-              {/* Note creation input */}
-              <form onSubmit={handleAddQuickNote} className="space-y-2.5">
-                <textarea
-                  ref={quickNoteTextareaRef}
-                  rows={3}
-                  placeholder={isDictatingQuickNote ? "Слухаю голос... Говоріть деталі розмови..." : "Запишіть важливі деталі, умови, домовленості або статус клієнта..."}
-                  value={quickNoteText}
-                  onChange={(e) => setQuickNoteText(e.target.value)}
-                  className={`w-full bg-slate-950/60 border rounded-2xl p-3 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
-                    isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/10 focus:border-amber-500/60 shadow-inner'
-                  }`}
-                  style={{ minHeight: '68px', maxHeight: '200px' }}
-                />
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={toggleQuickNoteDictation}
-                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition active:scale-95 ${
-                      isDictatingQuickNote
-                        ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.4)]'
-                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/[0.08]'
-                    }`}
-                    title={isDictatingQuickNote ? "Слухаю... Натисніть щоб зупинити" : "Надиктувати замітку голосом"}
-                  >
-                    <Mic className={`w-3.5 h-3.5 ${isDictatingQuickNote ? 'text-white' : 'text-emerald-400'}`} />
-                    <span className="text-xs">{isDictatingQuickNote ? 'Слухаю...' : '🎙️ Надиктувати'}</span>
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isSavingQuickNote || !quickNoteText.trim()}
-                    className="px-4 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)] border border-amber-400/30 active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{isSavingQuickNote ? 'Збереження...' : 'Додати замітку'}</span>
-                  </button>
-                </div>
-              </form>
-
-              {/* Spacious Notes List with high readability */}
-              <div className="space-y-2.5 min-h-[260px] max-h-[500px] xl:max-h-[620px] overflow-y-auto pr-1">
-                {(deal.notes || []).length === 0 ? (
-                  <div className="py-8 text-center bg-white/[0.02] rounded-2xl border border-white/[0.04] space-y-2">
-                    <FileText className="w-8 h-8 text-slate-600 mx-auto" />
-                    <p className="text-xs text-slate-400">Поки немає заміток по цьому клієнту</p>
-                    <p className="text-[11px] text-slate-500">Зафіксуйте першу домовленість у формі вище</p>
+              return (
+                <div className="relative overflow-hidden bg-slate-900/50 border border-white/10 hover:border-amber-500/30 rounded-2xl p-4 space-y-3.5 shadow-xl backdrop-blur-md flex-1 flex flex-col transition-all">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/25 to-transparent" />
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-amber-400" />
+                      <span>Замітки по клієнту</span>
+                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                        {clientNotesOnly.length} записів
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsRightExpanded(prev => !prev)}
+                        className="hidden md:flex p-1 hover:bg-white/[0.08] text-slate-400 hover:text-white rounded-lg transition items-center gap-1"
+                        title={isRightExpanded ? "Згорнути панель" : "Розширити панель заміток"}
+                      >
+                        {isRightExpanded ? <Minimize2 className="w-3.5 h-3.5 text-blue-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
-                ) : (
-                  (deal.notes || []).map((n: any) => {
+
+                  {/* Note creation input */}
+                  <form onSubmit={handleAddQuickNote} className="space-y-2.5">
+                    <textarea
+                      ref={quickNoteTextareaRef}
+                      rows={3}
+                      placeholder={isDictatingQuickNote ? "Слухаю голос... Говоріть деталі розмови..." : "Запишіть важливі деталі, умови, домовленості або статус клієнта..."}
+                      value={quickNoteText}
+                      onChange={(e) => setQuickNoteText(e.target.value)}
+                      className={`w-full bg-slate-950/60 border rounded-2xl p-3 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none transition resize-none leading-relaxed overflow-y-auto ${
+                        isDictatingQuickNote ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-white/10 focus:border-amber-500/60 shadow-inner'
+                      }`}
+                      style={{ minHeight: '68px', maxHeight: '200px' }}
+                    />
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={toggleQuickNoteDictation}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition active:scale-95 ${
+                          isDictatingQuickNote
+                            ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.4)]'
+                            : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/[0.08]'
+                        }`}
+                        title={isDictatingQuickNote ? "Слухаю... Натисніть щоб зупинити" : "Надиктувати замітку голосом"}
+                      >
+                        <Mic className={`w-3.5 h-3.5 ${isDictatingQuickNote ? 'text-white' : 'text-emerald-400'}`} />
+                        <span className="text-xs">{isDictatingQuickNote ? 'Слухаю...' : '🎙️ Надиктувати'}</span>
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={isSavingQuickNote || !quickNoteText.trim()}
+                        className="px-4 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.25)] border border-amber-400/30 active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isSavingQuickNote ? 'Збереження...' : 'Додати замітку'}</span>
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Spacious Notes List with high readability */}
+                  <div className="space-y-2.5 min-h-[260px] max-h-[500px] xl:max-h-[620px] overflow-y-auto pr-1">
+                    {clientNotesOnly.length === 0 ? (
+                      <div className="py-8 text-center bg-white/[0.02] rounded-2xl border border-white/[0.04] space-y-2">
+                        <FileText className="w-8 h-8 text-slate-600 mx-auto" />
+                        <p className="text-xs text-slate-400">Поки немає заміток по цьому клієнту</p>
+                        <p className="text-[11px] text-slate-500">Зафіксуйте першу домовленість у формі вище</p>
+                      </div>
+                    ) : (
+                      clientNotesOnly.map((n: any) => {
                     let meta: any = {};
                     try { if (n.metadata) meta = JSON.parse(n.metadata); } catch {}
                     const isCall = n.type === 'call_record' || (n.content && (n.content.includes('дзвінок') || n.content.includes('SIM-карт') || n.content.includes('📞')));
@@ -4587,6 +4679,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 )}
               </div>
             </div>
+          );
+        })()}
 
             {/* Custom Fields / Metadata Card */}
             <div className="relative overflow-hidden bg-[#0e1628]/80 border border-white/[0.08] hover:border-blue-500/30 rounded-2xl p-3.5 space-y-3 backdrop-blur-md transition-all">

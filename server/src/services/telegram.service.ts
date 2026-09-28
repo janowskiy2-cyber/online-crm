@@ -658,9 +658,12 @@ export class TelegramService {
         const updateData: any = {};
 
         // If client has a real profile name from Telegram, use it to upgrade placeholder name
-        if (fullName && fullName.trim() && fullName !== 'Користувач Telegram' && (isCurrentPlaceholder || contact.name !== fullName.trim())) {
-          if (isCurrentPlaceholder) {
+        if (isCurrentPlaceholder) {
+          if (fullName && fullName.trim() && fullName !== 'Користувач Telegram') {
             updateData.name = fullName.trim();
+            needsContactUpdate = true;
+          } else if (formattedTg && formattedTg.startsWith('@')) {
+            updateData.name = formattedTg;
             needsContactUpdate = true;
           }
         }
@@ -678,6 +681,31 @@ export class TelegramService {
           });
           if (this.io) {
             this.io.emit('contact_updated', contact);
+          }
+
+          // Update active deals title and emit deal_updated so UI re-renders with client's real name
+          const deals = await this.prisma.deal.findMany({
+            where: { contactId: contact.id, isDeleted: false },
+            include: { contact: true, company: true, stage: true, responsible: true }
+          });
+          for (let d of deals) {
+            const hasPlaceholderTitle = d.title.startsWith('Запит Telegram') ||
+              d.title.startsWith('Нова угода') ||
+              d.title.startsWith('Вхідний дзвінок') ||
+              d.title.startsWith('Вихідний дзвінок') ||
+              d.title.startsWith('📞') ||
+              d.title.startsWith('🚨');
+
+            if (hasPlaceholderTitle && contact.name && !contact.name.startsWith('+') && !contact.name.startsWith('Вихідний') && !contact.name.startsWith('Вхідний')) {
+              const updatedDeal = await this.prisma.deal.update({
+                where: { id: d.id },
+                data: { title: `Запит Telegram: ${contact.name}`, updatedAt: new Date() },
+                include: { contact: true, company: true, stage: true, responsible: true }
+              });
+              if (this.io) this.io.emit('deal_updated', updatedDeal);
+            } else {
+              if (this.io) this.io.emit('deal_updated', d);
+            }
           }
         }
       }

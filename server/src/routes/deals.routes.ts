@@ -606,20 +606,25 @@ export function createDealsRouter(prisma: PrismaClient, io?: any) {
 
       if (!deal) return res.status(404).json({ error: 'Deal not found' });
 
-      // Unified Communication: include all messages for this deal OR associated contact so no customer reply is ever lost
-      const messagesWhere: any = deal.contactId
-        ? {
-            OR: [
-              { dealId: deal.id },
-              { contactId: deal.contactId }
-            ]
-          }
-        : { dealId: deal.id };
+      // Unified Communication: include all messages for this deal OR associated contact phone / telegram so no customer reply is ever lost
+      const orConditions: any[] = [{ dealId: deal.id }];
+      if (deal.contactId) {
+        orConditions.push({ contactId: deal.contactId });
+      }
+      const rawPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
+      if (rawPhone.length >= 7) {
+        orConditions.push({ senderPhone: { contains: rawPhone } });
+      }
+      if (deal.contact?.telegram) {
+        const cleanTg = deal.contact.telegram.replace('@', '');
+        orConditions.push({ senderTgId: { contains: cleanTg } });
+      }
 
       const messages = await prisma.chatMessage.findMany({
-        where: messagesWhere,
+        where: { OR: orConditions },
         take: msgLimit,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: { contact: true }
       });
 
       (deal as any).messages = messages.reverse();

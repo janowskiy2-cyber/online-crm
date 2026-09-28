@@ -866,16 +866,22 @@ export class WhatsAppService {
         const hasPlaceholderTitle = deal.title.startsWith('Запит WhatsApp:') ||
           deal.title.startsWith('Нова угода') ||
           (cleanPhone && deal.title.includes(cleanPhone)) ||
-          deal.title.startsWith('Вхідний дзвінок: Клієнт (+') ||
-          deal.title.startsWith('Вихідний дзвінок (+');
+          deal.title.startsWith('Вхідний дзвінок') ||
+          deal.title.startsWith('Вихідний дзвінок') ||
+          deal.title.startsWith('📞') ||
+          deal.title.startsWith('🚨');
 
-        if (hasPlaceholderTitle && contact.name && !contact.name.startsWith('Клієнт (+') && !contact.name.startsWith('+')) {
+        if (hasPlaceholderTitle && contact.name && !contact.name.startsWith('Клієнт (+') && !contact.name.startsWith('+') && !contact.name.startsWith('Вихідний') && !contact.name.startsWith('Вхідний')) {
           const newTitle = `Запит WhatsApp: ${contact.name}`;
           if (deal.title !== newTitle) {
             deal = await this.prisma.deal.update({
               where: { id: deal.id },
-              data: { title: newTitle, updatedAt: new Date() }
+              data: { title: newTitle, updatedAt: new Date() },
+              include: { contact: true, company: true, stage: true, responsible: true }
             });
+            if (this.io) {
+              this.io.emit('deal_updated', deal);
+            }
           }
         } else {
           // Bump deal updatedAt so it stays top-of-mind and in active conversation sync
@@ -1065,12 +1071,32 @@ export class WhatsAppService {
       throw new Error(`Помилка надсилання в WhatsApp: ${err.message || 'Збій передачі'}`);
     }
 
+    let resolvedContactId = contactId;
+    if (!resolvedContactId && dealId) {
+      const d = await this.prisma.deal.findUnique({ where: { id: dealId }, select: { contactId: true } });
+      if (d?.contactId) resolvedContactId = d.contactId;
+    }
+    if (!resolvedContactId && cleanPhone) {
+      const c = await this.prisma.contact.findFirst({
+        where: {
+          OR: [
+            { phone: { contains: cleanPhone } },
+            { whatsapp: { contains: cleanPhone } },
+            { phone2: { contains: cleanPhone } }
+          ]
+        },
+        select: { id: true }
+      });
+      if (c?.id) resolvedContactId = c.id;
+    }
+
     const savedMsg = await this.prisma.chatMessage.create({
       data: {
         channel: 'whatsapp',
         direction: 'outgoing',
         dealId,
-        contactId,
+        contactId: resolvedContactId || null,
+        senderName: 'Менеджер',
         senderPhone: cleanPhone,
         text,
         status: 'sent',
@@ -1187,12 +1213,32 @@ export class WhatsAppService {
       ? `🎤 Голосове повідомлення (${caption || 'аудіо'})` 
       : (isVideo ? `🎥 Відео: ${finalFileName}${caption ? ` — ${caption}` : ''}` : `📎 Файл: ${finalFileName}${caption ? ` — ${caption}` : ''}`);
 
+    let resolvedContactId = contactId;
+    if (!resolvedContactId && dealId) {
+      const d = await this.prisma.deal.findUnique({ where: { id: dealId }, select: { contactId: true } });
+      if (d?.contactId) resolvedContactId = d.contactId;
+    }
+    if (!resolvedContactId && cleanPhone) {
+      const c = await this.prisma.contact.findFirst({
+        where: {
+          OR: [
+            { phone: { contains: cleanPhone } },
+            { whatsapp: { contains: cleanPhone } },
+            { phone2: { contains: cleanPhone } }
+          ]
+        },
+        select: { id: true }
+      });
+      if (c?.id) resolvedContactId = c.id;
+    }
+
     const savedMsg = await this.prisma.chatMessage.create({
       data: {
         channel: 'whatsapp',
         direction: 'outgoing',
         dealId,
-        contactId,
+        contactId: resolvedContactId || null,
+        senderName: 'Менеджер',
         senderPhone: cleanPhone,
         text: fileLabel,
         mediaUrl: savedMediaUrl,

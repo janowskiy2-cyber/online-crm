@@ -361,13 +361,15 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         const firstStageId = defaultPipeline?.stages?.[0]?.id || 'stage-default';
         const pipeId = defaultPipeline?.id || 'pipe-employers-sales';
 
+        const contactDisplayName = formattedPhone || normalizedPhone;
+
         const dealTitle = isMissed
-          ? `🚨 Пропущений: ${formattedPhone}`
-          : `📞 ${directionLabel}: ${formattedPhone} (${durationStr})`;
+          ? `🚨 Пропущений: ${contactDisplayName}`
+          : `📞 ${directionLabel}: ${contactDisplayName} (${durationStr})`;
 
         contact = await prisma.contact.create({
           data: {
-            name: `${directionLabel} (${formattedPhone})`,
+            name: contactDisplayName,
             phone: normalizedPhone,
             whatsapp: normalizedPhone
           },
@@ -417,9 +419,16 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
           // Update title if it was an auto-generated call title
           let newTitle = activeDeal.title;
           if (activeDeal.title.startsWith('Дзвінок') || activeDeal.title.startsWith('📞') || activeDeal.title.startsWith('🚨')) {
+            const hasRealName = contact.name && 
+              !contact.name.startsWith('Вихідний дзвінок') && 
+              !contact.name.startsWith('Вхідний дзвінок') && 
+              !contact.name.startsWith('Клієнт (+') && 
+              !contact.name.startsWith('+');
+
+            const clientName = hasRealName ? contact.name : (formattedPhone || normalizedPhone);
             newTitle = isMissed 
-              ? `🚨 Пропущений: ${formattedPhone}` 
-              : `📞 ${directionLabel}: ${formattedPhone} (${durationStr})`;
+              ? `🚨 Пропущений: ${clientName}` 
+              : `📞 ${directionLabel}: ${clientName} (${durationStr})`;
           }
 
           activeDeal = await prisma.deal.update({
@@ -442,10 +451,10 @@ export function createTelephonyRouter(prisma: PrismaClient, getIo: () => SocketI
         }
       }
 
-      // 2. Exact timestamp formatting
+      // 2. Exact timestamp formatting (Kyiv timezone)
       const callDate = startedAt ? new Date(startedAt) : new Date();
-      const exactTimeStr = callDate.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const exactDateStr = callDate.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+      const exactTimeStr = callDate.toLocaleTimeString('uk-UA', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const exactDateStr = callDate.toLocaleDateString('uk-UA', { timeZone: 'Europe/Kyiv', day: 'numeric', month: 'short' });
 
       // Note title with exact time and direction icon
       const noteTitle = isMissed 
