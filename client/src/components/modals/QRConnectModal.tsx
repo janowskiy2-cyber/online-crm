@@ -376,17 +376,7 @@ export const QRConnectModal: React.FC<QRConnectModalProps> = ({
                     <ArrowRight className="w-4 h-4" />
                   </button>
 
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => handleSimulateLead('telegram')}
-                      disabled={isSimulating}
-                      className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-xl text-[11px] font-bold inline-flex items-center gap-1.5 transition"
-                    >
-                      <Play className="w-3 h-3" />
-                      <span>⚡ Перевірити обробку ліда Telegram</span>
-                    </button>
-                  </div>
+
                 </form>
               ) : (
                 <form onSubmit={handleTgVerifyCode} className="space-y-3.5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">

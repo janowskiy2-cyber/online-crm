@@ -245,7 +245,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         clientName: deal.contact?.name,
         stageName: deal.stage?.name,
         dealTitle: deal.title,
-        lastMessage: messages.length > 0 ? messages[messages.length - 1].text : undefined,
+        lastMessage: (deal.messages && deal.messages.length > 0) ? deal.messages[deal.messages.length - 1].text : undefined,
         intent
       });
       if (res.data?.draft) {
@@ -4862,7 +4862,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               window.location.href = `/deals/${dId}`;
             }
           }}
-          onUpdated={() => fetchDealDetail()}
+          onUpdated={() => fetchDealDetails()}
         />
       )}
 

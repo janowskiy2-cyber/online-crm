@@ -141,6 +141,7 @@ export const DealCard: React.FC<DealCardProps> = ({
     }
   };
 
+  const primaryPhone = (deal.contact?.phone || deal.contact?.whatsapp || '').replace(/\D/g, '');
   const rawTg = deal.contact?.telegram || '';
   const cleanTgHandle = rawTg.replace('https://t.me/', '').replace('tg://resolve?domain=', '').replace('@', '').trim();
   const tgUser = cleanTgHandle;

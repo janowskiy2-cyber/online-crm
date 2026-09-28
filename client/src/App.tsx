@@ -247,29 +247,33 @@ export function App() {
                 <Route path="/feed" element={<LiveFeedView />} />
 
                 <Route path="/deals" element={
-                  <KanbanBoard
-                    pipeline={activePipeline}
-                    pipelines={pipelines}
-                    onSelectPipeline={setActivePipelineId}
-                    projectId={currentWorkspace}
-                    searchQuery={searchQuery}
-                    refreshTrigger={refreshTrigger}
-                    onOpenDeal={handleOpenDeal}
-                    openCreateDeal={handleOpenCreateDeal}
-                  />
+                  <ErrorBoundary fallbackTitle="Помилка завантаження воронки угод">
+                    <KanbanBoard
+                      pipeline={activePipeline}
+                      pipelines={pipelines}
+                      onSelectPipeline={setActivePipelineId}
+                      projectId={currentWorkspace}
+                      searchQuery={searchQuery}
+                      refreshTrigger={refreshTrigger}
+                      onOpenDeal={handleOpenDeal}
+                      openCreateDeal={handleOpenCreateDeal}
+                    />
+                  </ErrorBoundary>
                 } />
 
                 <Route path="/deals/:dealId" element={
-                  <KanbanBoard
-                    pipeline={activePipeline}
-                    pipelines={pipelines}
-                    onSelectPipeline={setActivePipelineId}
-                    projectId={currentWorkspace}
-                    searchQuery={searchQuery}
-                    refreshTrigger={refreshTrigger}
-                    onOpenDeal={handleOpenDeal}
-                    openCreateDeal={handleOpenCreateDeal}
-                  />
+                  <ErrorBoundary fallbackTitle="Помилка завантаження воронки угод">
+                    <KanbanBoard
+                      pipeline={activePipeline}
+                      pipelines={pipelines}
+                      onSelectPipeline={setActivePipelineId}
+                      projectId={currentWorkspace}
+                      searchQuery={searchQuery}
+                      refreshTrigger={refreshTrigger}
+                      onOpenDeal={handleOpenDeal}
+                      openCreateDeal={handleOpenCreateDeal}
+                    />
+                  </ErrorBoundary>
                 } />
 
                 <Route path="/inbox" element={
