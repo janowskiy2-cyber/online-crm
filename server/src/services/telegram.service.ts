@@ -468,6 +468,7 @@ export class TelegramService {
         direction: 'outgoing',
         dealId,
         contactId,
+        senderName: 'Менеджер',
         senderTgId: toTgIdOrUsername,
         text,
         status: deliveryStatus
@@ -573,6 +574,7 @@ export class TelegramService {
         direction: 'outgoing',
         dealId,
         contactId,
+        senderName: 'Менеджер',
         senderTgId: toTgIdOrUsername,
         text: fileLabel,
         mediaUrl: savedMediaUrl,
@@ -626,29 +628,86 @@ export class TelegramService {
         : (username.startsWith('tg_') || cleanPhone.length >= 7 ? username : `@${username}`);
 
       if (!contact) {
+        const initialName = (fullName && fullName.trim() && fullName !== 'Користувач Telegram')
+          ? fullName.trim()
+          : (formattedTg.startsWith('@') ? formattedTg : (cleanPhone.length >= 7 ? `+${cleanPhone}` : username));
+
         contact = await this.prisma.contact.create({
           data: {
-            name: fullName || username,
+            name: initialName,
             telegram: formattedTg,
             phone: cleanPhone.length >= 7 ? `+${cleanPhone}` : undefined,
             position: 'Клієнт (Telegram)'
           }
         });
-      } else if (!contact.telegram || (formattedTg.startsWith('@') && !contact.telegram.startsWith('@'))) {
-        // Auto-save telegram username if matched by phone or upgrading from raw phone/tg_id!
-        contact = await this.prisma.contact.update({
-          where: { id: contact.id },
-          data: { telegram: formattedTg }
-        });
-        if (this.io) {
-          this.io.emit('contact_updated', contact);
+      } else {
+        const isCurrentPlaceholder = !contact.name ||
+          contact.name.startsWith('Клієнт (+') ||
+          contact.name.startsWith('+') ||
+          contact.name.startsWith('Вихідний дзвінок') ||
+          contact.name.startsWith('Вхідний дзвінок') ||
+          contact.name === 'Користувач Telegram' ||
+          contact.name === 'Telegram' ||
+          contact.name === 'Новий лід' ||
+          contact.name === 'Не вказано' ||
+          contact.name.startsWith('tg_') ||
+          contact.name === username ||
+          (cleanPhone.length >= 7 && contact.name.includes(cleanPhone));
+
+        let needsContactUpdate = false;
+        const updateData: any = {};
+
+        // If client has a real profile name from Telegram, use it to upgrade placeholder name
+        if (fullName && fullName.trim() && fullName !== 'Користувач Telegram' && (isCurrentPlaceholder || contact.name !== fullName.trim())) {
+          if (isCurrentPlaceholder) {
+            updateData.name = fullName.trim();
+            needsContactUpdate = true;
+          }
+        }
+
+        // Auto-save telegram username if matched by phone or upgrading from raw phone/tg_id
+        if (!contact.telegram || (formattedTg.startsWith('@') && !contact.telegram.startsWith('@'))) {
+          updateData.telegram = formattedTg;
+          needsContactUpdate = true;
+        }
+
+        if (needsContactUpdate) {
+          contact = await this.prisma.contact.update({
+            where: { id: contact.id },
+            data: updateData
+          });
+          if (this.io) {
+            this.io.emit('contact_updated', contact);
+          }
         }
       }
 
-      let deal = await this.prisma.deal.findFirst({
-        where: { contactId: contact.id, isDeleted: false },
-        orderBy: { updatedAt: 'desc' }
+      // Smart Deal Resolution:
+      // Priority 1: Check the most recently active deal where manager or client chatted with this contact
+      const recentChatMessage = await this.prisma.chatMessage.findFirst({
+        where: {
+          contactId: contact.id,
+          dealId: { not: null },
+          deal: { isDeleted: false }
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { dealId: true }
       });
+
+      let deal: any = null;
+      if (recentChatMessage?.dealId) {
+        deal = await this.prisma.deal.findFirst({
+          where: { id: recentChatMessage.dealId, isDeleted: false }
+        });
+      }
+
+      // Priority 2: Most recently updated non-deleted deal for this contact
+      if (!deal) {
+        deal = await this.prisma.deal.findFirst({
+          where: { contactId: contact.id, isDeleted: false },
+          orderBy: { updatedAt: 'desc' }
+        });
+      }
 
       // Auto-restore deal if it was soft-deleted
       if (!deal) {
@@ -673,6 +732,27 @@ export class TelegramService {
           text,
           budget: 0
         }) || null;
+      } else {
+        // Upgrade deal title if it has placeholder or phone number
+        const hasPlaceholderTitle = deal.title.startsWith('Запит Telegram:') ||
+          deal.title.startsWith('Нова угода') ||
+          (cleanPhone && deal.title.includes(cleanPhone)) ||
+          deal.title.includes('Користувач Telegram');
+
+        if (hasPlaceholderTitle && contact.name && !contact.name.startsWith('Клієнт (+') && !contact.name.startsWith('+')) {
+          const newTitle = `Запит Telegram: ${contact.name}`;
+          if (deal.title !== newTitle) {
+            deal = await this.prisma.deal.update({
+              where: { id: deal.id },
+              data: { title: newTitle, updatedAt: new Date() }
+            });
+          }
+        } else {
+          await this.prisma.deal.update({
+            where: { id: deal.id },
+            data: { updatedAt: new Date() }
+          }).catch(() => {});
+        }
       }
 
       const savedMsg = await this.prisma.chatMessage.create({

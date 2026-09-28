@@ -790,11 +790,24 @@ export class WhatsAppService {
         });
       } else if (!isFromMe && pushName && !pushName.startsWith('Клієнт (+') && !pushName.startsWith('+')) {
         // If contact had a placeholder name, upgrade it with real client WhatsApp name
-        if (!contact.name || contact.name.startsWith('Клієнт (+') || contact.name.startsWith('+') || contact.name === 'Новий лід') {
+        const isPlaceholder = !contact.name || 
+          contact.name.startsWith('Клієнт (+') || 
+          contact.name.startsWith('+') || 
+          contact.name.startsWith('Вихідний дзвінок') || 
+          contact.name.startsWith('Вхідний дзвінок') || 
+          contact.name === 'Новий лід' || 
+          contact.name === 'Не вказано' || 
+          contact.name === 'Клієнт з онлайн-чату' ||
+          contact.name.includes(cleanPhone);
+
+        if (isPlaceholder) {
           contact = await this.prisma.contact.update({
             where: { id: contact.id },
             data: { name: pushName }
           });
+          if (this.io) {
+            this.io.emit('contact_updated', contact);
+          }
         }
       }
 
@@ -848,14 +861,29 @@ export class WhatsAppService {
           text,
           budget: 0
         }) || null;
-      }
+      } else {
+        // Upgrade deal title if it has placeholder or phone number
+        const hasPlaceholderTitle = deal.title.startsWith('Запит WhatsApp:') ||
+          deal.title.startsWith('Нова угода') ||
+          (cleanPhone && deal.title.includes(cleanPhone)) ||
+          deal.title.startsWith('Вхідний дзвінок: Клієнт (+') ||
+          deal.title.startsWith('Вихідний дзвінок (+');
 
-      // Bump deal updatedAt so it stays top-of-mind and in active conversation sync
-      if (deal) {
-        await this.prisma.deal.update({
-          where: { id: deal.id },
-          data: { updatedAt: new Date() }
-        }).catch(() => {});
+        if (hasPlaceholderTitle && contact.name && !contact.name.startsWith('Клієнт (+') && !contact.name.startsWith('+')) {
+          const newTitle = `Запит WhatsApp: ${contact.name}`;
+          if (deal.title !== newTitle) {
+            deal = await this.prisma.deal.update({
+              where: { id: deal.id },
+              data: { title: newTitle, updatedAt: new Date() }
+            });
+          }
+        } else {
+          // Bump deal updatedAt so it stays top-of-mind and in active conversation sync
+          await this.prisma.deal.update({
+            where: { id: deal.id },
+            data: { updatedAt: new Date() }
+          }).catch(() => {});
+        }
       }
 
       const senderDisplayName = isFromMe ? 'Менеджер' : (pushName || contact.name || `Клієнт (+${cleanPhone})`);
@@ -901,6 +929,15 @@ export class WhatsAppService {
               if (this.io && task) this.io.emit('task_created', task);
             }).catch(() => {});
           }
+        }
+
+        if (deal) {
+          this.prisma.deal.findUnique({
+            where: { id: deal.id },
+            include: { contact: true, company: true, stage: true, responsible: true }
+          }).then(fullDeal => {
+            if (this.io && fullDeal) this.io.emit('deal_updated', fullDeal);
+          }).catch(() => {});
         }
       }
 

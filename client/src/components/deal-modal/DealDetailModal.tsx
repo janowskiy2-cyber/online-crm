@@ -3488,7 +3488,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                               {isWhatsApp ? 'WhatsApp' : 'Telegram'}
                             </span>
                             <span className="text-[11px] text-slate-400">
-                              {isOutgoing ? 'Менеджер' : (item.senderName || 'Клієнт')}
+                              {isOutgoing 
+                                ? 'Менеджер' 
+                                : ((deal?.contact?.name && !deal.contact.name.startsWith('+') && !deal.contact.name.startsWith('Клієнт (+') && deal.contact.name !== 'Користувач Telegram' && deal.contact.name !== 'Новий лід' && deal.contact.name !== 'Не вказано')
+                                    ? deal.contact.name
+                                    : (item.senderName && !item.senderName.startsWith('+') && !item.senderName.startsWith('Клієнт (+') && !item.senderName.startsWith('WhatsApp (+') && item.senderName !== 'Клієнт'
+                                        ? item.senderName
+                                        : (deal?.contact?.name || item.senderName || 'Клієнт')))}
                             </span>
                             <span className="text-[10px] text-slate-500 flex items-center gap-1">
                               {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

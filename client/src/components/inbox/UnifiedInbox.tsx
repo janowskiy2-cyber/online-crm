@@ -355,19 +355,53 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   const getSenderBestName = (msg: ChatMessage) => {
     // 1. Prioritize real CRM contact name
-    if (msg.contact?.name && !msg.contact.name.startsWith('Клієнт (+') && !msg.contact.name.startsWith('+') && msg.contact.name !== 'Новий лід') {
+    if (
+      msg.contact?.name &&
+      !msg.contact.name.startsWith('Клієнт (+') &&
+      !msg.contact.name.startsWith('+') &&
+      !msg.contact.name.startsWith('Вихідний дзвінок') &&
+      !msg.contact.name.startsWith('Вхідний дзвінок') &&
+      msg.contact.name !== 'Користувач Telegram' &&
+      msg.contact.name !== 'Telegram' &&
+      msg.contact.name !== 'Новий лід' &&
+      msg.contact.name !== 'Не вказано' &&
+      !msg.contact.name.startsWith('tg_')
+    ) {
       return msg.contact.name;
     }
-    // 2. Incoming message pushName
-    if (msg.direction === 'incoming' && msg.senderName && msg.senderName !== 'Я' && msg.senderName !== 'Менеджер' && !msg.senderName.startsWith('WhatsApp (+') && !msg.senderName.startsWith('+')) {
+    // 2. Incoming message pushName or Telegram profile name
+    if (
+      msg.senderName &&
+      msg.senderName !== 'Я' &&
+      msg.senderName !== 'Менеджер' &&
+      !msg.senderName.startsWith('WhatsApp (+') &&
+      !msg.senderName.startsWith('Клієнт (+') &&
+      !msg.senderName.startsWith('+') &&
+      msg.senderName !== 'Користувач Telegram' &&
+      msg.senderName !== 'Telegram'
+    ) {
       return msg.senderName;
     }
     // 3. Deal title if meaningful
-    if (msg.deal?.title && !msg.deal.title.startsWith('Запит WhatsApp:')) {
-      return msg.deal.title;
+    if (
+      msg.deal?.title &&
+      !msg.deal.title.startsWith('Запит WhatsApp: +') &&
+      !msg.deal.title.startsWith('Запит WhatsApp: Клієнт') &&
+      !msg.deal.title.startsWith('Запит Telegram: +') &&
+      !msg.deal.title.startsWith('Запит Telegram: Користувач') &&
+      !msg.deal.title.startsWith('Нова угода')
+    ) {
+      return msg.deal.title.replace(/^Запит (WhatsApp|Telegram):\s*/i, '');
     }
-    // 4. Contact name or formatted phone
-    return msg.contact?.name || (msg.senderPhone ? `+${msg.senderPhone}` : (msg.senderTgId ? `TG: ${msg.senderTgId}` : 'Клієнт'));
+    // 4. Telegram username or phone
+    if (msg.contact?.telegram && msg.contact.telegram.startsWith('@')) {
+      return msg.contact.telegram;
+    }
+    if (msg.senderTgId && msg.senderTgId.startsWith('@')) {
+      return msg.senderTgId;
+    }
+    // 5. Contact name or formatted phone
+    return msg.contact?.name || (msg.senderPhone ? `+${msg.senderPhone}` : (msg.senderTgId ? (msg.senderTgId.startsWith('@') ? msg.senderTgId : `TG: ${msg.senderTgId}`) : 'Клієнт'));
   };
 
   messages.forEach(msg => {
@@ -391,8 +425,27 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
         d.dealId = msg.dealId;
       }
       // Upgrade dialog name if a better real name is found
-      const isCurrentNamePlaceholder = d.senderName.startsWith('+') || d.senderName.startsWith('WhatsApp (+') || d.senderName === 'Я' || d.senderName === 'Менеджер' || d.senderName === 'Клієнт';
-      const isNewNameReal = resolvedName && !resolvedName.startsWith('+') && !resolvedName.startsWith('WhatsApp (+') && resolvedName !== 'Я' && resolvedName !== 'Менеджер' && resolvedName !== 'Клієнт';
+      const isCurrentNamePlaceholder = d.senderName.startsWith('+') || 
+        d.senderName.startsWith('WhatsApp (+') || 
+        d.senderName.startsWith('Клієнт (+') || 
+        d.senderName === 'Користувач Telegram' || 
+        d.senderName === 'Telegram' || 
+        d.senderName.startsWith('TG: ') || 
+        d.senderName === 'Я' || 
+        d.senderName === 'Менеджер' || 
+        d.senderName === 'Клієнт';
+
+      const isNewNameReal = resolvedName && 
+        !resolvedName.startsWith('+') && 
+        !resolvedName.startsWith('WhatsApp (+') && 
+        !resolvedName.startsWith('Клієнт (+') && 
+        resolvedName !== 'Користувач Telegram' && 
+        resolvedName !== 'Telegram' && 
+        !resolvedName.startsWith('TG: ') && 
+        resolvedName !== 'Я' && 
+        resolvedName !== 'Менеджер' && 
+        resolvedName !== 'Клієнт';
+
       if (isCurrentNamePlaceholder && isNewNameReal) {
         d.senderName = resolvedName;
       }
