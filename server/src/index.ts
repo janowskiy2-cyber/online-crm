@@ -7,7 +7,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { PrismaClient } from '@prisma/client';
-import { authRequired } from './middleware/auth.middleware';
+import { authRequired, setAuthPrisma } from './middleware/auth.middleware';
 import { authLimiter, apiLimiter, webhookLimiter } from './middleware/rate-limit.middleware';
 import { LeadDistributionService } from './services/lead-distribution.service';
 import { WhatsAppService } from './services/whatsapp.service';
@@ -29,6 +29,8 @@ import { createTelephonyRouter } from './routes/telephony.routes';
 import { createFeedRouter } from './routes/feed.routes';
 import { createExportRouter } from './routes/export.routes';
 import { createImportRouter } from './routes/import.routes';
+import { createApiKeyRouter } from './routes/api-key.routes';
+import { createAgentRouter } from './routes/agent.routes';
 import { ArchiveRetentionService } from './services/archiveRetention';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
@@ -92,6 +94,7 @@ const io = new SocketIOServer(server, {
 const prisma = new PrismaClient({
   log: IS_PRODUCTION ? ['error'] : ['error', 'warn']
 });
+setAuthPrisma(prisma);
 const leadDistributionService = new LeadDistributionService(prisma);
 const waService = new WhatsAppService(prisma, leadDistributionService);
 const tgService = new TelegramService(prisma, leadDistributionService);
@@ -161,6 +164,8 @@ app.use('/api/upload', authRequired, express.json({ limit: '100mb' }), createUpl
 app.use('/api/feed', authRequired, express.json({ limit: '10mb' }), createFeedRouter(prisma));
 app.use('/api/export', authRequired, createExportRouter(prisma));
 app.use('/api/import', authRequired, express.json({ limit: '50mb' }), createImportRouter(prisma));
+app.use('/api/admin/api-keys', createApiKeyRouter(prisma));
+app.use('/api/agent', createAgentRouter(prisma, waService, tgService, () => io));
 
 // Unknown API route → JSON 404 (instead of falling through to the SPA index.html)
 app.use('/api', (req: Request, res: Response) => {

@@ -23,7 +23,10 @@ import {
   RotateCcw,
   Camera,
   Upload,
-  Loader2
+  Loader2,
+  Plus,
+  Terminal,
+  Code2
 } from 'lucide-react';
 import { User } from '../../types';
 import { api } from '../../services/api';
@@ -129,6 +132,71 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
   const [activeUserTab, setActiveUserTab] = useState<'active' | 'archived'>('active');
   const [archivedUsers, setArchivedUsers] = useState<User[]>([]);
 
+  // Section Navigation (Employees vs AI Agents & API Keys)
+  const [adminSection, setAdminSection] = useState<'users' | 'api_keys'>('users');
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [isLoadingKeys, setIsLoadingKeys] = useState(false);
+  const [isCreateKeyModalOpen, setIsCreateKeyModalOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyExpiresInDays, setNewKeyExpiresInDays] = useState('0');
+  const [revealedKeyData, setRevealedKeyData] = useState<any | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+
+  const fetchApiKeys = async () => {
+    try {
+      setIsLoadingKeys(true);
+      const res = await api.get('/admin/api-keys');
+      if (res.data) setApiKeys(res.data);
+    } catch (e) {
+      console.warn('Failed to load API keys:', e);
+    } finally {
+      setIsLoadingKeys(false);
+    }
+  };
+
+  const handleCreateApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newKeyName.trim()) return;
+    try {
+      const res = await api.post('/admin/api-keys', {
+        name: newKeyName.trim(),
+        expiresInDays: Number(newKeyExpiresInDays) || 0,
+        scopes: ['full_access', 'deals:all', 'chats:all', 'tasks:all', 'contacts:all', 'analytics:all']
+      });
+      if (res.data?.key) {
+        setRevealedKeyData(res.data);
+        setIsCreateKeyModalOpen(false);
+        setNewKeyName('');
+        fetchApiKeys();
+        setSuccessNotice(`API-ключ "${res.data.name}" успішно створено!`);
+        setTimeout(() => setSuccessNotice(null), 4000);
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Помилка при створенні ключа');
+    }
+  };
+
+  const handleToggleKey = async (keyId: string) => {
+    try {
+      const res = await api.post(`/admin/api-keys/${keyId}/toggle`, {});
+      setApiKeys(prev => prev.map(k => k.id === keyId ? { ...k, isActive: res.data.isActive } : k));
+    } catch (e) {
+      alert('Помилка при зміні статусу ключа');
+    }
+  };
+
+  const handleRevokeKey = async (keyId: string, name: string) => {
+    if (!window.confirm(`Отозвать та назавжди видалити API-ключ для "${name}"? Агент миттєво втратить доступ.`)) return;
+    try {
+      await api.delete(`/admin/api-keys/${keyId}`);
+      setApiKeys(prev => prev.filter(k => k.id !== keyId));
+      setSuccessNotice(`API-ключ "${name}" відкликано`);
+      setTimeout(() => setSuccessNotice(null), 3000);
+    } catch (e) {
+      alert('Помилка при відкликанні ключа');
+    }
+  };
+
   const fetchUsers = async () => {
     try {
       const res = await api.get('/users');
@@ -159,8 +227,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ onClose }) => 
       fetchUsers();
       fetchArchivedUsers();
       fetchSettings();
+      if (adminSection === 'api_keys') {
+        fetchApiKeys();
+      }
     }
-  }, [isAdminAuthorized]);
+  }, [isAdminAuthorized, adminSection]);
 
   const handleToggleAutoDistribute = async (val: boolean) => {
     setAutoDistribute(val);
@@ -367,6 +438,49 @@ ${passwordLine}`;
           </button>
         </div>
 
+        {/* Navigation Tabs (Only when authorized) */}
+        {isAdminAuthorized && (
+          <div className="bg-[#101626] border-b border-slate-800/80 px-6 py-2.5 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAdminSection('users')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  adminSection === 'users'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>👥 Співробітники та доступи ({userList.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAdminSection('api_keys')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition relative ${
+                  adminSection === 'api_keys'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Bot className="w-4 h-4 text-cyan-400" />
+                <span>🤖 AI-Агенти та API-Ключі</span>
+                <span className="text-[9px] bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shadow-sm">
+                  Full God-Mode
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-[11px] font-mono text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>REST API v1 • Active</span>
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Auth Gate (master admin PIN, verified server-side) */}
         {!isAdminAuthorized ? (
           <div className="flex-1 flex items-center justify-center p-6 bg-[#080c14]">
@@ -409,7 +523,7 @@ ${passwordLine}`;
               </form>
             </div>
           </div>
-        ) : (
+        ) : adminSection === 'users' ? (
           /* Main Admin Panel Dashboard */
           <div className="flex-1 grid grid-cols-12 overflow-hidden bg-[#080c14]">
             
@@ -871,6 +985,357 @@ ${passwordLine}`;
               </div>
             </div>
 
+          </div>
+        ) : (
+          /* AI-Agents and API Keys Dashboard */
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#080c14] p-6 space-y-6 overflow-y-auto">
+            
+            {successNotice && (
+              <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-semibold text-center animate-in fade-in flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>{successNotice}</span>
+              </div>
+            )}
+
+            {/* Top Banner Card */}
+            <div className="p-6 bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-500/30 rounded-3xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden flex-shrink-0">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+              
+              <div className="space-y-2 relative z-10 max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 bg-indigo-500/20 border border-indigo-500/30 rounded-xl text-indigo-400">
+                    <Bot className="w-5 h-5" />
+                  </span>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Автономні AI-Агенти та Безпечні API-Ключі
+                    <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-bold border border-indigo-500/30 font-mono">
+                      GOD-MODE (ВСІ ДАНІ)
+                    </span>
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Створюйте персональні ключі доступу (Personal Access Tokens) для інтеграції зовнішніх AI-моделей (Claude, ChatGPT, Antigravity, Make, n8n). Ключі надають повне керування: читання всіх чатів WhatsApp/Telegram, створення та зміна угод, призначання завдань та генерація звітів.
+                </p>
+                <div className="flex items-center gap-4 pt-1 text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1 text-emerald-400 font-mono">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> SHA-256 незворотнє хешування
+                  </span>
+                  <span className="flex items-center gap-1 text-indigo-400 font-mono">
+                    <Key className="w-3.5 h-3.5" /> Миттєве відкликання у 1 клік
+                  </span>
+                  <a 
+                    href="/api/agent/openapi.json" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-cyan-400 hover:underline font-mono"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> OpenAPI 3.0 Специфікація
+                  </a>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateKeyModalOpen(true)}
+                  className="px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl font-bold text-xs transition shadow-lg shadow-indigo-600/30 flex items-center gap-2 border border-indigo-400/30"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Створити новий API-ключ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Keys Table & List */}
+            <div className="bg-[#111827] border border-slate-800 rounded-3xl p-5 shadow-xl flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-4">
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-sm font-bold text-white">Активні API-Ключі для AI ({apiKeys.length})</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchApiKeys}
+                  disabled={isLoadingKeys}
+                  className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 transition flex items-center gap-1.5"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isLoadingKeys ? 'animate-spin text-indigo-400' : ''}`} />
+                  <span>Оновити список</span>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {isLoadingKeys && apiKeys.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                    <span className="text-xs font-mono">Завантаження списку ключів...</span>
+                  </div>
+                ) : apiKeys.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+                      <Key className="w-7 h-7" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-white">Немає жодного активного ключа</p>
+                      <p className="text-xs text-slate-400 max-w-md">
+                        Натисніть кнопку «Створити новий API-ключ» вище, щоб згенерувати токен для підключення вашого ШІ-агента.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  apiKeys.map((keyItem) => (
+                    <div
+                      key={keyItem.id}
+                      className={`p-4 rounded-2xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                        keyItem.isActive
+                          ? 'bg-[#141d33]/60 border-slate-800 hover:border-slate-700'
+                          : 'bg-[#161824]/40 border-slate-800/60 opacity-60'
+                      }`}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-bold text-sm text-white">{keyItem.name}</span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              keyItem.isActive
+                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                : 'bg-slate-700/50 text-slate-400 border-slate-600'
+                            }`}
+                          >
+                            {keyItem.isActive ? 'АКТИВНИЙ' : 'НА ПАУЗІ'}
+                          </span>
+                          <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-mono border border-purple-500/30">
+                            FULL GOD-MODE
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 font-mono">
+                          <span className="bg-slate-900 px-2 py-0.5 rounded text-indigo-300 font-mono border border-slate-800">
+                            {keyItem.keyPrefix}••••••••
+                          </span>
+                          <span>Викликів: <strong className="text-white">{keyItem.usageCount || 0}</strong></span>
+                          <span>
+                            Останнє використання:{' '}
+                            <strong className="text-slate-300">
+                              {keyItem.lastUsedAt ? new Date(keyItem.lastUsedAt).toLocaleString('uk-UA') : 'Ще не використовувався'}
+                            </strong>
+                          </span>
+                          <span>
+                            Створено: {new Date(keyItem.createdAt).toLocaleDateString('uk-UA')}
+                          </span>
+                          {keyItem.expiresAt && (
+                            <span className="text-amber-400">
+                              Діє до: {new Date(keyItem.expiresAt).toLocaleDateString('uk-UA')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleKey(keyItem.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                            keyItem.isActive
+                              ? 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-500/30'
+                              : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 border-emerald-500/30'
+                          }`}
+                        >
+                          {keyItem.isActive ? 'Призупинити' : 'Активувати'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRevokeKey(keyItem.id, keyItem.name)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-950/50 hover:bg-rose-900/80 text-rose-400 border border-rose-500/30 transition flex items-center gap-1.5"
+                          title="Отозвать та назавжди видалити цей ключ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Відкликати</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Developer Integration Snippet */}
+              <div className="mt-4 pt-4 border-t border-slate-800/80 flex-shrink-0">
+                <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5 font-mono">
+                      <Terminal className="w-4 h-4 text-cyan-400" />
+                      <span>Приклад підключення AI-Агента через cURL або SDK:</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">Bearer crm_live_...</span>
+                  </div>
+                  <pre className="text-[11px] text-cyan-300 font-mono bg-black/60 p-3 rounded-xl overflow-x-auto border border-slate-800/80">
+{`curl -X GET "${window.location.origin}/api/agent/overview" \\
+  -H "Authorization: Bearer <ВАШ_API_КЛЮЧ>" \\
+  -H "Content-Type: application/json"`}
+                  </pre>
+                  <p className="text-[11px] text-slate-400">
+                    💡 <strong>ШІ-Команди:</strong> Надсилайте запити в <code className="text-indigo-300">POST /api/agent/command</code> із параметрами <code className="text-indigo-300">&#123; "action": "create_deal" | "send_message" | "create_task" | "search_deals", "payload": ... &#125;</code> для повної автоматизації.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* Create API Key Modal */}
+        {isCreateKeyModalOpen && (
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-['Inter',sans-serif]"
+            onClick={(e) => { if (e.target === e.currentTarget) setIsCreateKeyModalOpen(false); }}
+          >
+            <div className="bg-[#111827] border border-slate-700 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl">
+                    <Key className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Створити API-Ключ для AI-Агента</h3>
+                    <p className="text-xs text-slate-400">Видача персонального токена доступу (PAT)</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateKeyModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateApiKey} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Назва або Призначення агента:</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Наприклад: Claude Desktop Copilot, Авто-кваліфікатор угод"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    Це допоможе вам розпізнавати який саме агент надсилає запити у системних логах.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Термін дії ключа:</label>
+                  <select
+                    value={newKeyExpiresInDays}
+                    onChange={(e) => setNewKeyExpiresInDays(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="0">Безстроково (рекомендовано для внутрішніх агентів)</option>
+                    <option value="30">30 днів</option>
+                    <option value="90">90 днів</option>
+                    <option value="365">1 рік (365 днів)</option>
+                  </select>
+                </div>
+
+                <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-1">
+                  <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Повні права (God-Mode Scopes)</span>
+                  </span>
+                  <p className="text-[11px] text-slate-300">
+                    Ключ матиме доступ до читання всіх воронок, чатів WhatsApp/Telegram, завдань, контактів та виконання дій через API.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateKeyModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/30 flex items-center gap-2"
+                  >
+                    <Key className="w-4 h-4" />
+                    <span>Згенерувати ключ</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* One-Time Revealed Key Modal */}
+        {revealedKeyData && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 font-['Inter',sans-serif]">
+            <div className="bg-[#111827] border border-amber-500/40 rounded-3xl w-full max-w-xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 flex-shrink-0">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Збережіть ваш секретний API-Ключ!</h3>
+                  <p className="text-xs text-amber-300 font-medium">
+                    Увага: цей ключ показується ЛИШЕ ОДИН РАЗ і більше ніколи не буде відображений.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-slate-300 space-y-1 leading-relaxed">
+                <p>
+                  З міркувань безпеки в базі даних зберігається лише незворотній SHA-256 хеш. Якщо ви втратите цей ключ, вам доведеться згенерувати новий.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400">Ваш API-Ключ ({revealedKeyData.name}):</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={revealedKeyData.key}
+                    className="flex-1 bg-black/60 border border-amber-500/30 rounded-xl p-3 text-xs font-mono text-amber-300 selection:bg-amber-500 selection:text-black focus:outline-none"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(revealedKeyData.key);
+                      setCopiedKey(true);
+                      setTimeout(() => setCopiedKey(false), 2500);
+                    }}
+                    className="px-4 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition flex items-center gap-1.5 flex-shrink-0 shadow-lg shadow-amber-500/20"
+                  >
+                    {copiedKey ? <Check className="w-4 h-4 text-emerald-950" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedKey ? 'Скопійовано!' : 'Копіювати'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                <span className="text-[11px] font-bold text-slate-400 block font-mono">
+                  Як використовувати в заголовках запитів:
+                </span>
+                <code className="text-[11px] text-cyan-300 font-mono block bg-black/40 p-2.5 rounded border border-slate-800 select-all overflow-x-auto">
+                  Authorization: Bearer {revealedKeyData.key}
+                </code>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setRevealedKeyData(null)}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Я надійно скопіював і зберіг ключ</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

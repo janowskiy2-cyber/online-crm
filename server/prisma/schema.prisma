@@ -45,6 +45,7 @@ model User {
   feedPosts     FeedPost[]    @relation("FeedAuthor")
   feedComments  FeedComment[] @relation("FeedCommentAuthor")
   workShifts    WorkShift[]
+  apiKeys       ApiKey[]
 
   @@index([isDeleted])
   @@index([email])
@@ -354,4 +355,26 @@ model WorkShift {
   @@index([userId])
   @@index([startTime])
 }
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  keyPrefix   String    // crm_live_... (e.g. crm_live_a1b2c3d4)
+  keyHash     String    @unique // SHA-256 hash of secret key
+  scopes      String    @default("[\"full_access\"]") // JSON array of scopes
+  createdById String
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  usageCount  Int       @default(0)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([keyHash])
+  @@index([isActive])
+  @@index([createdById])
+}
+
 
